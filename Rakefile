@@ -28,7 +28,8 @@ directory "#{Origen.root}/waves"
 desc "Compiles the VPI extension"
 task :compile => [tmp_dir] do
   cd tmp_dir do
-    sh "iverilog-vpi #{Origen.root!}/ext/origen.c -DICARUS"
+    d = "#{Origen.root!}/ext/"
+    sh "iverilog-vpi #{d}origen.c #{d}server.c -DICARUS"
   end
 end
 
@@ -47,7 +48,7 @@ end
 desc "Run a simulation"
 task :sim => ["#{Origen.root}/waves", :build] do
   cd "#{Origen.root}/waves" do
-    sh "vvp -M#{tmp_dir} #{tmp_dir}/dut.vvp"
+    sh "vvp -M#{tmp_dir} -morigen #{tmp_dir}/dut.vvp"
     Origen.app.stats.report_pass
   end
 end

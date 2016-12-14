@@ -1,6 +1,7 @@
 # Misc
 .irb_history
 .byebug_history
+/waves
 
 # Editor cruft
 *.swp

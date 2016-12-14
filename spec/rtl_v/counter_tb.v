@@ -21,16 +21,16 @@ module counter_tb;
     //$monitor("%d,\t%b",$time, tck);
   end
 
-  initial
-  begin
-    reset = 1;
-    clock = 0;
+  //initial
+  //begin
+  //  reset = 1;
+  //  clock = 0;
 
-    #10 reset = 0;
-    #1000 $finish;
-  end
+  //  #10 reset = 0;
+  //  #1000 $finish;
+  //end
 
-  always 
-    #0.5 clock = !clock;
+  //always 
+  //  #0.5 clock = !clock;
 
 endmodule
