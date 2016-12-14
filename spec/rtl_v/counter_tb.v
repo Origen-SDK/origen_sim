@@ -1,8 +1,8 @@
 `include "counter.v"
 
-`timescale 100ns/1ns
+`timescale 1ns/1ns
 
-module counter_tb;
+module tb;
 
   reg clock, reset;
   wire [4:0] count;
@@ -16,7 +16,7 @@ module counter_tb;
   initial
   begin
     $dumpfile("dut.vcd");
-    $dumpvars(0,counter_tb);
+    $dumpvars(0,tb);
 
     //$monitor("%d,\t%b",$time, tck);
   end

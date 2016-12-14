@@ -11,7 +11,7 @@ PLI_INT32 origen_startup(p_cb_data aCallback) {
   vpi_printf("Simulation starting!\n");
   // Start the server to listen for commands from an Origen application and apply them via VPI,
   // this will run until it receives a complete message from the Origen app
-  origen_server();
+  origen_wait_for_set_timeset();
   
   return 0;
 }
