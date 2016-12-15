@@ -9,7 +9,7 @@ static void origen_init() {
   origen_register_callback(cbEndOfSimulation, origen_shutdown);
 }
 
-PLI_INT32 origen_startup(p_cb_data aCallback) {
+PLI_INT32 origen_startup(p_cb_data data) {
   vpi_printf("Simulation starting!\n");
   // Start the server to listen for commands from an Origen application and apply them via VPI,
   // this will run until it receives a complete message from the Origen app
@@ -18,7 +18,7 @@ PLI_INT32 origen_startup(p_cb_data aCallback) {
   return 0;
 }
 
-PLI_INT32 origen_shutdown(p_cb_data aCallback) {
+PLI_INT32 origen_shutdown(p_cb_data data) {
   vpi_printf("Simulation ended!\n");
 
   return 0;

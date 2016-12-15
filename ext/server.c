@@ -15,9 +15,8 @@ void origen_wait_for_set_timeset() {
 }
 
 
-/// Waits and responds to instructions from Origen.
-/// When Origen requests a cycle, time will be advanced and this function will be called
-/// again.
+/// Waits and responds to instructions from Origen (to set pin states).
+/// When Origen requests a cycle, time will be advanced and this func will be called again.
 PLI_INT32 origen_wait_for_cycle(p_cb_data data) {
   s_vpi_value v = {vpiIntVal, {0}};
 
