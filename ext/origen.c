@@ -1,5 +1,6 @@
 #include "origen.h"
 #include "server.h"
+#include "client.h"
 
 static void origen_register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data));
 
@@ -9,14 +10,39 @@ static void origen_init() {
   origen_register_callback(cbEndOfSimulation, origen_shutdown);
 }
 
+/// Returns the value of the given argument, or NULL if not supplied
+///   origen_get_arg("-socket");   # => "/tmp/sim.sock"
+char * origen_get_arg(char *arg) {
+  s_vpi_vlog_info info;
+  vpi_get_vlog_info(&info);
+  
+  for (PLI_INT32 i = 0; i < info.argc; i++) {
+    if (strcmp(info.argv[i], arg) == 0) {
+      return info.argv[i + 1];
+    }
+  }
+  return NULL;
+}
+
+/// Called at the beginning of the simulation, this connects to the Origen application and then
+/// enters the main process loop
 PLI_INT32 origen_startup(p_cb_data data) {
-  vpi_printf("Simulation starting!\n");
+
+  int err = origen_connect(origen_get_arg("-socket"));
+
+  if (err) {
+    vpi_printf("ERROR: Couldn't connect to Origen app!\n");
+    return err;
+  }
+
   // Start the server to listen for commands from an Origen application and apply them via VPI,
   // this will run until it receives a complete message from the Origen app
   origen_wait_for_set_timeset();
   
   return 0;
 }
+
+
 
 PLI_INT32 origen_shutdown(p_cb_data data) {
   vpi_printf("Simulation ended!\n");

@@ -14,20 +14,29 @@ module OrigenSim
           server = UNIXServer.new(socket_id)
           Origen.log.info 'Starting simulator...'
           system "rake sim[#{socket_id}]"
-          timeout("FAILED_TO_RESPOND", 5) do
-            Origen.log.info 'Pinging simulator...'
+          timeout_connection("FAILED_TO_RESPOND", 1) do
             @socket = server.accept
           end
-          if @socket.readline.strip == "FAILED_TO_RESPOND"
-            Origen.log.error "Simulator failed to respond"
-            @failed = true
-            exit
+          # The simulator process will just connect without putting any data, so
+          # this will generate an end of file error if we are good
+          begin
+            # If data is in the socket, we can assume it is our timeout message
+            if @socket.readline
+              Origen.log.error "Simulator failed to respond"
+              @failed = true
+              exit
+            end
+          rescue EOFError
+            @enabled = true
           end
-          @enabled = true
         end
       else
         @enabled = false
       end
+    end
+
+    def client
+      @client ||= UNIXSocket.new(socket_id)
     end
 
     def on_origen_shutdown
@@ -51,10 +60,10 @@ module OrigenSim
       @enabled || (tester && tester.is_a?(OrigenSim::Tester))
     end
 
-    def timeout(message, wait_in_s)
-      fork do
+    def timeout_connection(message, wait_in_s)
+      t = Thread.new do
         sleep wait_in_s
-        UNIXSocket.new(socket_id).puts(message)
+        UNIXSocket.new(socket_id).puts(message) unless @enabled
       end
       yield
     end

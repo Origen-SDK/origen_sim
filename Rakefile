@@ -29,7 +29,7 @@ desc "Compiles the VPI extension"
 task :compile => [tmp_dir] do
   cd tmp_dir do
     d = "#{Origen.root!}/ext/"
-    sh "iverilog-vpi #{d}origen.c #{d}server.c -DICARUS"
+    sh "iverilog-vpi #{d}origen.c #{d}server.c #{d}client.c -DICARUS"
   end
 end
 
