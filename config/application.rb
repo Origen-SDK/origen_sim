@@ -23,6 +23,13 @@ class OrigenSimApplication < Origen::Application
   # This will be the default setting in Origen v3.
   config.strict_errors = true
 
+  config.shared = {
+    #:patterns => "pattern",
+    #:templates => "templates",
+    #:programs => "program",
+    :command_launcher => "config/shared_commands.rb"
+  }
+
   # See: http://origen-sdk.org/origen/latest/guides/utilities/lint/
   config.lint_test = {
     # Require the lint tests to pass before allowing a release to proceed
