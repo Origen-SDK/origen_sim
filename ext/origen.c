@@ -1,6 +1,8 @@
 #include "origen.h"
 #include "server.h"
 
+static void origen_register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data));
+
 static void origen_init() {
   origen_register_callback(cbStartOfSimulation, origen_startup);
 

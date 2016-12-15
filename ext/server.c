@@ -3,7 +3,7 @@
 
 static int period_in_ns;
 static int x = 0;
-
+static void origen_cycle();
 
 /// This is called first upon a simulation start and it will block until it receives
 /// a set_timeset message from Origen
@@ -11,16 +11,15 @@ void origen_wait_for_set_timeset() {
 
   period_in_ns = 100;
 
-  origen_wait_for_cycle();
+  origen_wait_for_cycle(NULL);
 }
 
 
 /// Waits and responds to instructions from Origen.
 /// When Origen requests a cycle, time will be advanced and this function will be called
 /// again.
-void origen_wait_for_cycle() {
-  int complete = 0;
-  s_vpi_value v = {vpiIntVal, 0};
+PLI_INT32 origen_wait_for_cycle(p_cb_data data) {
+  s_vpi_value v = {vpiIntVal, {0}};
 
   vpiHandle reset;
   reset = vpi_handle_by_name("tb.reset", NULL);
@@ -47,6 +46,7 @@ void origen_wait_for_cycle() {
     x += 1;
     origen_cycle();
   }
+  return 0;
 }
 
 
