@@ -45,10 +45,8 @@ task :build => [:compile] do
   end
 end
 
-desc "Run a simulation"
-task :sim => ["#{Origen.root}/waves", :build] do
+task :sim, [:socket] => ["#{Origen.root}/waves", :build] do |t, args|
   cd "#{Origen.root}/waves" do
-    sh "vvp -M#{tmp_dir} -morigen #{tmp_dir}/dut.vvp"
-    Origen.app.stats.report_pass
+    sh "vvp -M#{tmp_dir} -morigen #{tmp_dir}/dut.vvp -socket #{args[:socket]}"
   end
 end
