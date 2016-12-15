@@ -16,4 +16,13 @@ module OrigenSim
   Dir.glob("#{File.dirname(__FILE__)}/origen_sim/**/*.rb").sort.each do |file|
     require file
   end
+
+  def self.__instantiate_simulator__
+    @simulator ||= Simulator.new
+  end
+
+  def self.simulator
+    @simulator
+  end
 end
+OrigenSim.__instantiate_simulator__
