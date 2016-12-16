@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-void origen_set_timeset(int);
+void origen_set_period(char*);
 PLI_INT32 origen_wait_for_msg(p_cb_data);
 
 #endif

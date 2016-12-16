@@ -16,6 +16,11 @@ module OrigenSim
       OrigenSim.simulator.sync_up
     end
 
+    def set_timeset(name, period_in_ns)
+      super
+      put("1%#{period_in_ns}")
+    end
+
     # This method intercepts vector data from Origen, removes white spaces and compresses repeats
     def push_vector(options)
       programmed_data = options[:pin_vals].gsub(/\s+/, '')

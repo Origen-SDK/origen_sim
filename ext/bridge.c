@@ -14,8 +14,10 @@ static void origen_drive_pin_in_future(char*, char*, int);
 
 /// This is called first upon a simulation start and it will block until it receives
 /// a set_timeset message from Origen
-void origen_set_timeset(int p_in_ns) {
-  period_in_ns = p_in_ns;
+void origen_set_period(char * p_in_ns) {
+  int p = (int) strtol(p_in_ns, NULL, 10);
+  vpi_printf("Period: %d\n", p);
+  period_in_ns = p;
 }
 
 
@@ -94,7 +96,8 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
       // Set Period
       //   1%100
       case '1' :
-        origen_set_timeset(100);
+        arg1 = strtok(NULL, "%");
+        origen_set_period(arg1);
         break;
       // Drive Pin
       //   2%clock%0
