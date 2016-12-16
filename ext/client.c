@@ -21,23 +21,18 @@ int origen_connect(char * socketId) {
   if (connect(sock, (struct sockaddr *)&remote, len) == -1) {
     return 1;
   }
+  return 0;
+}
 
-  //while(printf("> "), fgets(str, 100, stdin), !feof(stdin)) {
-  //  if (send(sock, str, strlen(str), 0) == -1) {
-  //      perror("send");
-  //      exit(1);
-  //  }
 
-  //  if ((t=recv(sock, str, 100, 0)) > 0) {
-  //      str[t] = '\0';
-  //      printf("echo> %s", str);
-  //  } else {
-  //      if (t < 0) perror("recv");
-  //      else printf("Server closed connection\n");
-  //      exit(1);
-  //  }
-  //}
-
+/// Send a message to the master Origen process.
+/// NOTE: THE CALLER IS RESPONSIBLE FOR ADDING A \n TERMINATOR TO
+///       THE MESSAGE
+/// to the data as this function will do it for you.
+int origen_put(char* data) {
+  if(send(sock, data , strlen(data), 0) < 0) {
+    return 1;
+  }
   return 0;
 }
 

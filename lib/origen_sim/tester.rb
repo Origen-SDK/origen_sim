@@ -2,8 +2,18 @@ module OrigenSim
   class Tester
     include OrigenTesters::VectorBasedTester
 
-    def to_sim(msg)
-      OrigenSim.simulator.socket.puts(msg + "\n")
+    def put(msg)
+      OrigenSim.simulator.put(msg)
+    end
+
+    def get
+      OrigenSim.simulator.get
+    end
+
+    # Blocks the Origen process until the simulator indicates that it has
+    # processed all operations up to this point
+    def sync_up
+      OrigenSim.simulator.sync_up
     end
 
     # This method intercepts vector data from Origen, removes white spaces and compresses repeats

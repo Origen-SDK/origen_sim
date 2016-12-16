@@ -8,6 +8,27 @@ module OrigenSim
 
     attr_reader :socket, :failed
 
+    # Send the given message string to the simulator
+    def put(msg)
+      socket.write(msg + "\n")
+    end
+
+    # Get a message from the simulator, will block until one
+    # is received
+    def get
+      socket.readline
+    end
+
+    # This will be called at the end of every pattern, make
+    # sure the simulator is not running behind before potentially
+    # moving onto another pattern
+    def pattern_generated(path)
+      sync_up
+    end
+
+    # Called before every pattern is generated, but we only use it the
+    # first time it is called to kick off the simulator process if the
+    # current tester is an OrigenSim::Tester
     def before_pattern(name)
       if enabled?
         @enabled = true
@@ -26,16 +47,31 @@ module OrigenSim
               Origen.log.error 'Simulator failed to respond'
               @failed = true
               exit
-             end
+            end
           end
         end
+      end
+    end
+
+    def end_simulation
+      put('Z%')
+    end
+
+    # Blocks the Origen process until the simulator indicates that it has
+    # processed all operations up to this point
+    def sync_up
+      tester.put('Y%')
+      data = tester.get
+      unless data.strip == 'OK!'
+        fail 'Origen and the simulator are out of sync!'
       end
     end
 
     def on_origen_shutdown
       if enabled?
         Origen.log.info 'Shutting down simulator...'
-        Origen.log.info "Simulator PID: #{@sim_pid}"
+        sync_up
+        end_simulation
         @socket.close if @socket
         File.unlink(socket_id) if File.exist?(socket_id)
         if failed

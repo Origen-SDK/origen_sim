@@ -84,6 +84,7 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
 
     err = origen_get(max_msg_len, msg);
     if (err) {
+      vpi_printf("ERROR: Failed to receive from Origen!\n");
       return 1;
     }
 
@@ -112,6 +113,11 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
       case '3' :
         origen_cycle();
         return 0;
+      // Sync-up
+      //   Y%
+      case 'Y' :
+        origen_put("OK!\n");
+        break;
       // Complete
       //   Z%
       case 'Z' :
