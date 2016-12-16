@@ -5,7 +5,7 @@
 
 #define NULL 0
 
-void origen_wait_for_set_timeset(void);
-PLI_INT32 origen_wait_for_cycle(p_cb_data);
+void origen_set_timeset(int);
+PLI_INT32 origen_wait_for_msg(p_cb_data);
 
 #endif

@@ -29,6 +29,7 @@ char * origen_get_arg(char *arg) {
 /// Called at the beginning of the simulation, this connects to the Origen application and then
 /// enters the main process loop
 PLI_INT32 origen_startup(p_cb_data data) {
+  vpi_printf("Simulation started!\n");
 
   int err = origen_connect(origen_get_arg("-socket"));
 
@@ -39,7 +40,7 @@ PLI_INT32 origen_startup(p_cb_data data) {
 
   // Start the server to listen for commands from an Origen application and apply them via VPI,
   // this will run until it receives a complete message from the Origen app
-  origen_wait_for_set_timeset();
+  origen_wait_for_msg(NULL);
   
   return 0;
 }

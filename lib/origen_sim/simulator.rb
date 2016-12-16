@@ -26,7 +26,7 @@ module OrigenSim
               Origen.log.error 'Simulator failed to respond'
               @failed = true
               exit
-            end
+             end
           end
         end
       end
@@ -35,6 +35,7 @@ module OrigenSim
     def on_origen_shutdown
       if enabled?
         Origen.log.info 'Shutting down simulator...'
+        Origen.log.info "Simulator PID: #{@sim_pid}"
         @socket.close if @socket
         File.unlink(socket_id) if File.exist?(socket_id)
         if failed

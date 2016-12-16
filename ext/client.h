@@ -6,5 +6,6 @@
 #include <sys/un.h>
 
 int origen_connect(char *);
+int origen_get(int, char*);
 
 #endif

@@ -3,7 +3,7 @@ module OrigenSim
     include OrigenTesters::VectorBasedTester
 
     def to_sim(msg)
-      OrigenSim.simulator.socket.puts(msg)
+      OrigenSim.simulator.socket.puts(msg + "\n")
     end
 
     # This method intercepts vector data from Origen, removes white spaces and compresses repeats
@@ -15,8 +15,6 @@ module OrigenSim
         puts '$tester.set_timeset("nvmbist", 40)   # Where 40 is the period in ns'
         exit 1
       end
-      puts '*** Sending ***'
-      to_sim('1:1')
       # tset = options[:timeset].name
       # if @vector_count > 0
       #  # compressing repeats as we go
