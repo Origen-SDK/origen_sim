@@ -1,3 +1,7 @@
+///
+/// This is responsible for abstracting the socket connection to the master
+/// Origen process
+///
 #include "client.h"
 
 static int sock;

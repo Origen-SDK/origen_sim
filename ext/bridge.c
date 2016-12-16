@@ -1,12 +1,16 @@
-#include "server.h"
+///
+/// This implements the bridge between Origen and the simulation, it implements a
+/// simple string-based message protocol for communicating between the two domains
+///
+#include "bridge.h"
 #include "client.h"
 #include <stdint.h>
 #include <stdlib.h>
 
 static int period_in_ns;
 static void origen_cycle(void);
-static void origen_drive_pin(char*, int);
-static void origen_drive_pin_in_future(char*, int, int);
+static void origen_drive_pin(char*, char*);
+static void origen_drive_pin_in_future(char*, char*, int);
 
 /// This is called first upon a simulation start and it will block until it receives
 /// a set_timeset message from Origen
@@ -16,16 +20,16 @@ void origen_set_timeset(int p_in_ns) {
 
 
 /// Immediately drives the given pin to the given state
-static void origen_drive_pin(char * name, int val) {
+static void origen_drive_pin(char * name, char * val) {
   s_vpi_value v = {vpiIntVal, {0}};
   vpiHandle pin;
 
-  char * net = (char *) malloc(1 + strlen("tb.")+ strlen(name));
+  char * net = (char *) malloc(4 + strlen(name));
   strcpy(net, "tb.");
   strcat(net, name);
 
   pin = vpi_handle_by_name(net, NULL);
-  v.value.integer = val;
+  v.value.integer = val[0] - '0';
   vpi_put_value(pin, &v, NULL, vpiNoDelay);
   free(net);
 }
@@ -33,15 +37,24 @@ static void origen_drive_pin(char * name, int val) {
 
 /// Callback handler to implement origen_drive_pin_in_future
 PLI_INT32 origen_drive_pin_cb(p_cb_data data) {
-  origen_drive_pin("clock", 0);
+  char *pin, *value;
+  pin = strtok(data->user_data, "%");
+  value = strtok(NULL, "%");
+  origen_drive_pin(pin, value);
+  free(data->user_data);
   return 0;
 }
 
 
 /// Drives the given pin to the given state after the given delay
-static void origen_drive_pin_in_future(char * name, int val, int delay_in_ns) {
+static void origen_drive_pin_in_future(char * name, char * val, int delay_in_ns) {
   s_cb_data call;
   s_vpi_time time;
+
+  char * data = (char *) malloc(3 + strlen(name));
+  strcpy(data, name);
+  strcat(data, "%");
+  strcat(data, val);
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
@@ -52,7 +65,7 @@ static void origen_drive_pin_in_future(char * name, int val, int delay_in_ns) {
   call.obj       = 0;
   call.time      = &time;
   call.value     = 0;
-  call.user_data = 0;
+  call.user_data = data;
 
   vpi_free_object(vpi_register_cb(&call));
 }
@@ -88,9 +101,11 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
       case '2' :
         arg1 = strtok(NULL, "%");
         arg2 = strtok(NULL, "%");
-        origen_drive_pin(arg1, arg2[0] - '0');
+        origen_drive_pin(arg1, arg2);
         // Return clk to low half way through the cycle
-        origen_drive_pin_in_future(arg1, 0, period_in_ns / 2);
+        if (strcmp(arg1, "clock") == 0) {
+          origen_drive_pin_in_future(arg1, "0", period_in_ns / 2);
+        }
         break;
       // Cycle
       //   3%

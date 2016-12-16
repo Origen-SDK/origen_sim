@@ -1,5 +1,9 @@
+///
+/// This is the top-level file for compilation, it basically deals with bootstrapping
+/// this extension into the simulation
+///
 #include "origen.h"
-#include "server.h"
+#include "bridge.h"
 #include "client.h"
 
 static void origen_register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data));
