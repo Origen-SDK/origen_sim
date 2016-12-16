@@ -3,6 +3,7 @@
 #include "client.h"
 
 static void origen_register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data));
+static void origen_init(void);
 
 static void origen_init() {
   origen_register_callback(cbStartOfSimulation, origen_startup);
@@ -29,6 +30,7 @@ char * origen_get_arg(char *arg) {
 /// Called at the beginning of the simulation, this connects to the Origen application and then
 /// enters the main process loop
 PLI_INT32 origen_startup(p_cb_data data) {
+  UNUSED(data);
   vpi_printf("Simulation started!\n");
 
   int err = origen_connect(origen_get_arg("-socket"));
@@ -47,6 +49,7 @@ PLI_INT32 origen_startup(p_cb_data data) {
 
 
 PLI_INT32 origen_shutdown(p_cb_data data) {
+  UNUSED(data);
   vpi_printf("Simulation ended!\n");
 
   return 0;
@@ -74,7 +77,7 @@ static void origen_register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_
 ///
 /// Bootstrap vector, make the simulator execute origen_init() on startup
 ///
-void (*vlog_startup_routines[])() = { origen_init, 0 };
+void (*vlog_startup_routines[])(void) = { origen_init, 0 };
 
 #if defined(CVER) || defined(VCS) || defined(NCSIM)
     void vlog_startup_routines_bootstrap()

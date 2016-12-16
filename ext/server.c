@@ -1,10 +1,12 @@
 #include "server.h"
 #include "client.h"
 #include <stdint.h>
+#include <stdlib.h>
 
 static int period_in_ns;
-static void origen_cycle();
-static void origen_drive_pin(char *, int);
+static void origen_cycle(void);
+static void origen_drive_pin(char*, int);
+static void origen_drive_pin_in_future(char*, int, int);
 
 /// This is called first upon a simulation start and it will block until it receives
 /// a set_timeset message from Origen
@@ -12,6 +14,8 @@ void origen_set_timeset(int p_in_ns) {
   period_in_ns = p_in_ns;
 }
 
+
+/// Immediately drives the given pin to the given state
 static void origen_drive_pin(char * name, int val) {
   s_vpi_value v = {vpiIntVal, {0}};
   vpiHandle pin;
@@ -27,13 +31,41 @@ static void origen_drive_pin(char * name, int val) {
 }
 
 
+/// Callback handler to implement origen_drive_pin_in_future
+PLI_INT32 origen_drive_pin_cb(p_cb_data data) {
+  origen_drive_pin("clock", 0);
+  return 0;
+}
+
+
+/// Drives the given pin to the given state after the given delay
+static void origen_drive_pin_in_future(char * name, int val, int delay_in_ns) {
+  s_cb_data call;
+  s_vpi_time time;
+
+  time.type = vpiSimTime;
+  time.high = (uint32_t)(0);
+  time.low  = (uint32_t)(delay_in_ns);
+
+  call.reason    = cbAfterDelay;
+  call.cb_rtn    = origen_drive_pin_cb;
+  call.obj       = 0;
+  call.time      = &time;
+  call.value     = 0;
+  call.user_data = 0;
+
+  vpi_free_object(vpi_register_cb(&call));
+}
+
+
 /// Waits and responds to instructions from Origen (to set pin states).
 /// When Origen requests a cycle, time will be advanced and this func will be called again.
 PLI_INT32 origen_wait_for_msg(p_cb_data data) {
+  UNUSED(data);
   int max_msg_len = 100;
   char msg[max_msg_len];
   int err;
-  char *opcode, *arg1, *arg2, *arg3;
+  char *opcode, *arg1, *arg2;
 
   while(1) {
 
@@ -42,29 +74,31 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
       return 1;
     }
 
-    opcode = strtok(msg, ":");
+    opcode = strtok(msg, "%");
 
     switch(*opcode) {
       // Set Period
-      //   1:100
+      //   1%100
       case '1' :
         origen_set_timeset(100);
         break;
       // Drive Pin
-      //   2:clock:0
-      //   2:clock:1
+      //   2%clock%0
+      //   2%clock%1
       case '2' :
-        arg1 = strtok(NULL, ":");
-        arg2 = strtok(NULL, ":");
+        arg1 = strtok(NULL, "%");
+        arg2 = strtok(NULL, "%");
         origen_drive_pin(arg1, arg2[0] - '0');
+        // Return clk to low half way through the cycle
+        origen_drive_pin_in_future(arg1, 0, period_in_ns / 2);
         break;
       // Cycle
-      //   3:
+      //   3%
       case '3' :
         origen_cycle();
         return 0;
       // Complete
-      //   Z:
+      //   Z%
       case 'Z' :
         return 0;
       default :
@@ -75,21 +109,22 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
 }
 
 
-/// Advances time by 1 cycle, at which point origen_wait_for_cycle will be called again
+/// Registers a callback after a cycle period, the main server loop should unblock
+/// after calling this to allow the simulation to proceed for a cycle
 static void origen_cycle() {
-    s_cb_data call;
-    s_vpi_time time;
+  s_cb_data call;
+  s_vpi_time time;
 
-    time.type = vpiSimTime;
-    time.high = (uint32_t)(0);
-    time.low  = (uint32_t)(period_in_ns);
+  time.type = vpiSimTime;
+  time.high = (uint32_t)(0);
+  time.low  = (uint32_t)(period_in_ns);
 
-    call.reason    = cbAfterDelay;
-    call.cb_rtn    = origen_wait_for_msg;
-    call.obj       = 0;
-    call.time      = &time;
-    call.value     = 0;
-    call.user_data = 0;
+  call.reason    = cbAfterDelay;
+  call.cb_rtn    = origen_wait_for_msg;
+  call.obj       = 0;
+  call.time      = &time;
+  call.value     = 0;
+  call.user_data = 0;
 
-    vpi_free_object(vpi_register_cb(&call));
+  vpi_free_object(vpi_register_cb(&call));
 }

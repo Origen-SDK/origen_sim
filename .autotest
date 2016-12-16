@@ -12,5 +12,5 @@ Autotest.add_hook :initialize do |at|
 end
 
 Autotest.add_hook :run_command do |at|
-  system "rake clean compile"
+  system "rake build"
 end
