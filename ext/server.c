@@ -33,7 +33,7 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
   int max_msg_len = 100;
   char msg[max_msg_len];
   int err;
-  char * token;
+  char *opcode, *arg1, *arg2, *arg3;
 
   while(1) {
 
@@ -42,18 +42,29 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
       return 1;
     }
 
-    token = strtok(msg, ":");
+    opcode = strtok(msg, ":");
 
-    switch(*token) {
+    switch(*opcode) {
+      // Set Period
+      //   1:100
       case '1' :
         origen_set_timeset(100);
         break;
+      // Drive Pin
+      //   2:clock:0
+      //   2:clock:1
       case '2' :
-        origen_drive_pin(strtok(NULL, ":"), 1);
+        arg1 = strtok(NULL, ":");
+        arg2 = strtok(NULL, ":");
+        origen_drive_pin(arg1, arg2[0] - '0');
         break;
+      // Cycle
+      //   3:
       case '3' :
         origen_cycle();
         return 0;
+      // Complete
+      //   Z:
       case 'Z' :
         return 0;
       default :
