@@ -1,3 +1,29 @@
 Pattern.create do
-
+  tester.set_timeset("func", 100)
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
+  tester.cycle
 end

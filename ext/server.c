@@ -41,7 +41,7 @@ PLI_INT32 origen_wait_for_cycle(p_cb_data data) {
   vpi_put_value(clock, &v, NULL, vpiNoDelay);
 
   // Run the simulation for 100 cycles
-  if (x < 100) {
+  if (x < 1000000) {
     x += 1;
     origen_cycle();
   }

@@ -10,6 +10,7 @@ static void origen_init() {
   origen_register_callback(cbEndOfSimulation, origen_shutdown);
 }
 
+
 /// Returns the value of the given argument, or NULL if not supplied
 ///   origen_get_arg("-socket");   # => "/tmp/sim.sock"
 char * origen_get_arg(char *arg) {
@@ -23,6 +24,7 @@ char * origen_get_arg(char *arg) {
   }
   return NULL;
 }
+
 
 /// Called at the beginning of the simulation, this connects to the Origen application and then
 /// enters the main process loop
@@ -41,7 +43,6 @@ PLI_INT32 origen_startup(p_cb_data data) {
   
   return 0;
 }
-
 
 
 PLI_INT32 origen_shutdown(p_cb_data data) {
