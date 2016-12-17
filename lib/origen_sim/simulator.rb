@@ -30,14 +30,14 @@ module OrigenSim
     # first time it is called to kick off the simulator process if the
     # current tester is an OrigenSim::Tester
     def before_pattern(name)
-      if enabled?
+      if simulation_tester? && !@enabled
         @enabled = true
         # When running pattern back-to-back, only want to launch the simulator the
         # first time
         unless socket
           server = UNIXServer.new(socket_id)
 
-          @sim_pid = spawn("rake sim[#{socket_id}]")
+          @sim_pid = spawn("rake sim:run[#{socket_id}]")
           Process.detach(@sim_pid)
 
           timeout_connection(5) do
@@ -68,7 +68,7 @@ module OrigenSim
     end
 
     def on_origen_shutdown
-      if enabled?
+      if @enabled
         Origen.log.info 'Shutting down simulator...'
         sync_up
         end_simulation
@@ -86,8 +86,8 @@ module OrigenSim
       @socket_id ||= "/tmp/#{(Process.pid.to_s + Time.now.to_f.to_s).sub('.', '')}.sock"
     end
 
-    def enabled?
-      @enabled || (tester && tester.is_a?(OrigenSim::Tester))
+    def simulation_tester?
+      (tester && tester.is_a?(OrigenSim::Tester))
     end
 
     def timeout_connection(wait_in_s)

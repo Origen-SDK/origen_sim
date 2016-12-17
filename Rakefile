@@ -20,33 +20,49 @@ SIMULATORS = [
 #  Simulator.new(:vsim,  'Mentor Modelsim', '-DMODELSIM', ''),
 ]
 
-tmp_dir = "#{Origen.root}/tmp/#{RbConfig::CONFIG["arch"]}"
+tmp_dir = "#{Origen.root}/tmp/origen_sim_#{RbConfig::CONFIG["arch"]}"
 
-directory tmp_dir
-directory "#{Origen.root}/waves"
+namespace "sim" do
 
-desc "Compiles the VPI extension"
-task :compile => [tmp_dir] do
-  cd tmp_dir do
-    d = "#{Origen.root!}/ext/"
-    sh "iverilog-vpi #{d}origen.c #{d}bridge.c #{d}client.c -DICARUS"
+  directory tmp_dir
+  directory "#{Origen.root}/waves"
+
+  task :environment do
+    Origen.load_target
   end
-end
 
-desc "Deletes all compiled objects"
-task :clean do
-  sh "rm -fr #{Origen.root}/tmp"
-end
+  desc "Compiles the VPI extension"
+  task :compile => [tmp_dir, "#{tmp_dir}/origen.vpi"]
 
-desc "Build the object containing the DUT and testbench"
-task :build => [:compile] do
-  cd tmp_dir do
-    sh "iverilog -o dut.vvp -I #{Origen.root}/spec/rtl_v #{Origen.root}/spec/rtl_v/dut_tb.v"
+  c_source_files = Rake::FileList["#{Origen.root!}/ext/*.c"]
+  source_files = Rake::FileList["#{Origen.root!}/ext/*.c", "#{Origen.root!}/ext/*.h"]
+
+  file "#{tmp_dir}/origen.vpi" => source_files do
+    cd tmp_dir do
+      sh "iverilog-vpi #{c_source_files} -DICARUS --name=origen"
+    end
   end
-end
 
-task :sim, [:socket] => ["#{Origen.root}/waves", :build] do |t, args|
-  cd "#{Origen.root}/waves" do
-    sh "vvp -M#{tmp_dir} -morigen #{tmp_dir}/dut.vvp -socket #{args[:socket]}"
+  desc "Deletes all compiled objects"
+  task :clean do
+    sh "rm -fr #{tmp_dir}"
   end
+
+  desc "Build the object containing the DUT and testbench"
+  task :build => [:compile, "#{tmp_dir}/dut.vvp"]
+
+  v_source_files = Rake::FileList["#{Origen.root}/spec/rtl_v/*.v"]
+
+  file "#{tmp_dir}/dut.vvp" => v_source_files do
+    cd tmp_dir do
+      sh "iverilog -o dut.vvp -I #{Origen.root}/spec/rtl_v #{Origen.root}/spec/rtl_v/dut_tb.v"
+    end
+  end
+
+  task :run, [:socket] => ["#{Origen.root}/waves", :build] do |t, args|
+    cd "#{Origen.root}/waves" do
+      sh "vvp -M#{tmp_dir} -morigen #{tmp_dir}/dut.vvp -socket #{args[:socket]}"
+    end
+  end
+
 end
