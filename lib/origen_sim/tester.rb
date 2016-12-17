@@ -18,7 +18,7 @@ module OrigenSim
 
     def set_timeset(name, period_in_ns)
       super
-      put("1%#{period_in_ns}")
+      put("1^#{period_in_ns}")
     end
 
     # This method intercepts vector data from Origen, removes white spaces and compresses repeats
@@ -29,7 +29,7 @@ module OrigenSim
         puts '$tester.set_timeset("nvmbist", 40)   # Where 40 is the period in ns'
         exit 1
       end
-      put("3%#{options[:repeat] || 1}")
+      put("3^#{options[:repeat] || 1}")
     end
   end
 end

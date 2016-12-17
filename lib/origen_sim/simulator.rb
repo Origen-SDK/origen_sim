@@ -54,13 +54,13 @@ module OrigenSim
     end
 
     def end_simulation
-      put('Z%')
+      put('Z^')
     end
 
     # Blocks the Origen process until the simulator indicates that it has
     # processed all operations up to this point
     def sync_up
-      tester.put('Y%')
+      tester.put('Y^')
       data = tester.get
       unless data.strip == 'OK!'
         fail 'Origen and the simulator are out of sync!'

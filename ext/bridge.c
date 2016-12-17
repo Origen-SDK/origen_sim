@@ -27,7 +27,7 @@ static Waveform * waveforms = NULL;
 static int number_of_waveforms = 0;
 
 /// Example waveform message:
-///   "2%clock%0%D%25%0%50%D%75%0%END%tck%0%D%50%0%END"
+///   "2^clock^0^D^25^0^50^D^75^0^END^tck^0^D^50^0^END"
 void origen_define_waveforms(char * waves) {
   char *token;
 
@@ -43,22 +43,22 @@ void origen_define_waveforms(char * waves) {
 
   // First in the stream is the amount of pins that have waveforms, get it and prepare
   // the space for them
-  token = strtok(mywaves, "%");
+  token = strtok(mywaves, "^");
   number_of_waveforms = (int)strtol(token, NULL, 10);
   waveforms = (Waveform *) malloc(number_of_waveforms * sizeof(Waveform));
 
   for (int i = 0; i < number_of_waveforms; i++) {
-    token = strtok(NULL, "%");
+    token = strtok(NULL, "^");
     waveforms[i].pin = (char *) malloc(strlen(token) + 1);
     strcpy(waveforms[i].pin, token);
 
     int x = 0;
-    token = strtok(NULL, "%");
+    token = strtok(NULL, "^");
     while (strcmp(token, "END") != 0) {
       waveforms[i].events[x].time = (int)strtol(token, NULL, 10);
-      token = strtok(NULL, "%");
+      token = strtok(NULL, "^");
       waveforms[i].events[x].data = token[0];
-      token = strtok(NULL, "%");
+      token = strtok(NULL, "^");
       x++;
     }
     waveforms[i].events[x].data = 'S'; // Indicate that there are no more events
@@ -133,8 +133,8 @@ static void origen_drive_pin(char * name, char * val) {
 /// Callback handler to implement origen_drive_pin_in_future
 PLI_INT32 origen_drive_pin_cb(p_cb_data data) {
   char *pin, *value;
-  pin = strtok(data->user_data, "%");
-  value = strtok(NULL, "%");
+  pin = strtok(data->user_data, "^");
+  value = strtok(NULL, "^");
   origen_drive_pin(pin, value);
   free(data->user_data);
   return 0;
@@ -148,7 +148,7 @@ static void origen_drive_pin_in_future(char * name, char * val, int delay_in_ns)
 
   char * data = (char *) malloc(strlen(name) + 3);
   strcpy(data, name);
-  strcat(data, "%");
+  strcat(data, "^");
   strcat(data, val);
 
   time.type = vpiSimTime;
@@ -183,40 +183,40 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
       return 1;
     }
 
-    opcode = strtok(msg, "%");
+    opcode = strtok(msg, "^");
 
     switch(*opcode) {
       // Set Period
-      //   1%100
+      //   1^100
       case '1' :
-        arg1 = strtok(NULL, "%");
+        arg1 = strtok(NULL, "^");
         origen_set_period(arg1);
         break;
       // Drive Pin
-      //   2%clock%0
-      //   2%clock%1
+      //   2^clock^0
+      //   2^clock^1
       case '2' :
-        arg1 = strtok(NULL, "%");
-        arg2 = strtok(NULL, "%");
+        arg1 = strtok(NULL, "^");
+        arg2 = strtok(NULL, "^");
         char * pin_d = (char *) malloc(strlen(arg1) + 3);
         strcpy(pin_d, arg1);
         strcat(pin_d, "_d");
         origen_drive_pin(pin_d, arg2);
         break;
       // Cycle
-      //   3%
+      //   3^
       case '3' :
-        arg1 = strtok(NULL, "%");
+        arg1 = strtok(NULL, "^");
         repeat = strtol(arg1, NULL, 10) - 1;
         origen_cycle();
         return 0;
       // Sync-up
-      //   Y%
+      //   Y^
       case 'Y' :
         origen_put("OK!\n");
         break;
       // Complete
-      //   Z%
+      //   Z^
       case 'Z' :
         return 0;
       default :

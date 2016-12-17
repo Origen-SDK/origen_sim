@@ -33,7 +33,7 @@ module Origen
       def update_simulation
         case state
           when :drive
-            tester.put("2%#{id}%#{value}")
+            tester.put("2^#{id}^#{value}")
           when :compare
           when :dont_care
           when :capture
