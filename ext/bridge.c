@@ -11,6 +11,7 @@ static int period_in_ns;
 static void origen_cycle(void);
 static void origen_drive_pin(char*, char*);
 static void origen_drive_pin_in_future(char*, char*, int);
+static long repeat;
 
 typedef struct Event {
   int time;
@@ -205,6 +206,8 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
       // Cycle
       //   3%
       case '3' :
+        arg1 = strtok(NULL, "%");
+        repeat = strtol(arg1, NULL, 10) - 1;
         origen_cycle();
         return 0;
       // Sync-up
@@ -224,6 +227,14 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
 }
 
 
+PLI_INT32 origen_cycle_cb(p_cb_data data) {
+  UNUSED(data);
+  repeat = repeat - 1;
+  origen_cycle();
+  return 0;
+}
+
+
 /// Registers a callback after a cycle period, the main server loop should unblock
 /// after calling this to allow the simulation to proceed for a cycle
 static void origen_cycle() {
@@ -235,11 +246,16 @@ static void origen_cycle() {
   time.low  = (uint32_t)(period_in_ns);
 
   call.reason    = cbAfterDelay;
-  call.cb_rtn    = origen_wait_for_msg;
   call.obj       = 0;
   call.time      = &time;
   call.value     = 0;
   call.user_data = 0;
+
+  if (repeat) {
+    call.cb_rtn    = origen_cycle_cb;
+  } else {
+    call.cb_rtn    = origen_wait_for_msg;
+  }
 
   vpi_free_object(vpi_register_cb(&call));
 
