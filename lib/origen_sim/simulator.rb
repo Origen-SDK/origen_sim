@@ -10,7 +10,7 @@ module OrigenSim
 
     # Send the given message string to the simulator
     def put(msg)
-      socket.write(msg + "\n")
+      socket.write(msg + "\n") if socket
     end
 
     # Get a message from the simulator, will block until one
@@ -30,26 +30,30 @@ module OrigenSim
     # first time it is called to kick off the simulator process if the
     # current tester is an OrigenSim::Tester
     def before_pattern(name)
-      if simulation_tester? && !@enabled
-        @enabled = true
-        # When running pattern back-to-back, only want to launch the simulator the
-        # first time
-        unless socket
-          server = UNIXServer.new(socket_id)
+      if simulation_tester?
+        unless @enabled
+          @enabled = true
+          # When running pattern back-to-back, only want to launch the simulator the
+          # first time
+          unless socket
+            server = UNIXServer.new(socket_id)
 
-          @sim_pid = spawn("rake sim:run[#{socket_id}]")
-          Process.detach(@sim_pid)
+            @sim_pid = spawn("rake sim:run[#{socket_id}]")
+            Process.detach(@sim_pid)
 
-          timeout_connection(5) do
-            @socket = server.accept
-            @connection_established = true
-            if @connection_timed_out
-              Origen.log.error 'Simulator failed to respond'
-              @failed = true
-              exit
+            timeout_connection(5) do
+              @socket = server.accept
+              @connection_established = true
+              if @connection_timed_out
+                Origen.log.error 'Simulator failed to respond'
+                @failed = true
+                exit
+              end
             end
           end
         end
+        # Apply the pin reset values before the simulation starts
+        tester.put_all_pin_states
       end
     end
 

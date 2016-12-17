@@ -21,6 +21,11 @@ module OrigenSim
       put("1^#{period_in_ns}")
     end
 
+    # Applies the current state of all pins to the simulation
+    def put_all_pin_states
+      dut.pins.each { |name, pin| pin.update_simulation }
+    end
+
     # This method intercepts vector data from Origen, removes white spaces and compresses repeats
     def push_vector(options)
       unless options[:timeset]

@@ -8,12 +8,12 @@ module OrigenSimDev
     }
 
     def initialize(options = {})
-      add_pin :tck
-      add_pin :tdi
+      add_pin :tck, reset: :drive_lo
+      add_pin :tdi, reset: :drive_lo
       add_pin :tdo
-      add_pin :tms
-      add_pin :rstn
-      add_pin :trstn
+      add_pin :tms, reset: :drive_lo
+      add_pin :rstn, reset: :drive_lo
+      add_pin :trstn, reset: :drive_lo
       add_pin_alias :tclk, :tck
     end
   end
