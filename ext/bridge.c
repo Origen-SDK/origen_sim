@@ -12,11 +12,103 @@ static void origen_cycle(void);
 static void origen_drive_pin(char*, char*);
 static void origen_drive_pin_in_future(char*, char*, int);
 
+typedef struct Event {
+  int time;
+  char data;
+} Event;
+
+typedef struct Waveform {
+  char * pin;
+  Event events[10];
+} Waveform;
+
+static Waveform * waveforms = NULL;
+static int number_of_waveforms = 0;
+
+/// Example waveform message:
+///   "2%clock%0%D%25%0%50%D%75%0%END%tck%0%D%50%0%END"
+void origen_define_waveforms(char * waves) {
+  char *token;
+
+  if (waveforms) {
+    // TODO: Should free the memory for the pin names first
+    free(waveforms);
+    number_of_waveforms = 0;
+  }
+
+  // strtok needs a writable copy of waves
+  char * mywaves = (char *) malloc(strlen(waves) + 1);
+  strcpy(mywaves, waves);
+
+  // First in the stream is the amount of pins that have waveforms, get it and prepare
+  // the space for them
+  token = strtok(mywaves, "%");
+  number_of_waveforms = (int)strtol(token, NULL, 10);
+  waveforms = (Waveform *) malloc(number_of_waveforms * sizeof(Waveform));
+
+  for (int i = 0; i < number_of_waveforms; i++) {
+    token = strtok(NULL, "%");
+    waveforms[i].pin = (char *) malloc(strlen(token) + 1);
+    strcpy(waveforms[i].pin, token);
+
+    int x = 0;
+    token = strtok(NULL, "%");
+    while (strcmp(token, "END") != 0) {
+      waveforms[i].events[x].time = (int)strtol(token, NULL, 10);
+      token = strtok(NULL, "%");
+      waveforms[i].events[x].data = token[0];
+      token = strtok(NULL, "%");
+      x++;
+    }
+    waveforms[i].events[x].data = 'S'; // Indicate that there are no more events
+  }
+  free(mywaves);
+}
+
+
+void register_waveform_events() {
+  if (waveforms) {
+    for (int i = 0; i < number_of_waveforms; i++) {
+      char * f0 = (char *) malloc(strlen(waveforms[i].pin) + 4);
+      char * f1 = (char *) malloc(strlen(waveforms[i].pin) + 4);
+      strcpy(f0, waveforms[i].pin);
+      strcpy(f1, waveforms[i].pin);
+      strcat(f0, "_f0");
+      strcat(f1, "_f1");
+
+      origen_drive_pin(f0, "0");
+      origen_drive_pin(f1, "0");
+
+      int x = 0;
+
+      while (waveforms[i].events[x].data != 'S') {
+        switch(waveforms[i].events[x].data) {
+          case '0' :
+            origen_drive_pin_in_future(f0, "1", waveforms[i].events[x].time);
+            origen_drive_pin_in_future(f1, "0", waveforms[i].events[x].time);
+            break;
+          case '1' :
+            origen_drive_pin_in_future(f0, "0", waveforms[i].events[x].time);
+            origen_drive_pin_in_future(f1, "1", waveforms[i].events[x].time);
+            break;
+          default :
+            origen_drive_pin_in_future(f0, "0", waveforms[i].events[x].time);
+            origen_drive_pin_in_future(f1, "0", waveforms[i].events[x].time);
+            break;
+        }
+        x++;
+      }
+      free(f0);
+      free(f1);
+    }
+  }
+}
+
+
 /// This is called first upon a simulation start and it will block until it receives
 /// a set_timeset message from Origen
 void origen_set_period(char * p_in_ns) {
   int p = (int) strtol(p_in_ns, NULL, 10);
-  vpi_printf("Period: %d\n", p);
   period_in_ns = p;
 }
 
@@ -26,7 +118,7 @@ static void origen_drive_pin(char * name, char * val) {
   s_vpi_value v = {vpiIntVal, {0}};
   vpiHandle pin;
 
-  char * net = (char *) malloc(4 + strlen(name));
+  char * net = (char *) malloc(6 + strlen(name));
   strcpy(net, "tb.");
   strcat(net, name);
 
@@ -53,7 +145,7 @@ static void origen_drive_pin_in_future(char * name, char * val, int delay_in_ns)
   s_cb_data call;
   s_vpi_time time;
 
-  char * data = (char *) malloc(3 + strlen(name));
+  char * data = (char *) malloc(strlen(name) + 3);
   strcpy(data, name);
   strcat(data, "%");
   strcat(data, val);
@@ -105,11 +197,10 @@ PLI_INT32 origen_wait_for_msg(p_cb_data data) {
       case '2' :
         arg1 = strtok(NULL, "%");
         arg2 = strtok(NULL, "%");
-        origen_drive_pin(arg1, arg2);
-        // Return clk to low half way through the cycle
-        if (strcmp(arg1, "clock") == 0) {
-          origen_drive_pin_in_future(arg1, "0", period_in_ns / 2);
-        }
+        char * pin_d = (char *) malloc(strlen(arg1) + 3);
+        strcpy(pin_d, arg1);
+        strcat(pin_d, "_d");
+        origen_drive_pin(pin_d, arg2);
         break;
       // Cycle
       //   3%
@@ -151,4 +242,6 @@ static void origen_cycle() {
   call.user_data = 0;
 
   vpi_free_object(vpi_register_cb(&call));
+
+  register_waveform_events();
 }
