@@ -89,6 +89,8 @@ GEM
       yard (~> 0.8)
     origen_doc_helpers (0.4.4)
       origen (>= 0.7.15)
+    origen_jtag (0.12.1)
+      origen (>= 0.7.35)
     origen_testers (0.8.8)
       atp (~> 0.4, >= 0.4.3)
       origen (>= 0.7.40)
@@ -162,6 +164,7 @@ DEPENDENCIES
   byebug
   coveralls
   origen_doc_helpers
+  origen_jtag
   origen_sim!
   rake-compiler
   rspec-autotest
