@@ -1,2 +1,2 @@
 # Use this file to instantiate the device model you are targeting
-OrigenSimDev::Counter.new
+OrigenSimDev::DUT.new

@@ -1,4 +1,5 @@
 `include "tap_top.v"
+`include "counter.v"
 
 module dut1(tck,tdi,tdo,tms,trstn,
             rstn,
@@ -6,10 +7,12 @@ module dut1(tck,tdi,tdo,tms,trstn,
           );
 
   input tck, tdi, tms, trstn;
+  input rstn;
+
   output tdo;
   output done;
 
-  input rstn;
+  wire [4:0] count;
 
   tap_top tap (
     .tms_pad_i(tms),
@@ -19,5 +22,10 @@ module dut1(tck,tdi,tdo,tms,trstn,
     .trstn_pad_i(trstn & rstn)
   );
 
+  counter counter (
+    .clock(tck),
+    .reset(!rstn),
+    .count(count)
+  );
 
 endmodule

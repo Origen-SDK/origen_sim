@@ -119,8 +119,8 @@ static void origen_drive_pin(char * name, char * val) {
   s_vpi_value v = {vpiIntVal, {0}};
   vpiHandle pin;
 
-  char * net = (char *) malloc(6 + strlen(name));
-  strcpy(net, "tb.");
+  char * net = (char *) malloc(strlen(name) + 11);
+  strcpy(net, "origen_tb.");
   strcat(net, name);
 
   pin = vpi_handle_by_name(net, NULL);

@@ -1,5 +1,5 @@
 module OrigenSimDev
-  class Counter
+  class DUT
     include Origen::TopLevel
   end
 end

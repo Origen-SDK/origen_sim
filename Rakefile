@@ -41,7 +41,7 @@ end
 desc "Build the object containing the DUT and testbench"
 task :build => [:compile] do
   cd tmp_dir do
-    sh "iverilog -o dut.vvp -I #{Origen.root}/spec/rtl_v #{Origen.root}/spec/rtl_v/counter_tb.v"
+    sh "iverilog -o dut.vvp -I #{Origen.root}/spec/rtl_v #{Origen.root}/spec/rtl_v/dut_tb.v"
   end
 end
 
