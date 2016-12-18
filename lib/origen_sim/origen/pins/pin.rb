@@ -35,7 +35,9 @@ module Origen
           when :drive
             tester.put("2^#{id}^#{value}")
           when :compare
+            tester.put("4^#{id}^#{value}")
           when :dont_care
+            tester.put("5^#{id}")
           when :capture
           when :drive_very_high, :drive_mem, :expect_mem, :compare_midband
             fail "Simulation of pin state #{state} is not implemented yet!"

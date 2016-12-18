@@ -11,7 +11,9 @@
 static int period_in_ns;
 static void bridge_cycle(void);
 static void bridge_drive_pin(char*, char*);
-static void bridge_drive_net(char*, uint32_t);
+static void bridge_compare_pin(char*, char*);
+static void bridge_dont_care_pin(char*);
+static void bridge_set_net(char*, uint32_t);
 static void bridge_apply_waveform(int, char, int);
 static long repeat;
 
@@ -143,14 +145,40 @@ static void bridge_drive_pin(char * name, char * val) {
   strcat(net, name);
   strcat(net, ".control");
 
-  bridge_drive_net(net, 0x10 | (val[0] - '0'));
+  bridge_set_net(net, 0x10 | (val[0] - '0'));
 
   free(net);
 }
 
 
-/// Immediately drives the given net to the given value
-static void bridge_drive_net(char * path, uint32_t val) {
+/// Immediately sets the given pin to compare against the given value
+static void bridge_compare_pin(char * name, char * val) {
+  char * net = (char *) malloc(strlen(name) + 25);
+  strcpy(net, "origen_tb.pins.");
+  strcat(net, name);
+  strcat(net, ".control");
+
+  bridge_set_net(net, 0x20 | (val[0] - '0'));
+
+  free(net);
+}
+
+
+/// Immediately sets the given pin to don't compare
+static void bridge_dont_care_pin(char * name) {
+  char * net = (char *) malloc(strlen(name) + 25);
+  strcpy(net, "origen_tb.pins.");
+  strcat(net, name);
+  strcat(net, ".control");
+
+  bridge_set_net(net, 0);
+
+  free(net);
+}
+
+
+/// Immediately sets the given net to the given value
+static void bridge_set_net(char * path, uint32_t val) {
   s_vpi_value v = {vpiIntVal, {0}};
   vpiHandle net;
 
@@ -277,6 +305,20 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         repeat = strtol(arg1, NULL, 10) - 1;
         bridge_cycle();
         return 0;
+      // Compare Pin
+      //   4^tdo^0
+      //   4^tdo^1
+      case '4' :
+        arg1 = strtok(NULL, "^");
+        arg2 = strtok(NULL, "^");
+        bridge_compare_pin(arg1, arg2);
+        break;
+      // Don't Care Pin
+      //   5^tdo
+      case '5' :
+        arg1 = strtok(NULL, "^");
+        bridge_dont_care_pin(arg1);
+        break;
       // Sync-up
       //   Y^
       case 'Y' :
