@@ -1,7 +1,7 @@
 `include "tap_top.v"
 `include "counter.v"
 
-module dut1(tck,tdi,tdo,tms,trstn,
+module dut(tck,tdi,tdo,tms,trstn,
             rstn,
             done,
           );

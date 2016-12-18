@@ -6,8 +6,8 @@
 #include <sys/un.h>
 #include "common.h"
 
-int origen_connect(char *);
-int origen_get(int, char*);
-int origen_put(char*);
+int client_connect(char *);
+int client_get(int, char*);
+int client_put(char*);
 
 #endif

@@ -3,8 +3,10 @@
 
 #include "common.h"
 
-void origen_set_period(char*);
-PLI_INT32 origen_wait_for_msg(p_cb_data);
-void origen_define_waveforms(char *);
+void bridge_set_period(char*);
+PLI_INT32 bridge_wait_for_msg(p_cb_data);
+PLI_INT32 bridge_init_done(p_cb_data data);
+void bridge_define_waveforms(char *);
+void bridge_init(void);
 
 #endif

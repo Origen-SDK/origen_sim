@@ -5,6 +5,7 @@ Pattern.create do
   dut.pin(:rstn).drive(0)
   dut.pin(:trstn).drive!(1)
   10.cycles
+  dut.pin(:rstn).drive(1)
   dut.jtag.write_ir(0x5, size: 4)
   tester.wait time_in_ns: 500
 end

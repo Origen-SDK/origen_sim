@@ -50,6 +50,10 @@ module OrigenSim
                 exit
               end
             end
+            data = tester.get
+            unless data.strip == 'READY!'
+              fail "The simulator didn't start properly!"
+            end
           end
         end
         # Apply the pin reset values before the simulation starts

@@ -35,9 +35,9 @@ char * origen_get_arg(char *arg) {
 /// enters the main process loop
 PLI_INT32 origen_startup(p_cb_data data) {
   UNUSED(data);
-  vpi_printf("Simulation started!\n");
+  //vpi_printf("Simulation started!\n");
 
-  int err = origen_connect(origen_get_arg("-socket"));
+  int err = client_connect(origen_get_arg("-socket"));
 
   if (err) {
     vpi_printf("ERROR: Couldn't connect to Origen app!\n");
@@ -46,8 +46,8 @@ PLI_INT32 origen_startup(p_cb_data data) {
 
   // Start the server to listen for commands from an Origen application and apply them via VPI,
   // this will run until it receives a complete message from the Origen app
-  origen_define_waveforms("1^tck^0^D^50^0^END");
-  origen_wait_for_msg(NULL);
+  bridge_define_waveforms("1^tck^0^D^50^0^END");
+  bridge_init();
   
   return 0;
 }
@@ -55,7 +55,7 @@ PLI_INT32 origen_startup(p_cb_data data) {
 
 PLI_INT32 origen_shutdown(p_cb_data data) {
   UNUSED(data);
-  vpi_printf("Simulation ended!\n");
+  //vpi_printf("Simulation ended!\n");
 
   return 0;
 }

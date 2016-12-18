@@ -60,8 +60,8 @@ namespace "sim" do
   end
 
   task :run, [:socket] => ["#{Origen.root}/waves", :build] do |t, args|
-    cd "#{Origen.root}/waves" do
-      sh "vvp -M#{tmp_dir} -morigen #{tmp_dir}/dut.vvp -socket #{args[:socket]}"
+    cd "#{Origen.root}/waves", verbose: false do
+      sh "vvp -M#{tmp_dir} -morigen #{tmp_dir}/dut.vvp -socket #{args[:socket]}", verbose: false
     end
   end
 

@@ -7,7 +7,7 @@
 static int sock;
 
 /// Connects to the Origen app's socket
-int origen_connect(char * socketId) {
+int client_connect(char * socketId) {
   int len;
   struct sockaddr_un remote;
 
@@ -29,7 +29,7 @@ int origen_connect(char * socketId) {
 /// NOTE: THE CALLER IS RESPONSIBLE FOR ADDING A \n TERMINATOR TO
 ///       THE MESSAGE
 /// to the data as this function will do it for you.
-int origen_put(char* data) {
+int client_put(char* data) {
   if(send(sock, data , strlen(data), 0) < 0) {
     return 1;
   }
@@ -40,7 +40,7 @@ int origen_put(char* data) {
 /// Get the next message from the master Origen application process.
 /// Blocks until a complete message is received and will be returned in the
 /// supplied data array
-int origen_get(int max_size, char* data) {
+int client_get(int max_size, char* data) {
   int len;
 
   while (1) {
