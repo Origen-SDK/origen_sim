@@ -15,6 +15,7 @@ static void bridge_compare_pin(char*, char*);
 static void bridge_dont_care_pin(char*);
 static void bridge_set_net(char*, uint32_t);
 static void bridge_apply_waveform(int, char, int);
+static void register_waveform_events(void);
 static long repeat;
 
 typedef struct Event {
@@ -89,7 +90,7 @@ void bridge_define_waveforms(char * waves) {
 }
 
 
-void register_waveform_events() {
+static void register_waveform_events() {
   s_vpi_value v = {vpiIntVal, {0}};
 
   if (waveforms) {
@@ -259,6 +260,7 @@ void bridge_init() {
 
 
 PLI_INT32 bridge_init_done(p_cb_data data) {
+  UNUSED(data);
   client_put("READY!\n");
   return bridge_wait_for_msg(NULL);
 }
