@@ -83,6 +83,8 @@ module debug(errors);
 
   reg [1023:0] pattern = 0;
 
+  reg handshake;
+
 endmodule
 
 module origen_tb;

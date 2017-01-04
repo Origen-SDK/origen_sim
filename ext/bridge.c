@@ -41,7 +41,7 @@ static int number_of_pins = 0;
 static Wave drive_waves[MAX_NUMBER_PINS];
 static int number_of_drive_waves = 1;
 static Wave compare_waves[MAX_NUMBER_PINS];
-static int number_of_compare_waves = 0;
+static int number_of_compare_waves = 1;
 
 static void bridge_set_period(char*);
 static void bridge_define_pin(char*, char*, char*, char*);
@@ -56,6 +56,7 @@ static void bridge_enable_drive_wave(Pin*);
 static void bridge_disable_drive_wave(Pin*);
 static void bridge_enable_compare_wave(Pin*);
 static void bridge_disable_compare_wave(Pin*);
+static void bridge_define_default_compare_wave(void);
 
 static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * compare_wave_ix) {
   int index = atoi(pin_ix);
@@ -120,8 +121,6 @@ static void bridge_define_wave(char * index, char * compare, char * events) {
 
 
 static void bridge_register_wave_events() {
-  //s_vpi_value v = {vpiIntVal, {0}};
-
   // Drive wave 0 has no events and therefore doesn't count
   if (number_of_drive_waves - 1) {
     for (int i = 1; i < number_of_drive_waves; i++) {
@@ -145,43 +144,25 @@ static void bridge_register_wave_events() {
     }
   }
 
+  for (int i = 0; i < number_of_compare_waves; i++) {
 
+    if (compare_waves[i].active_pin_count) {
+      int x = 0;
 
-  //if (waveforms) {
-  //  for (int i = 0; i < number_of_waveforms; i++) {
+      while (compare_waves[i].events[x].data != 'S') {
+        int time;
 
-  //    int x = 0;
+        time = compare_waves[i].events[x].time;
 
-  //    while (waveforms[i].events[x].data != 'S') {
-  //      int time;
-  //      int data;
-
-  //      time = waveforms[i].events[x].time;
-
-  //      switch(waveforms[i].events[x].data) {
-  //        case '0' :
-  //          data = 1;
-  //          break;
-  //        case '1' :
-  //          data = 2;
-  //          break;
-  //        case 'D' :
-  //          data = 0;
-  //          break;
-  //        default :
-  //          data = 0;
-  //          break;
-  //      }
-  //      if (time == 0) {
-  //        v.value.integer = data;
-  //        vpi_put_value(waveforms[i].force_data, &v, NULL, vpiNoDelay);
-  //      } else {
-  //        bridge_register_wave_event(i, data + '0', time);
-  //      }
-  //      x++;
-  //    }
-  //  }
-  //}
+        // TODO: May save some time by calling directly at time 0
+        //if (time == 0) {
+        //} else {
+          bridge_register_wave_event(i, x, 1, time);
+        //}
+        x++;
+      }
+    }
+  }
 }
 
 static void bridge_enable_drive_wave(Pin * pin) {
@@ -231,9 +212,19 @@ static void bridge_disable_compare_wave(Pin * pin) {
 }
 
 
+static void bridge_define_default_compare_wave() {
+  char * events = malloc(20);
+  snprintf(events, 19, "%i_E", period_in_ns >> 1);
+  bridge_define_wave("0", "1", events);
+  free(events);
+}
+
+
 static void bridge_set_period(char * p_in_ns) {
   int p = (int) strtol(p_in_ns, NULL, 10);
   period_in_ns = p;
+  // Update the default compare wave after a period change
+  bridge_define_default_compare_wave();
 }
 
 
@@ -268,8 +259,9 @@ static void bridge_compare_pin(char * index, char * val) {
   Pin *pin = &pins[atoi(index)];
   s_vpi_value v = {vpiIntVal, {0}};
 
-  // Apply the data value to the pin's driver and enable compare
-  v.value.integer = 0x20 | (val[0] - '0');
+  // Apply the data value to the pin's driver, don't enable compare yet,
+  // the wave will do that later
+  v.value.integer = (val[0] - '0');
   vpi_put_value((*pin).control, &v, NULL, vpiNoDelay);
 
   // Register it as actively comparing with it's wave
