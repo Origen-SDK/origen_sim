@@ -17,7 +17,7 @@ module pin_driver(comparing, capturing, driving, error, pin);
   output comparing;
   output capturing;
   output driving;
-  output error;
+  output reg error;
 
   inout pin;
 
@@ -35,11 +35,13 @@ module pin_driver(comparing, capturing, driving, error, pin);
 
   assign capturing = control[6];
 
-  assign error = comparing ? (pin == control[0] ? 0 : 1) : 0;
+  always @(control or pin) begin
+    error = control[5] ? (pin == control[0] ? 0 : 1) : 0;
+  end
 
 endmodule
 
-module pin_drivers(tck_o, tdi_o, tms_o, trstn_o, rstn_o, tdo_o, done_o);
+module pin_drivers(tck_o, tdi_o, tms_o, trstn_o, rstn_o, tdo_o, done_o, errors_o);
 
   output tck_o;
   output tdi_o;
@@ -49,17 +51,45 @@ module pin_drivers(tck_o, tdi_o, tms_o, trstn_o, rstn_o, tdo_o, done_o);
   output tdo_o;
   output done_o;
 
-  pin_driver tck (.pin(tck_o));
-  pin_driver tdi (.pin(tdi_o));
-  pin_driver tms (.pin(tms_o));
-  pin_driver trstn (.pin(trstn_o));
-  pin_driver rstn (.pin(rstn_o));
-  pin_driver tdo (.pin(tdo_o));
-  pin_driver done (.pin(done_o));
+  wire tck_err;
+  wire tdi_err;
+  wire tms_err;
+  wire trstn_err;
+  wire rstn_err;
+  wire tdo_err;
+  wire done_err;
+
+  output reg [31:0] errors_o = 0;
+
+  //always @(posedge tck_err or posedge tdi_err or posedge tms_err or posedge trstn_err or
+  //         posedge rstn_err or posedge tdo_err or posedge done_err) begin
+  always @(posedge tdo_err) begin
+    errors_o[31:0] = errors_o[31:0] + 1;
+  end
+
+  pin_driver tck (.pin(tck_o), .error(tck_err));
+  pin_driver tdi (.pin(tdi_o), .error(tdi_err));
+  pin_driver tms (.pin(tms_o), .error(tms_err));
+  pin_driver trstn (.pin(trstn_o), .error(trstn_err));
+  pin_driver rstn (.pin(rstn_o), .error(rstn_err));
+  pin_driver tdo (.pin(tdo_o), .error(tdo_err));
+  pin_driver done (.pin(done_o), .error(done_err));
+
+endmodule
+
+
+module debug(errors);
+
+  input [31:0] errors;
+
+  wire failed;
+
+  assign failed = errors[31:0] > 0;
 
 endmodule
 
 module origen_tb;
+
 
   wire tck;
   wire tdi;
@@ -69,6 +99,8 @@ module origen_tb;
   wire tdo;
   wire done;
 
+  wire [31:0] errors;
+
   pin_drivers pins (
     .tck_o(tck),
     .tdi_o(tdi),
@@ -76,7 +108,9 @@ module origen_tb;
     .trstn_o(trstn),
     .tdo_o(tdo),
     .rstn_o(rstn),
-    .done_o(done)
+    .done_o(done),
+
+    .errors_o(errors)
   );
 
   dut dut (
@@ -87,6 +121,10 @@ module origen_tb;
     .tdo(tdo),
     .rstn(rstn),
     .done(done)
+  );
+
+  debug debug (
+    .errors(errors)
   );
 
   initial

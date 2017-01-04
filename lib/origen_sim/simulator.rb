@@ -84,7 +84,7 @@ module OrigenSim
     end
 
     def define_waves
-      put('6^1^0^0_D_25_0_50_D_75_0') # Drive at 0ns, off at 25ns, drive at 50ns, off at 75ns
+      put('6^1^0^0_D_50_0') # Drive at 0ns, off at 50ns
     end
 
     def end_simulation
@@ -109,10 +109,19 @@ module OrigenSim
       end
     end
 
+    # Gets the pass/fail status from the simulator
+    def status
+      sync_up
+      put('9^')
+      get.strip
+    end
+
     def on_origen_shutdown
       if @enabled
         Origen.log.info 'Shutting down simulator...'
-        sync_up unless @failed_to_start
+        unless @failed_to_start
+          @failed = true if status == "FAIL"
+        end
         end_simulation
         @socket.close if @socket
         File.unlink(socket_id) if File.exist?(socket_id)

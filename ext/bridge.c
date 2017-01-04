@@ -134,6 +134,7 @@ static void bridge_register_wave_events() {
 
           time = drive_waves[i].events[x].time;
 
+          // TODO: May save some time by calling directly at time 0
           //if (time == 0) {
           //} else {
             bridge_register_wave_event(i, x, 0, time);
@@ -392,7 +393,8 @@ void bridge_init() {
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(period_in_ns);
+  time.low  = (uint32_t)(100);  // 100ns chosen as a round number and since the actual
+                                // period may not be declared yet
 
   call.reason    = cbAfterDelay;
   call.obj       = 0;
@@ -421,6 +423,8 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
   char msg[max_msg_len];
   int err;
   char *opcode, *arg1, *arg2, *arg3, *arg4;
+  vpiHandle failed;
+  s_vpi_value v;
 
   while(1) {
 
@@ -524,6 +528,20 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       //   8^
       case '8' :
         return 0;
+      // Status
+      //   Returns "PASS" or "FAIL" depending on whether there are any simulation errors
+      //
+      //   9^
+      case '9' :
+        failed = vpi_handle_by_name("origen_tb.debug.failed", NULL);
+        vpi_get_value(failed, &v);
+
+        if (v.value.integer) {
+          client_put("FAIL\n");
+        } else {
+          client_put("PASS\n");
+        }
+        break;
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");
         return 1;
