@@ -39,7 +39,7 @@ static Pin pins[MAX_NUMBER_PINS];
 static int number_of_pins = 0;
 // Allocate space for a unique wave for each pin, in reality it will be much less
 static Wave drive_waves[MAX_NUMBER_PINS];
-static int number_of_drive_waves = 0;
+static int number_of_drive_waves = 1;
 static Wave compare_waves[MAX_NUMBER_PINS];
 static int number_of_compare_waves = 0;
 
@@ -104,13 +104,13 @@ static void bridge_define_wave(char * index, char * compare, char * events) {
   strcpy(myevents, events);
 
   int i = 0;
-  token = strtok(myevents, "^");
+  token = strtok(myevents, "_");
 
   while (token != NULL) {
     (*wave).events[i].time = (int)strtol(token, NULL, 10);
-    token = strtok(NULL, "^");
+    token = strtok(NULL, "_");
     (*wave).events[i].data = token[0];
-    token = strtok(NULL, "^");
+    token = strtok(NULL, "_");
     i++;
   }
   (*wave).events[i].data = 'S'; // Indicate that there are no more events
@@ -125,6 +125,7 @@ static void bridge_register_wave_events() {
   // Drive wave 0 has no events and therefore doesn't count
   if (number_of_drive_waves - 1) {
     for (int i = 1; i < number_of_drive_waves; i++) {
+
       if (drive_waves[i].active_pin_count) {
         int x = 0;
 
@@ -447,6 +448,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         arg2 = strtok(NULL, "^");
         arg3 = strtok(NULL, "^");
         arg4 = strtok(NULL, "^");
+        DEBUG("Define Pin: %s, %s, %s, %s\n", arg1, arg2, arg3, arg4);
         bridge_define_pin(arg1, arg2, arg3, arg4);
         break;
       // Set Period
@@ -463,10 +465,14 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       case '2' :
         arg1 = strtok(NULL, "^");
         arg2 = strtok(NULL, "^");
+        //DEBUG("Drive Pin: %s, %s\n", arg1, arg2);
         bridge_drive_pin(arg1, arg2);
         break;
       // Cycle
-      //   3^
+      //   3^number_of_cycles
+      //
+      //   3^1
+      //   3^65535
       case '3' :
         arg1 = strtok(NULL, "^");
         repeat = strtol(arg1, NULL, 10) - 1;
@@ -501,21 +507,22 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       //
       //   Some example events are shown below:
       //
-      //   6^1^0^0^D^25^0^50^D^75^0  // Drive at 0ns, off at 25ns, drive at 50ns, off at 75ns
+      //   6^1^0^0_D_25_0_50_D_75_0  // Drive at 0ns, off at 25ns, drive at 50ns, off at 75ns
       case '6' :
         arg1 = strtok(NULL, "^");
         arg2 = strtok(NULL, "^");
         arg3 = strtok(NULL, "^");
+        DEBUG("Define Wave: %s, %s, %s\n", arg1, arg2, arg3);
         bridge_define_wave(arg1, arg2, arg3);
         break;
       // Sync-up
-      //   Y^
-      case 'Y' :
+      //   7^
+      case '7' :
         client_put("OK!\n");
         break;
       // Complete
-      //   Z^
-      case 'Z' :
+      //   8^
+      case '8' :
         return 0;
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");

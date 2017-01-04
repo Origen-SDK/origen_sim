@@ -3,6 +3,9 @@ module Origen
   module Pins
     # Override the Origen pin model so we can hook into all changes to pin states
     class Pin
+      # The index number that is used to refer to the pin within the simulation
+      attr_accessor :simulation_index
+
       alias_method :_orig_set_value, :set_value
       def set_value(val)
         ret = _orig_set_value(val)
@@ -28,16 +31,20 @@ module Origen
         tester && tester.is_a?(OrigenSim::Tester)
       end
 
+      def simulator
+        OrigenSim.simulator
+      end
+
       # Applies the current pin state to the simulation, this is triggered everytime
       # the pin state or value changes
       def update_simulation
         case state
           when :drive
-            tester.put("2^#{id}^#{value}")
+            simulator.put("2^#{simulation_index}^#{value}")
           when :compare
-            tester.put("4^#{id}^#{value}")
+            simulator.put("4^#{simulation_index}^#{value}")
           when :dont_care
-            tester.put("5^#{id}")
+            simulator.put("5^#{simulation_index}")
           when :capture
           when :drive_very_high, :drive_mem, :expect_mem, :compare_midband
             fail "Simulation of pin state #{state} is not implemented yet!"

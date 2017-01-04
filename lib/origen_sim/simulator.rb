@@ -45,31 +45,65 @@ module OrigenSim
               @socket = server.accept
               @connection_established = true
               if @connection_timed_out
+                @failed_to_start = true
                 Origen.log.error 'Simulator failed to respond'
                 @failed = true
                 exit
               end
             end
-            data = tester.get
+            data = get
             unless data.strip == 'READY!'
+              @failed_to_start = true
               fail "The simulator didn't start properly!"
             end
+            define_pins
+            define_waves # TEMP, should be invoked by set_timeset
+            # Apply the pin reset values before the simulation starts
+            put_all_pin_states
           end
         end
-        # Apply the pin reset values before the simulation starts
-        tester.put_all_pin_states
       end
     end
 
+    # Applies the current state of all pins to the simulation
+    def put_all_pin_states
+      dut.pins.each { |name, pin| pin.update_simulation }
+    end
+    
+    # Tells the simulator about the pins in the current device so that it can
+    # set up internal handles to efficiently access them
+    def define_pins
+      dut.pins.each_with_index do |(name, pin), i|
+        pin.simulation_index = i
+        if name == :tck
+          put("0^#{pin.id}^#{i}^1^0") 
+        else
+          put("0^#{pin.id}^#{i}^0^0") 
+        end
+      end
+    end
+
+    def define_waves
+      put('6^1^0^0_D_25_0_50_D_75_0') # Drive at 0ns, off at 25ns, drive at 50ns, off at 75ns
+    end
+
     def end_simulation
-      put('Z^')
+      put('8^')
+    end
+
+    def set_period(period_in_ns)
+      put("1^#{period_in_ns}")
+    end
+
+    def cycle(number_of_cycles)
+      put("3^#{number_of_cycles}")
     end
 
     # Blocks the Origen process until the simulator indicates that it has
     # processed all operations up to this point
     def sync_up
-      tester.put('Y^')
-      data = tester.get
+      put('7^')
+      data = get
       unless data.strip == 'OK!'
         fail 'Origen and the simulator are out of sync!'
       end
@@ -78,7 +112,7 @@ module OrigenSim
     def on_origen_shutdown
       if @enabled
         Origen.log.info 'Shutting down simulator...'
-        sync_up
+        sync_up unless @failed_to_start
         end_simulation
         @socket.close if @socket
         File.unlink(socket_id) if File.exist?(socket_id)

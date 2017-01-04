@@ -1,6 +1,7 @@
 Pattern.create do
   tester.set_timeset("func", 100)
 
+  dut.pin(:tck).drive(0)
   dut.pin(:tck).drive(1)
   dut.pin(:rstn).drive(0)
   dut.pin(:trstn).drive!(1)
