@@ -423,7 +423,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
   char msg[max_msg_len];
   int err;
   char *opcode, *arg1, *arg2, *arg3, *arg4;
-  vpiHandle failed;
+  vpiHandle handle;
   s_vpi_value v;
 
   while(1) {
@@ -452,7 +452,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         arg2 = strtok(NULL, "^");
         arg3 = strtok(NULL, "^");
         arg4 = strtok(NULL, "^");
-        DEBUG("Define Pin: %s, %s, %s, %s\n", arg1, arg2, arg3, arg4);
+        //DEBUG("Define Pin: %s, %s, %s, %s\n", arg1, arg2, arg3, arg4);
         bridge_define_pin(arg1, arg2, arg3, arg4);
         break;
       // Set Period
@@ -516,7 +516,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         arg1 = strtok(NULL, "^");
         arg2 = strtok(NULL, "^");
         arg3 = strtok(NULL, "^");
-        DEBUG("Define Wave: %s, %s, %s\n", arg1, arg2, arg3);
+        //DEBUG("Define Wave: %s, %s, %s\n", arg1, arg2, arg3);
         bridge_define_wave(arg1, arg2, arg3);
         break;
       // Sync-up
@@ -528,19 +528,15 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       //   8^
       case '8' :
         return 0;
-      // Status
-      //   Returns "PASS" or "FAIL" depending on whether there are any simulation errors
+      // Error count
+      //   Returns the current value of the debug.errors register
       //
       //   9^
       case '9' :
-        failed = vpi_handle_by_name("origen_tb.debug.failed", NULL);
-        vpi_get_value(failed, &v);
-
-        if (v.value.integer) {
-          client_put("FAIL\n");
-        } else {
-          client_put("PASS\n");
-        }
+        handle = vpi_handle_by_name("origen_tb.debug.errors", NULL);
+        vpi_get_value(handle, &v);
+        sprintf(msg, "%s\n", v.value.str);
+        client_put(msg);
         break;
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");

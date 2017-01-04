@@ -61,9 +61,8 @@ module pin_drivers(tck_o, tdi_o, tms_o, trstn_o, rstn_o, tdo_o, done_o, errors_o
 
   output reg [31:0] errors_o = 0;
 
-  //always @(posedge tck_err or posedge tdi_err or posedge tms_err or posedge trstn_err or
-  //         posedge rstn_err or posedge tdo_err or posedge done_err) begin
-  always @(posedge tdo_err) begin
+  always @(posedge tck_err or posedge tdi_err or posedge tms_err or posedge trstn_err or
+           posedge rstn_err or posedge tdo_err or posedge done_err) begin
     errors_o[31:0] = errors_o[31:0] + 1;
   end
 
@@ -81,10 +80,6 @@ endmodule
 module debug(errors);
 
   input [31:0] errors;
-
-  wire failed;
-
-  assign failed = errors[31:0] > 0;
 
 endmodule
 

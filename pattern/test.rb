@@ -7,6 +7,8 @@ Pattern.create do
   10.cycles
   dut.pin(:trstn).drive!(1)
   10.cycles
+  debugger
   dut.jtag.write_ir(0x5, size: 4)
+  dut.jtag.read_ir(0x5, size: 4)
   dut.jtag.read_ir(0x5, size: 4)
 end

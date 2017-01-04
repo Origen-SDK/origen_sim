@@ -109,18 +109,22 @@ module OrigenSim
       end
     end
 
-    # Gets the pass/fail status from the simulator
-    def status
+    # Gets the current simulation error count
+    def error_count
       sync_up
       put('9^')
-      get.strip
+      get.strip.to_i
     end
 
     def on_origen_shutdown
       if @enabled
-        Origen.log.info 'Shutting down simulator...'
+        Origen.log.debug 'Shutting down simulator...'
         unless @failed_to_start
-          @failed = true if status == "FAIL"
+          c = error_count
+          if c > 0
+            @failed = true
+            Origen.log.error "The simulation failed with #{c} errors!"
+          end
         end
         end_simulation
         @socket.close if @socket
