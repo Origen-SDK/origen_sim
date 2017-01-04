@@ -35,7 +35,7 @@ typedef struct Wave {
 } Wave;
 
 static int period_in_ns;
-static long repeat;
+static long repeat = 0;
 static Pin pins[MAX_NUMBER_PINS];
 static int number_of_pins = 0;
 // Allocate space for a unique wave for each pin, in reality it will be much less
@@ -505,7 +505,10 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       //   3^65535
       case '3' :
         arg1 = strtok(NULL, "^");
-        repeat = strtol(arg1, NULL, 10) - 1;
+        repeat = strtol(arg1, NULL, 10);
+        if (repeat) {
+          repeat = repeat - 1;
+        }
         bridge_cycle();
         return 0;
       // Compare Pin
@@ -608,6 +611,7 @@ static void bridge_cycle() {
   call.value     = 0;
   call.user_data = 0;
 
+  //DEBUG("REPEAT: %d\n", repeat);
   if (repeat) {
     call.cb_rtn    = bridge_cycle_cb;
   } else {
