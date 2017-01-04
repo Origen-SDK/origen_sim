@@ -81,6 +81,8 @@ module debug(errors);
 
   input [31:0] errors;
 
+  reg [1023:0] pattern = 0;
+
 endmodule
 
 module origen_tb;

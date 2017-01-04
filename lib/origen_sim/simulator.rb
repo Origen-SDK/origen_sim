@@ -23,7 +23,7 @@ module OrigenSim
     # sure the simulator is not running behind before potentially
     # moving onto another pattern
     def pattern_generated(path)
-      sync_up
+      sync_up if simulation_tester?
     end
 
     # Called before every pattern is generated, but we only use it the
@@ -62,6 +62,7 @@ module OrigenSim
             put_all_pin_states
           end
         end
+        put("a^#{name.sub(/\..*/, '')}")
       end
     end
 

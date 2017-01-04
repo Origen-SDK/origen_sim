@@ -535,8 +535,19 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       case '9' :
         handle = vpi_handle_by_name("origen_tb.debug.errors", NULL);
         vpi_get_value(handle, &v);
+        v.format = vpiDecStrVal;
         sprintf(msg, "%s\n", v.value.str);
         client_put(msg);
+        break;
+      // Set Pattern Name
+      //   a^atd_ramp_25mhz
+      case 'a' :
+        handle = vpi_handle_by_name("origen_tb.debug.pattern", NULL);
+        arg1 = strtok(NULL, "^");
+
+        v.format = vpiStringVal;
+        v.value.str = arg1;
+        vpi_put_value(handle, &v, NULL, vpiNoDelay);
         break;
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");
