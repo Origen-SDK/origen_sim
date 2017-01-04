@@ -78,6 +78,8 @@ module OrigenSim
         pin.simulation_index = i
         if name == :tck
           put("0^#{pin.id}^#{i}^1^0") 
+        elsif name == :tdo
+          put("0^#{pin.id}^#{i}^0^1") 
         else
           put("0^#{pin.id}^#{i}^0^0") 
         end
@@ -86,6 +88,7 @@ module OrigenSim
 
     def define_waves
       put('6^1^0^0_D_50_0') # Drive at 0ns, off at 50ns
+      put('6^1^1^10_C_11_X') # Compare at 10ns, off at 11ns
     end
 
     def end_simulation

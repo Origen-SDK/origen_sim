@@ -14,6 +14,7 @@
 typedef struct Pin {
   vpiHandle control;     // A handle to the driver control register
   vpiHandle force_data;  // A handle to the driver force_data register
+  vpiHandle compare;     // A handle to the driver compare register
   int drive_wave;        // Index of the drive wave to be used for this pin
   int compare_wave;      // Index of the compare wave to be used for this pin
   int drive_wave_pos;    // Position of the pin in the drive_wave's active pin array
@@ -42,6 +43,7 @@ static Wave drive_waves[MAX_NUMBER_PINS];
 static int number_of_drive_waves = 1;
 static Wave compare_waves[MAX_NUMBER_PINS];
 static int number_of_compare_waves = 1;
+static int runtime_errors = 0;
 
 static void bridge_set_period(char*);
 static void bridge_define_pin(char*, char*, char*, char*);
@@ -83,6 +85,13 @@ static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, 
   strcat(force, ".force_data");
   (*pin).force_data = vpi_handle_by_name(force, NULL);
   free(force);
+
+  char * compare = (char *) malloc(strlen(driver) + 16);
+  strcpy(compare, driver);
+  strcat(compare, ".compare");
+  (*pin).compare = vpi_handle_by_name(compare, NULL);
+  free(compare);
+
   free(driver);
 }
 
@@ -214,7 +223,8 @@ static void bridge_disable_compare_wave(Pin * pin) {
 
 static void bridge_define_default_compare_wave() {
   char * events = malloc(20);
-  snprintf(events, 19, "%i_E", period_in_ns >> 1);
+  int edge = period_in_ns >> 1;
+  snprintf(events, 19, "%i_C_%i_X", edge, edge + 1);
   bridge_define_wave("0", "1", events);
   free(events);
 }
@@ -310,31 +320,52 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
 
   if (*compare) {
     wave = &compare_waves[*wave_ix];
+
+    int d;
+    switch((*wave).events[*event_ix].data) {
+      case 'C' :
+        d = 1;
+        break;
+      case 'X' :
+        d = 0;
+        break;
+      default :
+        vpi_printf("ERROR: Unknown compare event: %c", (*wave).events[*event_ix].data);
+        runtime_errors += 1;
+        return 1;
+    }
+
+    v.value.integer = d;
+    for (int i = 0; i < (*wave).active_pin_count; i++) {
+      vpi_put_value((*(*wave).active_pins[i]).compare, &v, NULL, vpiNoDelay);
+    }
+
+
   } else {
     wave = &drive_waves[*wave_ix];
-  }
 
-  int d;
+    int d;
+    switch((*wave).events[*event_ix].data) {
+      case '0' :
+        d = 1;
+        break;
+      case '1' :
+        d = 2;
+        break;
+      case 'D' :
+        d = 0;
+        break;
+      default :
+        vpi_printf("ERROR: Unknown drive event: %c", (*wave).events[*event_ix].data);
+        runtime_errors += 1;
+        return 1;
+    }
 
-  switch((*wave).events[*event_ix].data) {
-    case '0' :
-      d = 1;
-      break;
-    case '1' :
-      d = 2;
-      break;
-    case 'D' :
-      d = 0;
-      break;
-    default :
-      d = 0;
-      break;
-  }
+    v.value.integer = d;
 
-  v.value.integer = d;
-
-  for (int i = 0; i < (*wave).active_pin_count; i++) {
-    vpi_put_value((*(*wave).active_pins[i]).force_data, &v, NULL, vpiNoDelay);
+    for (int i = 0; i < (*wave).active_pin_count; i++) {
+      vpi_put_value((*(*wave).active_pins[i]).force_data, &v, NULL, vpiNoDelay);
+    }
   }
 
   free(data->user_data);
@@ -423,6 +454,9 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
     err = client_get(max_msg_len, msg);
     if (err) {
       vpi_printf("ERROR: Failed to receive from Origen!\n");
+      return 1;
+    }
+    if (runtime_errors) {
       return 1;
     }
 
@@ -526,8 +560,8 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       //   9^
       case '9' :
         handle = vpi_handle_by_name("origen_tb.debug.errors", NULL);
+        v.format = vpiDecStrVal; // Seems important to set this before get
         vpi_get_value(handle, &v);
-        v.format = vpiDecStrVal;
         sprintf(msg, "%s\n", v.value.str);
         client_put(msg);
         break;
@@ -543,6 +577,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         break;
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");
+        runtime_errors += 1;
         return 1;
     }
   }

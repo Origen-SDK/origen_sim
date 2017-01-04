@@ -8,21 +8,22 @@
 // 3 - Reserved
 // 4 - Drive
 // 5 - Compare
-// 6 - Capture
+//
+// 0 - Compare
 //
 // 0 - Force data 0
 // 1 - Force data 1
-module pin_driver(comparing, capturing, driving, error, pin);
+module pin_driver(error, pin);
 
-  output comparing;
   output capturing;
   output driving;
   output reg error;
 
   inout pin;
 
-  reg [6:0] control = 0;
+  reg [5:0] control = 0;
   reg [1:0] force_data = 0;
+  reg compare = 0;
   reg [1023:0] memory = 0;
 
   wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : control[0]);
@@ -31,12 +32,12 @@ module pin_driver(comparing, capturing, driving, error, pin);
 
   assign driving = control[4];
 
-  assign comparing = control[5];
+  assign capturing = control[5];
 
-  assign capturing = control[6];
+  wire expect_data = compare ? control[0] : 1'bz;
 
-  always @(control or pin) begin
-    error = control[5] ? (pin == control[0] ? 0 : 1) : 0;
+  always @(*) begin
+    error = compare ? (pin == control[0] ? 0 : 1) : 0;
   end
 
 endmodule
