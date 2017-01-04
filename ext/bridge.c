@@ -8,224 +8,369 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static int period_in_ns;
-static void bridge_cycle(void);
-static void bridge_drive_pin(char*, char*);
-static void bridge_compare_pin(char*, char*);
-static void bridge_dont_care_pin(char*);
-static void bridge_set_net(char*, uint32_t);
-static void bridge_apply_waveform(int, char, int);
-static void register_waveform_events(void);
-static long repeat;
+#define MAX_NUMBER_PINS 2000
+#define MAX_WAVE_EVENTS 10
+
+typedef struct Pin {
+  vpiHandle control;     // A handle to the driver control register
+  vpiHandle force_data;  // A handle to the driver force_data register
+  int drive_wave;        // Index of the drive wave to be used for this pin
+  int compare_wave;      // Index of the compare wave to be used for this pin
+  int drive_wave_pos;    // Position of the pin in the drive_wave's active pin array
+  int compare_wave_pos;  // Position of the pin in the compare_wave's active pin array
+  int index;             // The pin's index in the pins array
+  int previous_state;    // Used to keep track of whether the pin was previously driving or comparing
+} Pin;
 
 typedef struct Event {
   int time;
   char data;
 } Event;
 
-typedef struct Waveform {
-  char * pin;
-  vpiHandle control;     // A handle to the driver control register
-  vpiHandle force_data;  // A handle to the driver force_data register
-  Event events[10];
-} Waveform;
+typedef struct Wave {
+  Event events[MAX_WAVE_EVENTS];
+  Pin *active_pins[MAX_NUMBER_PINS];
+  int active_pin_count;
+} Wave;
 
-static Waveform * waveforms = NULL;
-static int number_of_waveforms = 0;
+static int period_in_ns;
+static long repeat;
+static Pin pins[MAX_NUMBER_PINS];
+static int number_of_pins = 0;
+// Allocate space for a unique wave for each pin, in reality it will be much less
+static Wave drive_waves[MAX_NUMBER_PINS];
+static int number_of_drive_waves = 0;
+static Wave compare_waves[MAX_NUMBER_PINS];
+static int number_of_compare_waves = 0;
 
-/// Example waveform message:
-///   "2^clock^0^D^25^0^50^D^75^0^END^tck^0^D^50^0^END"
-void bridge_define_waveforms(char * waves) {
-  char *token;
+static void bridge_set_period(char*);
+static void bridge_define_pin(char*, char*, char*, char*);
+static void bridge_define_wave(char*, char*, char*);
+static void bridge_cycle(void);
+static void bridge_drive_pin(char*, char*);
+static void bridge_compare_pin(char*, char*);
+static void bridge_dont_care_pin(char*);
+static void bridge_register_wave_events(void);
+static void bridge_register_wave_event(int, int, int, int);
+static void bridge_enable_drive_wave(Pin*);
+static void bridge_disable_drive_wave(Pin*);
+static void bridge_enable_compare_wave(Pin*);
+static void bridge_disable_compare_wave(Pin*);
 
-  if (waveforms) {
-    // TODO: Should free the memory for the pin names first
-    free(waveforms);
-    number_of_waveforms = 0;
-  }
+static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * compare_wave_ix) {
+  int index = atoi(pin_ix);
+  Pin *pin = &pins[index];
+  number_of_pins += 1;
 
-  // strtok needs a writable copy of waves
-  char * mywaves = (char *) malloc(strlen(waves) + 1);
-  strcpy(mywaves, waves);
+  (*pin).index = index;
+  (*pin).drive_wave = atoi(drive_wave_ix);
+  (*pin).compare_wave = atoi(compare_wave_ix);
+  (*pin).previous_state = 0;
 
-  // First in the stream is the amount of pins that have waveforms, get it and prepare
-  // the space for them
-  token = strtok(mywaves, "^");
-  number_of_waveforms = (int)strtol(token, NULL, 10);
-  waveforms = (Waveform *) malloc(number_of_waveforms * sizeof(Waveform));
+  char * driver = (char *) malloc(strlen(name) + 16);
+  strcpy(driver, "origen_tb.pins.");
+  strcat(driver, name);
 
-  for (int i = 0; i < number_of_waveforms; i++) {
-    token = strtok(NULL, "^");
-    waveforms[i].pin = (char *) malloc(strlen(token) + 1);
-    strcpy(waveforms[i].pin, token);
+  char * control = (char *) malloc(strlen(driver) + 16);
+  strcpy(control, driver);
+  strcat(control, ".control");
+  (*pin).control = vpi_handle_by_name(control, NULL);
+  free(control);
 
-    char * driver = (char *) malloc(strlen(token) + 16);
-    strcpy(driver, "origen_tb.pins.");
-    strcat(driver, token);
-
-    char * control = (char *) malloc(strlen(driver) + 16);
-    strcpy(control, driver);
-    strcat(control, ".control");
-    waveforms[i].control = vpi_handle_by_name(control, NULL);
-    free(control);
-
-    char * force = (char *) malloc(strlen(driver) + 16);
-    strcpy(force, driver);
-    strcat(force, ".force_data");
-    waveforms[i].force_data = vpi_handle_by_name(force, NULL);
-    free(force);
-
-    int x = 0;
-    token = strtok(NULL, "^");
-    while (strcmp(token, "END") != 0) {
-      waveforms[i].events[x].time = (int)strtol(token, NULL, 10);
-      token = strtok(NULL, "^");
-      waveforms[i].events[x].data = token[0];
-      token = strtok(NULL, "^");
-      x++;
-    }
-    waveforms[i].events[x].data = 'S'; // Indicate that there are no more events
-  }
-  free(mywaves);
+  char * force = (char *) malloc(strlen(driver) + 16);
+  strcpy(force, driver);
+  strcat(force, ".force_data");
+  (*pin).force_data = vpi_handle_by_name(force, NULL);
+  free(force);
+  free(driver);
 }
 
 
-static void register_waveform_events() {
-  s_vpi_value v = {vpiIntVal, {0}};
+static void bridge_define_wave(char * index, char * compare, char * events) {
+  int ix = atoi(index);
+  Wave * wave;
+ 
+  if (compare[0] == '0') {
+    wave = &drive_waves[ix];
+    number_of_drive_waves += 1;
+  } else {
+    wave = &compare_waves[ix];
+    number_of_compare_waves += 1;
+  }
+ 
+  char * token;
+  // strtok needs a writable copy of events
+  char * myevents = (char *) malloc(strlen(events) + 1);
+  strcpy(myevents, events);
 
-  if (waveforms) {
-    for (int i = 0; i < number_of_waveforms; i++) {
+  int i = 0;
+  token = strtok(myevents, "^");
 
-      int x = 0;
+  while (token != NULL) {
+    (*wave).events[i].time = (int)strtol(token, NULL, 10);
+    token = strtok(NULL, "^");
+    (*wave).events[i].data = token[0];
+    token = strtok(NULL, "^");
+    i++;
+  }
+  (*wave).events[i].data = 'S'; // Indicate that there are no more events
+  free(myevents);
+  (*wave).active_pin_count = 0;
+}
 
-      while (waveforms[i].events[x].data != 'S') {
-        int time;
-        int data;
 
-        time = waveforms[i].events[x].time;
+static void bridge_register_wave_events() {
+  //s_vpi_value v = {vpiIntVal, {0}};
 
-        switch(waveforms[i].events[x].data) {
-          case '0' :
-            data = 1;
-            break;
-          case '1' :
-            data = 2;
-            break;
-          case 'D' :
-            data = 0;
-            break;
-          default :
-            data = 0;
-            break;
+  // Drive wave 0 has no events and therefore doesn't count
+  if (number_of_drive_waves - 1) {
+    for (int i = 1; i < number_of_drive_waves; i++) {
+      if (drive_waves[i].active_pin_count) {
+        int x = 0;
+
+        while (drive_waves[i].events[x].data != 'S') {
+          int time;
+
+          time = drive_waves[i].events[x].time;
+
+          //if (time == 0) {
+          //} else {
+            bridge_register_wave_event(i, x, 0, time);
+          //}
+          x++;
         }
-        if (time == 0) {
-          v.value.integer = data;
-          vpi_put_value(waveforms[i].force_data, &v, NULL, vpiNoDelay);
-        } else {
-          bridge_apply_waveform(i, data + '0', time);
-        }
-        x++;
       }
     }
   }
+
+
+
+  //if (waveforms) {
+  //  for (int i = 0; i < number_of_waveforms; i++) {
+
+  //    int x = 0;
+
+  //    while (waveforms[i].events[x].data != 'S') {
+  //      int time;
+  //      int data;
+
+  //      time = waveforms[i].events[x].time;
+
+  //      switch(waveforms[i].events[x].data) {
+  //        case '0' :
+  //          data = 1;
+  //          break;
+  //        case '1' :
+  //          data = 2;
+  //          break;
+  //        case 'D' :
+  //          data = 0;
+  //          break;
+  //        default :
+  //          data = 0;
+  //          break;
+  //      }
+  //      if (time == 0) {
+  //        v.value.integer = data;
+  //        vpi_put_value(waveforms[i].force_data, &v, NULL, vpiNoDelay);
+  //      } else {
+  //        bridge_register_wave_event(i, data + '0', time);
+  //      }
+  //      x++;
+  //    }
+  //  }
+  //}
+}
+
+static void bridge_enable_drive_wave(Pin * pin) {
+  Wave *wave = &drive_waves[(*pin).drive_wave];
+
+  (*wave).active_pins[(*wave).active_pin_count] = pin;
+  (*pin).drive_wave_pos = (*wave).active_pin_count;
+  (*wave).active_pin_count += 1;
+}
+
+static void bridge_disable_drive_wave(Pin * pin) {
+  Wave *wave = &compare_waves[(*pin).drive_wave];
+
+  // If pin is last, we can clear it by just decrementing the active pin counter
+  if ((*pin).drive_wave_pos != (*wave).active_pin_count - 1) {
+    // Otherwise we can remove it by overwriting it with the current last pin in the
+    // array, since the order is not important
+    (*wave).active_pins[(*pin).drive_wave_pos] = (*wave).active_pins[(*wave).active_pin_count - 1];
+    // Need to let the moved pin know its new position
+    (*(*wave).active_pins[(*pin).drive_wave_pos]).drive_wave_pos = (*pin).drive_wave_pos;
+  }
+
+  (*wave).active_pin_count -= 1;
+}
+
+static void bridge_enable_compare_wave(Pin * pin) {
+  Wave *wave = &compare_waves[(*pin).compare_wave];
+
+  (*wave).active_pins[(*wave).active_pin_count] = pin;
+  (*pin).compare_wave_pos = (*wave).active_pin_count;
+  (*wave).active_pin_count += 1;
+}
+
+static void bridge_disable_compare_wave(Pin * pin) {
+  Wave *wave = &compare_waves[(*pin).compare_wave];
+
+  // If pin is last, we can clear it by just decrementing the active pin counter
+  if ((*pin).compare_wave_pos != (*wave).active_pin_count - 1) {
+    // Otherwise we can remove it by overwriting it with the current last pin in the
+    // array, since the order is not important
+    (*wave).active_pins[(*pin).compare_wave_pos] = (*wave).active_pins[(*wave).active_pin_count - 1];
+    // Need to let the moved pin know its new position
+    (*(*wave).active_pins[(*pin).compare_wave_pos]).compare_wave_pos = (*pin).compare_wave_pos;
+  }
+
+  (*wave).active_pin_count -= 1;
 }
 
 
-/// This is called first upon a simulation start and it will block until it receives
-/// a set_timeset message from Origen
-void bridge_set_period(char * p_in_ns) {
+static void bridge_set_period(char * p_in_ns) {
   int p = (int) strtol(p_in_ns, NULL, 10);
   period_in_ns = p;
 }
 
 
 /// Immediately drives the given pin to the given value
-static void bridge_drive_pin(char * name, char * val) {
-  char * net = (char *) malloc(strlen(name) + 25);
-  strcpy(net, "origen_tb.pins.");
-  strcat(net, name);
-  strcat(net, ".control");
+static void bridge_drive_pin(char * index, char * val) {
+  Pin *pin = &pins[atoi(index)];
+  s_vpi_value v = {vpiIntVal, {0}};
 
-  bridge_set_net(net, 0x10 | (val[0] - '0'));
+  // Apply the data value to the pin's driver
+  v.value.integer = 0x10 | (val[0] - '0');
+  vpi_put_value((*pin).control, &v, NULL, vpiNoDelay);
 
-  free(net);
+  // Register it as actively driving with it's wave
+  
+  // If it is already driving the wave will already be setup
+  if ((*pin).previous_state != 1) {
+    // Wave 0 means drive for the whole cycle and there are no events
+    // to register for
+    if ((*pin).drive_wave != 0) {
+      bridge_enable_drive_wave(pin);
+    }
+    if ((*pin).previous_state == 2) {
+      bridge_disable_compare_wave(pin);
+    }
+    (*pin).previous_state = 1;
+  }
 }
 
 
 /// Immediately sets the given pin to compare against the given value
-static void bridge_compare_pin(char * name, char * val) {
-  char * net = (char *) malloc(strlen(name) + 25);
-  strcpy(net, "origen_tb.pins.");
-  strcat(net, name);
-  strcat(net, ".control");
+static void bridge_compare_pin(char * index, char * val) {
+  Pin *pin = &pins[atoi(index)];
+  s_vpi_value v = {vpiIntVal, {0}};
 
-  bridge_set_net(net, 0x20 | (val[0] - '0'));
+  // Apply the data value to the pin's driver and enable compare
+  v.value.integer = 0x20 | (val[0] - '0');
+  vpi_put_value((*pin).control, &v, NULL, vpiNoDelay);
 
-  free(net);
+  // Register it as actively comparing with it's wave
+  
+  // If it is already comparing the wave will already be setup
+  if ((*pin).previous_state != 2) {
+    bridge_enable_compare_wave(pin);
+    if ((*pin).previous_state == 1) {
+      bridge_disable_drive_wave(pin);
+    }
+    (*pin).previous_state = 2;
+  }
 }
 
 
 /// Immediately sets the given pin to don't compare
-static void bridge_dont_care_pin(char * name) {
-  char * net = (char *) malloc(strlen(name) + 25);
-  strcpy(net, "origen_tb.pins.");
-  strcat(net, name);
-  strcat(net, ".control");
+static void bridge_dont_care_pin(char * index) {
+  Pin *pin = &pins[atoi(index)];
+  s_vpi_value v = {vpiIntVal, {0}};
 
-  bridge_set_net(net, 0);
+  // Disable drive and compare on the pin's driver
+  v.value.integer = 0;
+  vpi_put_value((*pin).control, &v, NULL, vpiNoDelay);
 
-  free(net);
+  if ((*pin).previous_state != 0) {
+    if ((*pin).previous_state == 1) {
+      bridge_disable_drive_wave(pin);
+    }
+    if ((*pin).previous_state == 2) {
+      bridge_disable_compare_wave(pin);
+    }
+    (*pin).previous_state = 0;
+  }
 }
 
 
-/// Immediately sets the given net to the given value
-static void bridge_set_net(char * path, uint32_t val) {
-  s_vpi_value v = {vpiIntVal, {0}};
-  vpiHandle net;
-
-  net = vpi_handle_by_name(path, NULL);
-  v.value.integer = val;
-  vpi_put_value(net, &v, NULL, vpiNoDelay);
-}
-
-
-/// Callback handler to implement bridge_apply_waveform
-PLI_INT32 bridge_apply_waveform_cb(p_cb_data data) {
+/// Callback handler to implement the events registered by bridge_register_wave_event
+PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
   s_vpi_value v = {vpiIntVal, {0}};
 
-  char *wave_index, *value;
-  wave_index = strtok(data->user_data, "^");
-  value = strtok(NULL, "^");
+  int * wave_ix  = (int*)(&(data->user_data[0]));
+  int * event_ix = (int*)(&(data->user_data[sizeof(int)]));
+  int * compare  = (int*)(&(data->user_data[sizeof(int) * 2]));
 
-  v.value.integer = value[0] - '0';
-  vpi_put_value(waveforms[strtol(wave_index, NULL, 10)].force_data, &v, NULL, vpiNoDelay);
+  Wave * wave;
+
+  if (*compare) {
+    wave = &compare_waves[*wave_ix];
+  } else {
+    wave = &drive_waves[*wave_ix];
+  }
+
+  int d;
+
+  switch((*wave).events[*event_ix].data) {
+    case '0' :
+      d = 1;
+      break;
+    case '1' :
+      d = 2;
+      break;
+    case 'D' :
+      d = 0;
+      break;
+    default :
+      d = 0;
+      break;
+  }
+
+  v.value.integer = d;
+
+  for (int i = 0; i < (*wave).active_pin_count; i++) {
+    vpi_put_value((*(*wave).active_pins[i]).force_data, &v, NULL, vpiNoDelay);
+  }
+
   free(data->user_data);
+
   return 0;
 }
 
 
-/// Registers a callback to apply the given waveform during this cycle
-static void bridge_apply_waveform(int wave, char data, int delay_in_ns) {
+/// Registers a callback to apply the given wave during this cycle
+static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, int delay_in_ns) {
   s_cb_data call;
   s_vpi_time time;
-  char buffer[16];
 
-  snprintf(buffer, sizeof(buffer), "%d", wave);
+  // This will get freed by the callback
+  char * user_data = (char *) malloc((sizeof(int) * 3));
 
-  char * user_data = (char *) malloc(sizeof(buffer) + 8);
-  strcpy(user_data, buffer);
-  strcat(user_data, "^");
-  int len = strlen(user_data);
-  user_data[len] = data;
-  user_data[len + 1] = '\0';
-  // data will get freed by the callback
+  int * d0 = (int*)(&user_data[0]);
+  int * d1 = (int*)(&user_data[sizeof(int)]);
+  int * d2 = (int*)(&user_data[sizeof(int) * 2]);
+
+  *d0 = wave_ix;
+  *d1 = event_ix;
+  *d2 = compare;
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
   time.low  = (uint32_t)(delay_in_ns);
 
   call.reason    = cbAfterDelay;
-  call.cb_rtn    = bridge_apply_waveform_cb;
+  call.cb_rtn    = bridge_apply_wave_event_cb;
   call.obj       = 0;
   call.time      = &time;
   call.value     = 0;
@@ -262,6 +407,7 @@ void bridge_init() {
 PLI_INT32 bridge_init_done(p_cb_data data) {
   UNUSED(data);
   client_put("READY!\n");
+
   return bridge_wait_for_msg(NULL);
 }
 
@@ -273,7 +419,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
   int max_msg_len = 100;
   char msg[max_msg_len];
   int err;
-  char *opcode, *arg1, *arg2;
+  char *opcode, *arg1, *arg2, *arg3, *arg4;
 
   while(1) {
 
@@ -286,6 +432,23 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
     opcode = strtok(msg, "^");
 
     switch(*opcode) {
+      // Define pin
+      //   0^pin_name^pin_index^drive_wave_ix^capture_wave_ix
+      //
+      //   0 for the wave indexes means the default, custom waves
+      //   must therefore start from index 1
+      //
+      //   The pin index must be uniquely assigned to the pin by the caller
+      //   and must be less than MAX_NUMBER_PINS
+      //
+      //   0^tdi^12^0^0  
+      case '0' :
+        arg1 = strtok(NULL, "^");
+        arg2 = strtok(NULL, "^");
+        arg3 = strtok(NULL, "^");
+        arg4 = strtok(NULL, "^");
+        bridge_define_pin(arg1, arg2, arg3, arg4);
+        break;
       // Set Period
       //   1^100
       case '1' :
@@ -293,8 +456,10 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         bridge_set_period(arg1);
         break;
       // Drive Pin
-      //   2^clock^0
-      //   2^clock^1
+      //   2^pin_index^data
+      //
+      //   2^12^0
+      //   2^12^1
       case '2' :
         arg1 = strtok(NULL, "^");
         arg2 = strtok(NULL, "^");
@@ -308,18 +473,40 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         bridge_cycle();
         return 0;
       // Compare Pin
-      //   4^tdo^0
-      //   4^tdo^1
+      //   4^pin_index^data
+      //
+      //   4^14^0
+      //   4^14^1
       case '4' :
         arg1 = strtok(NULL, "^");
         arg2 = strtok(NULL, "^");
         bridge_compare_pin(arg1, arg2);
         break;
       // Don't Care Pin
-      //   5^tdo
+      //   5^pin_index
+      //
+      //   5^14
       case '5' :
         arg1 = strtok(NULL, "^");
         bridge_dont_care_pin(arg1);
+        break;
+      // Define wave
+      //   6^wave_index^compare^events
+      //
+      //   0 for the wave indexes means the default, custom waves
+      //   must therefore start from index 1
+      //
+      //   0 for the compare parameter means it is a drive wave, 1 means it is
+      //   for when the pin is in compare mode
+      //
+      //   Some example events are shown below:
+      //
+      //   6^1^0^0^D^25^0^50^D^75^0  // Drive at 0ns, off at 25ns, drive at 50ns, off at 75ns
+      case '6' :
+        arg1 = strtok(NULL, "^");
+        arg2 = strtok(NULL, "^");
+        arg3 = strtok(NULL, "^");
+        bridge_define_wave(arg1, arg2, arg3);
         break;
       // Sync-up
       //   Y^
@@ -370,5 +557,5 @@ static void bridge_cycle() {
 
   vpi_free_object(vpi_register_cb(&call));
 
-  register_waveform_events();
+  bridge_register_wave_events();
 }
