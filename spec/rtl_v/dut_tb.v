@@ -4,10 +4,8 @@
 
 // 0 - Data
 // 1 - Reserved 
-// 2 - Reserved
-// 3 - Reserved
-// 4 - Drive
-// 5 - Compare
+//
+// 0 - Drive
 //
 // 0 - Compare
 //
@@ -15,29 +13,25 @@
 // 1 - Force data 1
 module pin_driver(error, pin);
 
-  output capturing;
-  output driving;
   output reg error;
 
   inout pin;
 
-  reg [5:0] control = 0;
+  reg [1:0] data = 0;
   reg [1:0] force_data = 0;
   reg compare = 0;
+  reg drive = 0;
   reg [1023:0] memory = 0;
 
-  wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : control[0]);
+  wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : data[0]);
 
-  assign pin = driving ? drive_data : 1'bz;
+  assign pin = drive ? drive_data : 1'bz;
 
-  assign driving = control[4];
-
-  assign capturing = control[5];
-
-  wire expect_data = compare ? control[0] : 1'bz;
+  // Debug signal to show the expected data in the waves
+  wire expect_data = compare ? data[0] : 1'bz;
 
   always @(*) begin
-    error = compare ? (pin == control[0] ? 0 : 1) : 0;
+    error = compare ? (pin == data[0] ? 0 : 1) : 0;
   end
 
 endmodule

@@ -12,9 +12,10 @@
 #define MAX_WAVE_EVENTS 10
 
 typedef struct Pin {
-  vpiHandle control;     // A handle to the driver control register
+  vpiHandle data;        // A handle to the driver data register
+  vpiHandle drive;       // A handle to the driver drive enable register
   vpiHandle force_data;  // A handle to the driver force_data register
-  vpiHandle compare;     // A handle to the driver compare register
+  vpiHandle compare;     // A handle to the driver compare enable register
   int drive_wave;        // Index of the drive wave to be used for this pin
   int compare_wave;      // Index of the compare wave to be used for this pin
   int drive_wave_pos;    // Position of the pin in the drive_wave's active pin array
@@ -40,7 +41,7 @@ static Pin pins[MAX_NUMBER_PINS];
 static int number_of_pins = 0;
 // Allocate space for a unique wave for each pin, in reality it will be much less
 static Wave drive_waves[MAX_NUMBER_PINS];
-static int number_of_drive_waves = 1;
+static int number_of_drive_waves = 0;
 static Wave compare_waves[MAX_NUMBER_PINS];
 static int number_of_compare_waves = 0;
 static int runtime_errors = 0;
@@ -73,11 +74,17 @@ static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, 
   strcpy(driver, "origen_tb.pins.");
   strcat(driver, name);
 
-  char * control = (char *) malloc(strlen(driver) + 16);
-  strcpy(control, driver);
-  strcat(control, ".control");
-  (*pin).control = vpi_handle_by_name(control, NULL);
-  free(control);
+  char * data = (char *) malloc(strlen(driver) + 16);
+  strcpy(data, driver);
+  strcat(data, ".data");
+  (*pin).data = vpi_handle_by_name(data, NULL);
+  free(data);
+
+  char * drive = (char *) malloc(strlen(driver) + 16);
+  strcpy(drive, driver);
+  strcat(drive, ".drive");
+  (*pin).drive = vpi_handle_by_name(drive, NULL);
+  free(drive);
 
   char * force = (char *) malloc(strlen(driver) + 16);
   strcpy(force, driver);
@@ -129,8 +136,7 @@ static void bridge_define_wave(char * index, char * compare, char * events) {
 
 
 static void bridge_register_wave_events() {
-  // Drive wave 0 has no events and therefore doesn't count
-  if (number_of_drive_waves - 1) {
+  if (number_of_drive_waves) {
     for (int i = 1; i < number_of_drive_waves; i++) {
 
       if (drive_waves[i].active_pin_count) {
@@ -232,8 +238,13 @@ static void bridge_drive_pin(char * index, char * val) {
   s_vpi_value v = {vpiIntVal, {0}};
 
   // Apply the data value to the pin's driver
-  v.value.integer = 0x10 | (val[0] - '0');
-  vpi_put_value((*pin).control, &v, NULL, vpiNoDelay);
+  v.value.integer = (val[0] - '0');
+  vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
+  v.value.integer = 1;
+  vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
+  // Make sure not comparing
+  v.value.integer = 0;
+  vpi_put_value((*pin).compare, &v, NULL, vpiNoDelay);
 
   // Register it as actively driving with it's wave
   
@@ -260,7 +271,10 @@ static void bridge_compare_pin(char * index, char * val) {
   // Apply the data value to the pin's driver, don't enable compare yet,
   // the wave will do that later
   v.value.integer = (val[0] - '0');
-  vpi_put_value((*pin).control, &v, NULL, vpiNoDelay);
+  vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
+  // Make sure not driving
+  v.value.integer = 0;
+  vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
 
   // Register it as actively comparing with it's wave
   
@@ -282,7 +296,8 @@ static void bridge_dont_care_pin(char * index) {
 
   // Disable drive and compare on the pin's driver
   v.value.integer = 0;
-  vpi_put_value((*pin).control, &v, NULL, vpiNoDelay);
+  vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
+  vpi_put_value((*pin).compare, &v, NULL, vpiNoDelay);
 
   if ((*pin).previous_state != 0) {
     if ((*pin).previous_state == 1) {

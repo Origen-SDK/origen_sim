@@ -106,10 +106,7 @@ module OrigenSim
 
     def define_waves
       dut.timeset.drive_waves.each_with_index do |wave, i|
-        # Skip timeset 0 for now
-        if i > 0
-          put("6^#{i}^0^#{wave_to_str(wave)}")
-        end
+        put("6^#{i}^0^#{wave_to_str(wave)}")
       end
       dut.timeset.compare_waves.each_with_index do |wave, i|
         put("6^#{i}^1^#{wave_to_str(wave)}")
