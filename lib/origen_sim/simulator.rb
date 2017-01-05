@@ -56,12 +56,9 @@ module OrigenSim
               @failed_to_start = true
               fail "The simulator didn't start properly!"
             end
-            define_pins
-            define_waves # TEMP, should be invoked by set_timeset
-            # Apply the pin reset values before the simulation starts
-            put_all_pin_states
           end
         end
+        # Set the current pattern name in the simulation
         put("a^#{name.sub(/\..*/, '')}")
       end
     end
@@ -70,25 +67,52 @@ module OrigenSim
     def put_all_pin_states
       dut.pins.each { |name, pin| pin.update_simulation }
     end
-    
+
+    # This will be called automatically whenever tester.set_timeset
+    # has been called
+    def on_timeset_changed
+      set_period(dut.current_timeset_period)
+      # Clear pins and waves
+      define_pins
+      define_waves
+      # Apply the pin reset values
+      put_all_pin_states
+    end
+
     # Tells the simulator about the pins in the current device so that it can
     # set up internal handles to efficiently access them
     def define_pins
       dut.pins.each_with_index do |(name, pin), i|
         pin.simulation_index = i
-        if name == :tck
-          put("0^#{pin.id}^#{i}^1^0") 
-        elsif name == :tdo
-          put("0^#{pin.id}^#{i}^0^1") 
-        else
-          put("0^#{pin.id}^#{i}^0^0") 
-        end
+        put("0^#{pin.id}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
       end
     end
 
+    def wave_to_str(wave)
+      wave.evaluated_events.map do |time, data|
+        if data == :x
+          data = 'X'
+        elsif data == :data
+          data = wave.drive? ? 'D' : 'C'
+        end
+        if data == 'C'
+          "#{time}_#{data}_#{time + 1}_X"
+        else
+          "#{time}_#{data}"
+        end
+      end.join('_')
+    end
+
     def define_waves
-      put('6^1^0^0_D_50_0') # Drive at 0ns, off at 50ns
-      put('6^1^1^10_C_11_X') # Compare at 10ns, off at 11ns
+      dut.timeset.drive_waves.each_with_index do |wave, i|
+        # Skip timeset 0 for now
+        if i > 0
+          put("6^#{i}^0^#{wave_to_str(wave)}")
+        end
+      end
+      dut.timeset.compare_waves.each_with_index do |wave, i|
+        put("6^#{i}^1^#{wave_to_str(wave)}")
+      end
     end
 
     def end_simulation

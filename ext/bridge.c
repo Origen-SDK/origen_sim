@@ -42,7 +42,7 @@ static int number_of_pins = 0;
 static Wave drive_waves[MAX_NUMBER_PINS];
 static int number_of_drive_waves = 1;
 static Wave compare_waves[MAX_NUMBER_PINS];
-static int number_of_compare_waves = 1;
+static int number_of_compare_waves = 0;
 static int runtime_errors = 0;
 
 static void bridge_set_period(char*);
@@ -58,7 +58,6 @@ static void bridge_enable_drive_wave(Pin*);
 static void bridge_disable_drive_wave(Pin*);
 static void bridge_enable_compare_wave(Pin*);
 static void bridge_disable_compare_wave(Pin*);
-static void bridge_define_default_compare_wave(void);
 
 static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * compare_wave_ix) {
   int index = atoi(pin_ix);
@@ -221,20 +220,9 @@ static void bridge_disable_compare_wave(Pin * pin) {
 }
 
 
-static void bridge_define_default_compare_wave() {
-  char * events = malloc(20);
-  int edge = period_in_ns >> 1;
-  snprintf(events, 19, "%i_C_%i_X", edge, edge + 1);
-  bridge_define_wave("0", "1", events);
-  free(events);
-}
-
-
 static void bridge_set_period(char * p_in_ns) {
   int p = (int) strtol(p_in_ns, NULL, 10);
   period_in_ns = p;
-  // Update the default compare wave after a period change
-  bridge_define_default_compare_wave();
 }
 
 

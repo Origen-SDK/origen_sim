@@ -14,6 +14,7 @@ gem 'origen_jtag'
 # Uncomment these if you want to use a visual debugger (e.g. Visual Studio Code) to debug your app
 #gem 'ruby-debug-ide'
 #gem 'debase'
+gem "origen", path: "/home/stephen/Code/github/origen"
 
 # Specify your gem's runtime dependencies in origen_sim.gemspec
 # THIS LINE SHOULD BE LEFT AT THE END

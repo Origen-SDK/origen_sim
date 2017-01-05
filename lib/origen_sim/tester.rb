@@ -13,7 +13,12 @@ module OrigenSim
 
     def set_timeset(name, period_in_ns)
       super
-      simulator.set_period(period_in_ns)
+      # Need to remove this once OrigenTesters does it
+      dut.timeset = name
+      dut.current_timeset_period = period_in_ns
+
+      # Now update the simulator with the new waves
+      simulator.on_timeset_changed
     end
 
     # This method intercepts vector data from Origen, removes white spaces and compresses repeats
