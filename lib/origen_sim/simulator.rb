@@ -76,7 +76,8 @@ module OrigenSim
       define_pins
       define_waves
       # Apply the pin reset values
-      put_all_pin_states
+      put_all_pin_states unless @reset_values_applied
+      @reset_values_applied = true
     end
 
     # Tells the simulator about the pins in the current device so that it can
