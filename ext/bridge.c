@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #define MAX_NUMBER_PINS 2000
 #define MAX_WAVE_EVENTS 10
@@ -60,6 +61,7 @@ static void bridge_disable_drive_wave(Pin*);
 static void bridge_enable_compare_wave(Pin*);
 static void bridge_disable_compare_wave(Pin*);
 static void bridge_clear_waves_and_pins(void);
+static bool bridge_is_drive_whole_cycle(Pin*);
 
 static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * compare_wave_ix) {
   int index = atoi(pin_ix);
@@ -130,7 +132,7 @@ static void bridge_define_wave(char * index, char * compare, char * events) {
     token = strtok(NULL, "_");
     i++;
   }
-  (*wave).events[i].data = 'S'; // Indicate that there are no more events
+  (*wave).events[i].data = 'T'; // Indicate that there are no more events
   free(myevents);
   (*wave).active_pin_count = 0;
 }
@@ -142,7 +144,7 @@ static void bridge_register_wave_events() {
     if (drive_waves[i].active_pin_count) {
       int x = 0;
 
-      while (drive_waves[i].events[x].data != 'S') {
+      while (drive_waves[i].events[x].data != 'T') {
         int time;
 
         time = drive_waves[i].events[x].time;
@@ -162,7 +164,7 @@ static void bridge_register_wave_events() {
     if (compare_waves[i].active_pin_count) {
       int x = 0;
 
-      while (compare_waves[i].events[x].data != 'S') {
+      while (compare_waves[i].events[x].data != 'T') {
         int time;
 
         time = compare_waves[i].events[x].time;
@@ -178,6 +180,11 @@ static void bridge_register_wave_events() {
   }
 }
 
+
+/// Enables the drive condition of the given pin.
+/// This is done by adding the pin to the wave's active pin list, if the wave has
+/// at least one pin in its list, the necessary callbacks will get triggered on every
+/// cycle to implement the required waveform.
 static void bridge_enable_drive_wave(Pin * pin) {
   Wave *wave = &drive_waves[(*pin).drive_wave];
 
@@ -185,6 +192,7 @@ static void bridge_enable_drive_wave(Pin * pin) {
   (*pin).drive_wave_pos = (*wave).active_pin_count;
   (*wave).active_pin_count += 1;
 }
+
 
 static void bridge_disable_drive_wave(Pin * pin) {
   Wave *wave = &compare_waves[(*pin).drive_wave];
@@ -239,6 +247,20 @@ static void bridge_set_period(char * p_in_ns) {
 }
 
 
+static bool bridge_is_drive_whole_cycle(Pin * pin) {
+  Wave *wave = &drive_waves[(*pin).drive_wave];
+
+  // If drive wave only has one event
+  if ((*wave).events[1].data == 'T') {
+    // Return true if the single event specifies drive for the whole cycle
+    return (*wave).events[0].data == 'D' &&
+           (*wave).events[0].time == 0;
+  } else {
+    return false;
+  }
+}
+
+
 /// Immediately drives the given pin to the given value
 static void bridge_drive_pin(char * index, char * val) {
   Pin *pin = &pins[atoi(index)];
@@ -247,8 +269,6 @@ static void bridge_drive_pin(char * index, char * val) {
   // Apply the data value to the pin's driver
   v.value.integer = (val[0] - '0');
   vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
-  //v.value.integer = 1;
-  //vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
   // Make sure not comparing
   v.value.integer = 0;
   vpi_put_value((*pin).compare, &v, NULL, vpiNoDelay);
@@ -257,11 +277,15 @@ static void bridge_drive_pin(char * index, char * val) {
   
   // If it is already driving the wave will already be setup
   if ((*pin).previous_state != 1) {
-    // Wave 0 means drive for the whole cycle and there are no events
-    // to register for
-    //if ((*pin).drive_wave != 0) {
+    // If the drive is for the whole cycle, then we can enable it here
+    // and don't need a callback
+    if (bridge_is_drive_whole_cycle(pin)) {
+      v.value.integer = 1;
+      vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
+    } else {
       bridge_enable_drive_wave(pin);
-    //}
+    }
+
     if ((*pin).previous_state == 2) {
       bridge_disable_compare_wave(pin);
     }
@@ -353,6 +377,7 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
 
 
   } else {
+
     wave = &drive_waves[*wave_ix];
 
     int d;
@@ -371,6 +396,7 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
         on = 1;
         break;
       case 'X' :
+        d = 0;
         on = 0;
         break;
       default :
