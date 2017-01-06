@@ -19,12 +19,8 @@ module OrigenSimDev
       timeset :func do |t|
         # Generate a clock pulse on TCK
         t.wave :tck do |w|
-          w.drive :data, at: 0
-          w.drive 0, at: 'period / 2'
-        end
-
-        t.wave :tdo do |w|
-          w.compare :data, at: 10
+          w.drive 0, at: 0
+          w.drive :data, at: 'period / 2'
         end
       end
     end
