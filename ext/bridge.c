@@ -137,24 +137,22 @@ static void bridge_define_wave(char * index, char * compare, char * events) {
 
 
 static void bridge_register_wave_events() {
-  if (number_of_drive_waves) {
-    for (int i = 1; i < number_of_drive_waves; i++) {
+  for (int i = 0; i < number_of_drive_waves; i++) {
 
-      if (drive_waves[i].active_pin_count) {
-        int x = 0;
+    if (drive_waves[i].active_pin_count) {
+      int x = 0;
 
-        while (drive_waves[i].events[x].data != 'S') {
-          int time;
+      while (drive_waves[i].events[x].data != 'S') {
+        int time;
 
-          time = drive_waves[i].events[x].time;
+        time = drive_waves[i].events[x].time;
 
-          // TODO: May save some time by calling directly at time 0
-          //if (time == 0) {
-          //} else {
-            bridge_register_wave_event(i, x, 0, time);
-          //}
-          x++;
-        }
+        // TODO: May save some time by calling directly at time 0
+        //if (time == 0) {
+        //} else {
+          bridge_register_wave_event(i, x, 0, time);
+        //}
+        x++;
       }
     }
   }
@@ -249,8 +247,8 @@ static void bridge_drive_pin(char * index, char * val) {
   // Apply the data value to the pin's driver
   v.value.integer = (val[0] - '0');
   vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
-  v.value.integer = 1;
-  vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
+  //v.value.integer = 1;
+  //vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
   // Make sure not comparing
   v.value.integer = 0;
   vpi_put_value((*pin).compare, &v, NULL, vpiNoDelay);
@@ -261,9 +259,9 @@ static void bridge_drive_pin(char * index, char * val) {
   if ((*pin).previous_state != 1) {
     // Wave 0 means drive for the whole cycle and there are no events
     // to register for
-    if ((*pin).drive_wave != 0) {
+    //if ((*pin).drive_wave != 0) {
       bridge_enable_drive_wave(pin);
-    }
+    //}
     if ((*pin).previous_state == 2) {
       bridge_disable_compare_wave(pin);
     }
@@ -323,6 +321,7 @@ static void bridge_dont_care_pin(char * index) {
 /// Callback handler to implement the events registered by bridge_register_wave_event
 PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
   s_vpi_value v = {vpiIntVal, {0}};
+  s_vpi_value v2 = {vpiIntVal, {0}};
 
   int * wave_ix  = (int*)(&(data->user_data[0]));
   int * event_ix = (int*)(&(data->user_data[sizeof(int)]));
@@ -357,15 +356,22 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
     wave = &drive_waves[*wave_ix];
 
     int d;
+    int on;
     switch((*wave).events[*event_ix].data) {
       case '0' :
         d = 1;
+        on = 1;
         break;
       case '1' :
         d = 2;
+        on = 1;
         break;
       case 'D' :
         d = 0;
+        on = 1;
+        break;
+      case 'X' :
+        on = 0;
         break;
       default :
         vpi_printf("ERROR: Unknown drive event: %c", (*wave).events[*event_ix].data);
@@ -374,9 +380,16 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
     }
 
     v.value.integer = d;
-
-    for (int i = 0; i < (*wave).active_pin_count; i++) {
-      vpi_put_value((*(*wave).active_pins[i]).force_data, &v, NULL, vpiNoDelay);
+    v2.value.integer = on;
+    if (on) {
+      for (int i = 0; i < (*wave).active_pin_count; i++) {
+        vpi_put_value((*(*wave).active_pins[i]).force_data, &v, NULL, vpiNoDelay);
+        vpi_put_value((*(*wave).active_pins[i]).drive, &v2, NULL, vpiNoDelay);
+      }
+    } else {
+      for (int i = 0; i < (*wave).active_pin_count; i++) {
+        vpi_put_value((*(*wave).active_pins[i]).drive, &v2, NULL, vpiNoDelay);
+      }
     }
   }
 
