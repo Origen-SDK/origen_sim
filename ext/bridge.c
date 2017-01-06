@@ -59,6 +59,7 @@ static void bridge_enable_drive_wave(Pin*);
 static void bridge_disable_drive_wave(Pin*);
 static void bridge_enable_compare_wave(Pin*);
 static void bridge_disable_compare_wave(Pin*);
+static void bridge_clear_waves_and_pins(void);
 
 static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * compare_wave_ix) {
   int index = atoi(pin_ix);
@@ -226,9 +227,17 @@ static void bridge_disable_compare_wave(Pin * pin) {
 }
 
 
+static void bridge_clear_waves_and_pins() {
+  number_of_pins = 0;
+  number_of_drive_waves = 0;
+  number_of_compare_waves = 0;
+}
+
+
 static void bridge_set_period(char * p_in_ns) {
   int p = (int) strtol(p_in_ns, NULL, 10);
   period_in_ns = p;
+  bridge_clear_waves_and_pins();
 }
 
 

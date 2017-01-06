@@ -71,13 +71,14 @@ module OrigenSim
     # This will be called automatically whenever tester.set_timeset
     # has been called
     def on_timeset_changed
+      # Important that this is done first, since it is used to clear the pin
+      # and wave definitions in the bridge
       set_period(dut.current_timeset_period)
       # Clear pins and waves
       define_pins
       define_waves
-      # Apply the pin reset values
-      put_all_pin_states unless @reset_values_applied
-      @reset_values_applied = true
+      # Apply the pin reset values / re-apply the existing states
+      put_all_pin_states
     end
 
     # Tells the simulator about the pins in the current device so that it can
