@@ -36,7 +36,7 @@ module pin_driver(error, pin);
 
 endmodule
 
-module pin_drivers(tck_o, tdi_o, tdo_o, tms_o, rstn_o, trstn_o);
+module pin_drivers(errors, tck_o, tdi_o, tdo_o, tms_o, rstn_o, trstn_o);
 
   output tck_o;
   output tdi_o;
@@ -52,7 +52,7 @@ module pin_drivers(tck_o, tdi_o, tdo_o, tms_o, rstn_o, trstn_o);
   wire rstn_err;
   wire trstn_err;
 
-  output reg [31:0] errors_o = 0;
+  output reg [31:0] errors = 0;
 
   always @(
 
@@ -63,7 +63,7 @@ module pin_drivers(tck_o, tdi_o, tdo_o, tms_o, rstn_o, trstn_o);
     or posedge rstn_err
     or posedge trstn_err
   ) begin
-    errors_o[31:0] = errors_o[31:0] + 1;
+    errors[31:0] = errors[31:0] + 1;
   end
 
   pin_driver tck (.pin(tck_o), .error(tck_err));
@@ -103,7 +103,8 @@ module origen_tb;
     .tdo_o(tdo),
     .tms_o(tms),
     .rstn_o(rstn),
-    .trstn_o(trstn)
+    .trstn_o(trstn),
+    .errors(errors)
   );
 
   dut dut (

@@ -36,7 +36,7 @@ module pin_driver(error, pin);
 
 endmodule
 
-module pin_drivers(<%= dut.pins.values.map { |p| "#{p.id}_o" }.join(', ') %>);
+module pin_drivers(errors, <%= dut.pins.values.map { |p| "#{p.id}_o" }.join(', ') %>);
 
 % dut.pins.each do |name, pin|
   output <%= pin.id %>_o;
@@ -46,7 +46,7 @@ module pin_drivers(<%= dut.pins.values.map { |p| "#{p.id}_o" }.join(', ') %>);
   wire <%= pin.id %>_err;
 % end
 
-  output reg [31:0] errors_o = 0;
+  output reg [31:0] errors = 0;
 
   always @(
 
@@ -58,7 +58,7 @@ module pin_drivers(<%= dut.pins.values.map { |p| "#{p.id}_o" }.join(', ') %>);
 %   end
 % end
   ) begin
-    errors_o[31:0] = errors_o[31:0] + 1;
+    errors[31:0] = errors[31:0] + 1;
   end
 
 % dut.pins.each do |name, pin|
@@ -88,8 +88,9 @@ module origen_tb;
 
   pin_drivers pins (
 % dut.pins.each_with_index do |(name, pin), i|
-    .<%= pin.id %>_o(<%= pin.id %>)<%= i == (dut.pins.size - 1) ? '' : ',' %>
+    .<%= pin.id %>_o(<%= pin.id %>),
 % end
+    .errors(errors)
   );
 
   dut dut (
