@@ -368,9 +368,9 @@ begin
   if(trstn_pad_i == 0)
     jtag_ir[`IR_LENGTH-1:0] <= `IR_LENGTH'b0;
   else if (test_logic_reset == 1)
-	jtag_ir[`IR_LENGTH-1:0] <= `IR_LENGTH'b0;
+    jtag_ir[`IR_LENGTH-1:0] <= `IR_LENGTH'b0;
   else if(capture_ir)
-    jtag_ir <= 4'b0101;          // This value is fixed for easier fault detection
+    jtag_ir <= latched_jtag_ir;
   else if(shift_ir)
     jtag_ir[`IR_LENGTH-1:0] <= {tdi_pad_i, jtag_ir[`IR_LENGTH-1:1]};
 end
