@@ -1,0 +1,111 @@
+`include "dut.v"
+
+`timescale 1ns/1ns
+
+// 0 - Data
+// 1 - Reserved 
+//
+// 0 - Drive
+//
+// 0 - Compare
+//
+// 0 - Force data 0
+// 1 - Force data 1
+module pin_driver(error, pin);
+
+  output reg error;
+
+  inout pin;
+
+  reg [1:0] data = 0;
+  reg [1:0] force_data = 0;
+  reg compare = 0;
+  reg drive = 0;
+  reg [1023:0] memory = 0;
+
+  wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : data[0]);
+
+  assign pin = drive ? drive_data : 1'bz;
+
+  // Debug signal to show the expected data in the waves
+  wire expect_data = compare ? data[0] : 1'bz;
+
+  always @(*) begin
+    error = compare ? (pin == data[0] ? 0 : 1) : 0;
+  end
+
+endmodule
+
+module pin_drivers(<%= dut.pins.values.map { |p| "#{p.id}_o" }.join(', ') %>);
+
+% dut.pins.each do |name, pin|
+  output <%= pin.id %>_o;
+% end
+
+% dut.pins.each do |name, pin|
+  wire <%= pin.id %>_err;
+% end
+
+  output reg [31:0] errors_o = 0;
+
+  always @(
+
+% dut.pins.each_with_index do |(name, pin), i|
+%   if i == 0
+    posedge <%= pin.id %>_err
+%   else
+    or posedge <%= pin.id %>_err
+%   end
+% end
+  ) begin
+    errors_o[31:0] = errors_o[31:0] + 1;
+  end
+
+% dut.pins.each do |name, pin|
+  pin_driver <%= pin.id %> (.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err));
+% end
+
+endmodule
+
+
+module debug(errors);
+
+  input [31:0] errors;
+
+  reg [1023:0] pattern = 0;
+
+  reg handshake;
+
+endmodule
+
+module origen_tb;
+
+% dut.pins.each do |name, pin|
+  wire <%= pin.id %>;
+% end
+
+  wire [31:0] errors;
+
+  pin_drivers pins (
+% dut.pins.each_with_index do |(name, pin), i|
+    .<%= pin.id %>_o(<%= pin.id %>)<%= i == (dut.pins.size - 1) ? '' : ',' %>
+% end
+  );
+
+  dut dut (
+% dut.pins.each_with_index do |(name, pin), i|
+    .<%= pin.id %>(<%= pin.id %>)<%= i == (dut.pins.size - 1) ? '' : ',' %>
+% end
+  );
+
+  debug debug (
+    .errors(errors)
+  );
+
+  initial
+  begin
+    $dumpfile("dut.vcd");
+    $dumpvars(0,origen_tb);
+  end
+
+endmodule

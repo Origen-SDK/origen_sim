@@ -55,7 +55,7 @@ namespace "sim" do
 
   file "#{tmp_dir}/dut.vvp" => v_source_files do
     cd tmp_dir do
-      sh "iverilog -o dut.vvp -I #{Origen.root}/spec/rtl_v #{Origen.root}/spec/rtl_v/dut_tb.v"
+      sh "iverilog -o dut.vvp -I #{Origen.root}/spec/rtl_v #{Origen.root}/spec/rtl_v/origen_tb.v"
     end
   end
 

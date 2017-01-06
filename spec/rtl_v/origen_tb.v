@@ -36,38 +36,42 @@ module pin_driver(error, pin);
 
 endmodule
 
-module pin_drivers(tck_o, tdi_o, tms_o, trstn_o, rstn_o, tdo_o, done_o, errors_o);
+module pin_drivers(tck_o, tdi_o, tdo_o, tms_o, rstn_o, trstn_o);
 
   output tck_o;
   output tdi_o;
-  output tms_o;
-  output trstn_o;
-  output rstn_o;
   output tdo_o;
-  output done_o;
+  output tms_o;
+  output rstn_o;
+  output trstn_o;
 
   wire tck_err;
   wire tdi_err;
-  wire tms_err;
-  wire trstn_err;
-  wire rstn_err;
   wire tdo_err;
-  wire done_err;
+  wire tms_err;
+  wire rstn_err;
+  wire trstn_err;
 
   output reg [31:0] errors_o = 0;
 
-  always @(posedge tck_err or posedge tdi_err or posedge tms_err or posedge trstn_err or
-           posedge rstn_err or posedge tdo_err or posedge done_err) begin
+  always @(
+
+    posedge tck_err
+    or posedge tdi_err
+    or posedge tdo_err
+    or posedge tms_err
+    or posedge rstn_err
+    or posedge trstn_err
+  ) begin
     errors_o[31:0] = errors_o[31:0] + 1;
   end
 
   pin_driver tck (.pin(tck_o), .error(tck_err));
   pin_driver tdi (.pin(tdi_o), .error(tdi_err));
-  pin_driver tms (.pin(tms_o), .error(tms_err));
-  pin_driver trstn (.pin(trstn_o), .error(trstn_err));
-  pin_driver rstn (.pin(rstn_o), .error(rstn_err));
   pin_driver tdo (.pin(tdo_o), .error(tdo_err));
-  pin_driver done (.pin(done_o), .error(done_err));
+  pin_driver tms (.pin(tms_o), .error(tms_err));
+  pin_driver rstn (.pin(rstn_o), .error(rstn_err));
+  pin_driver trstn (.pin(trstn_o), .error(trstn_err));
 
 endmodule
 
@@ -84,37 +88,31 @@ endmodule
 
 module origen_tb;
 
-
   wire tck;
   wire tdi;
-  wire tms;
-  wire trstn;
-  wire rstn;
   wire tdo;
-  wire done;
+  wire tms;
+  wire rstn;
+  wire trstn;
 
   wire [31:0] errors;
 
   pin_drivers pins (
     .tck_o(tck),
     .tdi_o(tdi),
-    .tms_o(tms_drv),
-    .trstn_o(trstn),
     .tdo_o(tdo),
+    .tms_o(tms),
     .rstn_o(rstn),
-    .done_o(done),
-
-    .errors_o(errors)
+    .trstn_o(trstn)
   );
 
   dut dut (
     .tck(tck),
     .tdi(tdi),
-    .tms(tms_drv),
-    .trstn(trstn),
     .tdo(tdo),
+    .tms(tms),
     .rstn(rstn),
-    .done(done)
+    .trstn(trstn)
   );
 
   debug debug (
