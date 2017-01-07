@@ -136,11 +136,22 @@ module OrigenSim
       end
     end
 
-    # Gets the current simulation error count
+    # Returns the current simulation error count
     def error_count
+      peek('origen_tb.debug.errors')
+    end
+
+    # Returns the current value of the given net, or nil if the given path does not
+    # resolve to a valid node
+    def peek(net)
       sync_up
-      put('9^')
-      get.strip.to_i
+      put("9^#{clean(net)}")
+      m = get.strip
+      if m == 'FAIL'
+        nil
+      else
+        m.to_i
+      end
     end
 
     def on_origen_shutdown
@@ -184,6 +195,16 @@ module OrigenSim
         end
       end
       yield
+    end
+
+    private
+
+    def clean(net)
+      if net =~ /^dut\./
+        "origen_tb.#{net}"
+      else
+        net
+      end
     end
   end
 end

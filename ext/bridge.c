@@ -608,16 +608,21 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       //   8^
       case '8' :
         return 0;
-      // Error count
-      //   Returns the current value of the debug.errors register
+      // Peek
+      //   Returns the current value of the given net
       //
-      //   9^
+      //   9^origen_tb.debug.errors
       case '9' :
-        handle = vpi_handle_by_name("origen_tb.debug.errors", NULL);
-        v.format = vpiDecStrVal; // Seems important to set this before get
-        vpi_get_value(handle, &v);
-        sprintf(msg, "%s\n", v.value.str);
-        client_put(msg);
+        arg1 = strtok(NULL, "^");
+        handle = vpi_handle_by_name(arg1, NULL);
+        if (handle) {
+          v.format = vpiDecStrVal; // Seems important to set this before get
+          vpi_get_value(handle, &v);
+          sprintf(msg, "%s\n", v.value.str);
+          client_put(msg);
+        } else {
+          client_put("FAIL\n");
+        }
         break;
       // Set Pattern Name
       //   a^atd_ramp_25mhz
