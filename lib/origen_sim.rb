@@ -1,6 +1,7 @@
 require 'origen'
 require_relative '../config/application.rb'
 require 'origen_testers'
+require 'origen_sim/origen_testers/api'
 module OrigenSim
   # THIS FILE SHOULD ONLY BE USED TO LOAD RUNTIME DEPENDENCIES
   # If this plugin has any development dependencies (e.g. dummy DUT or other models that are only used

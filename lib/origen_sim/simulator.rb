@@ -29,6 +29,7 @@ module OrigenSim
         @failed_to_start = true
         fail "The simulator didn't start properly!"
       end
+      @enabled = true
     end
 
     # Returns the pid of the simulator process
@@ -61,7 +62,6 @@ module OrigenSim
     def before_pattern(name)
       if simulation_tester?
         unless @enabled
-          @enabled = true
           # When running pattern back-to-back, only want to launch the simulator the
           # first time
           unless socket
@@ -164,23 +164,36 @@ module OrigenSim
       end
     end
 
+    def interactive_shutdown
+      @interactive_mode = true
+    end
+
+    # Stop the simulator
+    def stop
+      end_simulation
+      @socket.close if @socket
+      File.unlink(socket_id) if File.exist?(socket_id)
+    end
+
     def on_origen_shutdown
       if @enabled
-        Origen.log.debug 'Shutting down simulator...'
-        unless @failed_to_start
-          c = error_count
-          if c > 0
-            @failed = true
-            Origen.log.error "The simulation failed with #{c} errors!"
+        unless @interactive_mode
+          Origen.log.debug 'Shutting down simulator...'
+          unless @failed_to_start
+            c = error_count
+            if c > 0
+              @failed = true
+              Origen.log.error "The simulation failed with #{c} errors!"
+            end
           end
         end
-        end_simulation
-        @socket.close if @socket
-        File.unlink(socket_id) if File.exist?(socket_id)
-        if failed
-          Origen.app.stats.report_fail
-        else
-          Origen.app.stats.report_pass
+        stop
+        unless @interactive_mode
+          if failed
+            Origen.app.stats.report_fail
+          else
+            Origen.app.stats.report_pass
+          end
         end
       end
     end

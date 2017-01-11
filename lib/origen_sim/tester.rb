@@ -11,6 +11,11 @@ module OrigenSim
       OrigenSim.simulator
     end
 
+    # Start the simulator
+    def start
+      simulator.start
+    end
+
     def set_timeset(name, period_in_ns)
       super
       # Need to remove this once OrigenTesters does it

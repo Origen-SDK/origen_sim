@@ -24,5 +24,23 @@ module OrigenSimDev
         end
       end
     end
+
+    def interactive_startup
+      if tester.sim?
+        tester.start
+        startup
+      end
+    end
+
+    def startup(options = {})
+      tester.set_timeset('func', 100)
+
+      dut.pin(:rstn).drive!(1)
+      10.cycles
+      dut.pin(:tck).drive!(1)
+      10.cycles
+      dut.pin(:trstn).drive!(1)
+      10.cycles
+    end
   end
 end
