@@ -8,6 +8,35 @@ module OrigenSim
 
     attr_reader :socket, :failed
 
+    def start
+      server = UNIXServer.new(socket_id)
+
+      rake_pid = spawn("rake origen_sim:run[#{socket_number}]")
+      Process.detach(rake_pid)
+
+      timeout_connection(5) do
+        @socket = server.accept
+        @connection_established = true
+        if @connection_timed_out
+          @failed_to_start = true
+          Origen.log.error 'Simulator failed to respond'
+          @failed = true
+          exit
+        end
+      end
+      data = get
+      unless data.strip == 'READY!'
+        @failed_to_start = true
+        fail "The simulator didn't start properly!"
+      end
+    end
+
+    # Returns the pid of the simulator process
+    def pid
+      f = "#{Origen.root}/tmp/origen_sim/pids/#{socket_number}"
+      File.readlines(f).first.strip.to_i
+    end
+
     # Send the given message string to the simulator
     def put(msg)
       socket.write(msg + "\n") if socket
@@ -36,26 +65,7 @@ module OrigenSim
           # When running pattern back-to-back, only want to launch the simulator the
           # first time
           unless socket
-            server = UNIXServer.new(socket_id)
-
-            @sim_pid = spawn("rake sim:run[#{socket_id}]")
-            Process.detach(@sim_pid)
-
-            timeout_connection(5) do
-              @socket = server.accept
-              @connection_established = true
-              if @connection_timed_out
-                @failed_to_start = true
-                Origen.log.error 'Simulator failed to respond'
-                @failed = true
-                exit
-              end
-            end
-            data = get
-            unless data.strip == 'READY!'
-              @failed_to_start = true
-              fail "The simulator didn't start properly!"
-            end
+            start
           end
         end
         # Set the current pattern name in the simulation
@@ -176,7 +186,11 @@ module OrigenSim
     end
 
     def socket_id
-      @socket_id ||= "/tmp/#{(Process.pid.to_s + Time.now.to_f.to_s).sub('.', '')}.sock"
+      @socket_id ||= "/tmp/#{socket_number}.sock"
+    end
+
+    def socket_number
+      @socket_number ||= (Process.pid.to_s + Time.now.to_f.to_s).sub('.', '')
     end
 
     def simulation_tester?
