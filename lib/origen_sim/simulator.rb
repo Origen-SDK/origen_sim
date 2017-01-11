@@ -154,14 +154,88 @@ module OrigenSim
     # Returns the current value of the given net, or nil if the given path does not
     # resolve to a valid node
     def peek(net)
+      # The Verilog spec does not specify that underlying VPI put method should
+      # handle a part select, so some simulators do not handle it. Therefore we
+      # deal with it here to ensure cross simulator compatibility.
+
+      # http://rubular.com/r/eTVGzrYmXQ
+      if net =~ /(.*)\[(\d+):?(\.\.)?(\d*)\]$/
+        net = Regexp.last_match(1)
+        msb = Regexp.last_match(2).to_i
+        lsb = Regexp.last_match(4)
+        lsb = lsb.empty? ? nil : lsb.to_i
+      end
+
       sync_up
       put("9^#{clean(net)}")
+
       m = get.strip
       if m == 'FAIL'
-        nil
+        return nil
       else
-        m.to_i
+        m = m.to_i
+        if msb
+          # Setting a range of bits
+          if lsb
+            m[msb..lsb]
+          else
+            m[msb]
+          end
+        else
+          m
+        end
       end
+    end
+
+    # Forces the given value to the given net.
+    # Note that no error checking is done and no error will be communicated if an illegal
+    # net is supplied. The user should follow up with a peek if they want to verify that
+    # the poke was applied.
+    def poke(net, value)
+      # The Verilog spec does not specify that underlying VPI put method should
+      # handle a part select, so some simulators do not handle it. Therefore we
+      # deal with it here to ensure cross simulator compatibility.
+
+      # http://rubular.com/r/eTVGzrYmXQ
+      if net =~ /(.*)\[(\d+):?(\.\.)?(\d*)\]$/
+        path = Regexp.last_match(1)
+        msb = Regexp.last_match(2).to_i
+        lsb = Regexp.last_match(4)
+        lsb = lsb.empty? ? nil : lsb.to_i
+
+        v = peek(path)
+        return nil unless v
+
+        # Setting a range of bits
+        if lsb
+          upper = v >> (msb + 1)
+          # Make sure value does not overflow
+          value = value[(msb - lsb)..0]
+          if lsb == 0
+            value = (upper << (msb + 1)) | value
+          else
+            lower = v[(lsb - 1)..0]
+            value = (upper << (msb + 1)) |
+                    (value << lsb) | lower
+          end
+
+        # Setting a single bit
+        else
+          if msb == 0
+            upper = v >> 1
+            value = (upper << 1) | value[0]
+          else
+            lower = v[(msb - 1)..0]
+            upper = v >> (msb + 1)
+            value = (upper << (msb + 1)) |
+                    (value[0] << msb) | lower
+          end
+        end
+        net = path
+      end
+
+      sync_up
+      put("b^#{clean(net)}^#{value}")
     end
 
     def interactive_shutdown

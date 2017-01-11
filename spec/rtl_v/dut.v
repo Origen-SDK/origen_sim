@@ -4,6 +4,7 @@
 module dut(tck,tdi,tdo,tms,trstn,
             rstn,
             done,
+            test_bus
           );
 
   input tck, tdi, tms, trstn;
@@ -11,8 +12,13 @@ module dut(tck,tdi,tdo,tms,trstn,
 
   output tdo;
   output done;
+  output [15:0] test_bus;
 
   wire [4:0] count;
+
+  // Used for testing peek and poke methods
+  reg [15:0] test_data;
+  assign test_bus = test_data;
 
   tap_top tap (
     .tms_pad_i(tms),

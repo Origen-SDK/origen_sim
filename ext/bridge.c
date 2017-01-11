@@ -634,6 +634,21 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         v.value.str = arg1;
         vpi_put_value(handle, &v, NULL, vpiNoDelay);
         break;
+      // Poke
+      //   Sets the given value on the given net, the number should be
+      //   given as a decimal string
+      //
+      //   b^origen_tb.debug.errors^15
+      case 'b' :
+        arg1 = strtok(NULL, "^");
+        arg2 = strtok(NULL, "^");
+        handle = vpi_handle_by_name(arg1, NULL);
+        if (handle) {
+          v.format = vpiDecStrVal;
+          v.value.str = arg2;
+          vpi_put_value(handle, &v, NULL, vpiNoDelay);
+        }
+        break;
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");
         runtime_errors += 1;
