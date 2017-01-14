@@ -28,7 +28,7 @@ int client_connect(char * socketId) {
   printf("[DEBUG] The socket ID is: %s\n", socketId);
   remote.sun_family = AF_UNIX;
   strcpy(remote.sun_path, socketId);
-  len = strlen(remote.sun_path) + sizeof(remote.sun_family);
+  len = sizeof(remote);
   if (connect(sock, (struct sockaddr *)&remote, len) == -1) {
     printf("ERROR: The simulator failed to connect to Origen's socket! %s\n", strerror(errno));
     return 1;

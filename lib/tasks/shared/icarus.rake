@@ -38,7 +38,7 @@ namespace :icarus do
 
   task :run, [:socket] => ["#{tmp_dir}/pids", "#{Origen.root}/waves", :build] do |t, args|
     cd "#{Origen.root}/waves", verbose: false do
-      cmd = "vvp -M#{tmp_dir} -morigen #{tmp_dir}/dut.vvp -socket /tmp/#{args[:socket]}.sock & echo $!"
+      cmd = "vvp -M#{tmp_dir} -morigen #{tmp_dir}/dut.vvp +socket+/tmp/#{args[:socket]}.sock & echo $!"
 
       Open3.popen3(cmd) do |stdin, stdout, stderr, thread|
         pid = stdout.gets.strip
