@@ -16,18 +16,45 @@ static void origen_init() {
 }
 
 
-/// Returns the value of the given argument, or NULL if not supplied
-///   origen_get_arg("-socket");   # => "/tmp/sim.sock"
+/// Returns the value of the given argument, or NULL if not supplied.
+/// This example: 
+///
+///   origen_get_arg("socket");   # => "/tmp/sim.sock"
+///
+/// Will work for the arguement passed in either of these formats:
+///
+///   -socket /tmp/sim.sock
+///   +socket+/tmp/sim.sock
 char * origen_get_arg(char *arg) {
   s_vpi_vlog_info info;
   vpi_get_vlog_info(&info);
+  char * pch;
+  char * return_value;
+
+  char * minus_arg = (char *) malloc(strlen(arg) + 16);
+  strcpy(minus_arg, "-");
+  strcat(minus_arg, arg);
+  char * plus_arg = (char *) malloc(strlen(arg) + 16);
+  strcpy(plus_arg, "+");
+  strcat(plus_arg, arg);
   
   for (PLI_INT32 i = 0; i < info.argc; i++) {
-    if (strcmp(info.argv[i], arg) == 0) {
-      return info.argv[i + 1];
+    if (strcmp(info.argv[i], minus_arg) == 0) {
+      return_value = info.argv[i + 1];
+      goto DONE;
+    }
+    pch = strstr(info.argv[i], plus_arg);
+    if (pch) {
+      return_value = info.argv[i] + strlen(plus_arg) + 1;
+      goto DONE;
     }
   }
-  return NULL;
+  return_value = NULL;
+
+  DONE: 
+    free(minus_arg);
+    free(plus_arg);
+    return return_value;
 }
 
 
@@ -37,7 +64,7 @@ PLI_INT32 origen_startup(p_cb_data data) {
   UNUSED(data);
   //vpi_printf("Simulation started!\n");
 
-  int err = client_connect(origen_get_arg("-socket"));
+  int err = client_connect(origen_get_arg("socket"));
 
   if (err) {
     vpi_printf("ERROR: Couldn't connect to Origen app!\n");

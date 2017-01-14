@@ -3,6 +3,10 @@
 /// Origen process
 ///
 #include "client.h"
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 static int sock;
 
@@ -11,14 +15,22 @@ int client_connect(char * socketId) {
   int len;
   struct sockaddr_un remote;
 
-  if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+  if (socketId == NULL) {
+    printf("ERROR: No socket ID given to the simulator\n");
     return 1;
   }
 
+  if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+    printf("ERROR: The simulator failed to create a socket! %s\n", strerror(errno));
+    return 1;
+  }
+
+  printf("[DEBUG] The socket ID is: %s\n", socketId);
   remote.sun_family = AF_UNIX;
   strcpy(remote.sun_path, socketId);
   len = strlen(remote.sun_path) + sizeof(remote.sun_family);
   if (connect(sock, (struct sockaddr *)&remote, len) == -1) {
+    printf("ERROR: The simulator failed to connect to Origen's socket! %s\n", strerror(errno));
     return 1;
   }
   return 0;

@@ -2,6 +2,8 @@
 #define COMMON_H
 
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "vpi_user.h"
 #define UNUSED(x) (void)(x)
 

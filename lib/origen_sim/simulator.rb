@@ -9,13 +9,16 @@ module OrigenSim
     attr_reader :socket, :failed
 
     def start
+      puts "[DEBUG] Opening socket #{socket_id}"
       server = UNIXServer.new(socket_id)
 
-      rake_pid = spawn("rake origen_sim:run[#{socket_number}]")
+      rake_pid = spawn("rake origen_sim:cadence:run[#{socket_number}]")
       Process.detach(rake_pid)
 
-      timeout_connection(5) do
+      timeout_connection(15) do
+        puts "WAITING" * 25
         @socket = server.accept
+      debugger
         @connection_established = true
         if @connection_timed_out
           @failed_to_start = true
