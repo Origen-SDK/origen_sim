@@ -1,1 +1,1 @@
-OrigenSim::Tester.new(simulator: :icarus)
+OrigenSim::Tester.new(vendor: :icarus)

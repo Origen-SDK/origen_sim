@@ -5,7 +5,7 @@ describe "The simulator" do
   before :all do
     Origen.target.temporary = -> do
       OrigenSimDev::DUT.new
-      OrigenSim::Tester.new
+      OrigenSim::Tester.new(vendor: :icarus)
     end
     Origen.load_target
     sim.start

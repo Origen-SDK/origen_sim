@@ -3,7 +3,10 @@ module OrigenSim
   class Tester
     include OrigenTesters::VectorBasedTester
 
+    attr_reader :vendor
+
     def initialize(options = {})
+      @vendor = options[:vendor]
       super()
     end
 

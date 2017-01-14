@@ -5,6 +5,7 @@
 #include "origen.h"
 #include "bridge.h"
 #include "client.h"
+#include <string.h>
 
 static void origen_register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data));
 static void origen_init(void);

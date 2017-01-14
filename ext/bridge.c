@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define MAX_NUMBER_PINS 2000
 #define MAX_WAVE_EVENTS 10

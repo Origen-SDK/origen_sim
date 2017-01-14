@@ -1,1 +1,1 @@
-OrigenSim::Tester.new(simulator: :cadence)
+OrigenSim::Tester.new(vendor: :cadence)
