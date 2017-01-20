@@ -1,8 +1,12 @@
 # The requested command is passed in here as @command
 case @command
 
-when "generate"
-
+when "origen_sim:build"
+  require "origen_sim/commands/build"
+  exit 0
 else
+  @plugin_commands << <<-EOT
+ origen_sim:build  Build the simulation object for the current/given target
+  EOT
 
 end

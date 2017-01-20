@@ -3,11 +3,10 @@ require 'spec_helper'
 describe "The simulator" do
 
   before :all do
-    Origen.target.temporary = -> do
-      OrigenSimDev::DUT.new
-      OrigenSim::Tester.new(vendor: :icarus)
-    end
+    # Test the build process
+    #system "origen origen_sim:build"
     Origen.load_target
+    Origen.enable_debugger # Show simulator output
     sim.start
   end
 

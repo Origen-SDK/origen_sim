@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <unistd.h>
 
 static int sock;
 
@@ -21,17 +22,16 @@ int client_connect(char * socketId) {
   }
 
   if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-    printf("ERROR: The simulator failed to create a socket! %s\n", strerror(errno));
+    perror("ERROR: The simulator failed to create a socket!");
     return 1;
   }
 
-  printf("[DEBUG] The socket ID is: %s\n", socketId);
   remote.sun_family = AF_UNIX;
   strcpy(remote.sun_path, socketId);
   len = offsetof(struct sockaddr_un, sun_path) + strlen(remote.sun_path) + 1;
 
   if (connect(sock, (struct sockaddr *)&remote, len) == -1) {
-    printf("ERROR: The simulator failed to connect to Origen's socket! %s\n", strerror(errno));
+    perror("ERROR: The simulator failed to connect to Origen's socket!");
     return 1;
   }
   return 0;

@@ -6,17 +6,118 @@ module OrigenSim
   class Simulator
     include Origen::PersistentCallbacks
 
-    attr_reader :socket, :failed
+    VENDORS = [:icarus, :cadence]
+
+    attr_reader :socket, :failed, :configuration
+    alias_method :config, :configuration
+
+    def configure(options)
+      fail 'A vendor must be supplied, e.g. OrigenSim::Tester.new(vendor: :icarus)' unless options[:vendor]
+      unless VENDORS.include?(options[:vendor])
+        fail "Unknown vendor #{options[:vendor]}, valid values are: #{VENDORS.map { |v| ':' + v.to_s }.join(', ')}"
+      end
+      unless options[:rtl_top]
+        fail "The name of the file containing the DUT top-level must be supplied, e.g. OrigenSim::Tester.new(rtl_top: 'my_ip.v')" unless options[:rtl_top]
+      end
+      @configuration = options
+      @tmp_dir = nil
+    end
+
+    # The ID assigned to the current simulation target, falls back to to the
+    # Origen target name if an :id option is not supplied when instantiating
+    # the tester
+    def id
+      config[:id] || Origen.target.name
+    end
+
+    def tmp_dir
+      @tmp_dir ||= begin
+        d = "#{Origen.root}/tmp/origen_sim/#{config[:vendor]}"
+        FileUtils.mkdir_p(d)
+        d
+      end
+    end
+
+    # Returns the directory where the compiled simulation object lives, this should
+    # be checked into your Origen app's repository
+    def compiled_dir
+      @compiled_dir ||= begin
+        d = "#{Origen.root}/simulation/#{id}/#{config[:vendor]}"
+        FileUtils.mkdir_p(d)
+        d
+      end
+    end
+
+    def wave_dir
+      @wave_dir ||= begin
+        d = "#{Origen.root}/waves/#{id}"
+        FileUtils.mkdir_p(d)
+        d
+      end
+    end
+
+    def pid_dir
+      @pid_dir ||= begin
+        d = "#{Origen.root}/tmp/origen_sim/pids"
+        FileUtils.mkdir_p(d)
+        d
+      end
+    end
+
+    def run_cmd
+      input_file = "#{tmp_dir}/#{id}.tcl"
+      unless File.exist?(input_file)
+        Origen.app.runner.launch action:            :compile,
+                                 files:             "#{Origen.root!}/templates/probe.tcl.erb",
+                                 output:            tmp_dir,
+                                 check_for_changes: false,
+                                 quiet:             true,
+                                 options:           { dir: wave_dir },
+                                 output_file_name:  "#{id}.tcl"
+      end
+      wave_dir  # Ensure this exists since it won't be referenced above if the
+      # input file is already generated
+
+      cmd = configuration[:irun] || 'irun'
+      cmd += " -r origen -snapshot origen +socket+#{socket_id}"
+      cmd += " -input #{input_file}"
+      cmd += " -nclibdirpath #{compiled_dir}"
+      cmd
+    end
 
     def start
-      puts "[DEBUG] Opening socket #{socket_id}"
       server = UNIXServer.new(socket_id)
+      verbose = Origen.debugger_enabled?
 
-      rake_pid = spawn("rake origen_sim:#{tester.vendor}:run[#{socket_number}]")
-      Process.detach(rake_pid)
+      launch_simulator = %(
+        require 'open3'
+
+        Dir.chdir '#{tmp_dir}' do
+          Open3.popen3('#{run_cmd + ' & echo $!'}') do |stdin, stdout, stderr, thread|
+            pid = stdout.gets.strip
+            File.open '#{pid_dir}/#{socket_number}', 'w' do |f|
+              f.puts pid
+            end
+            threads = []
+            threads << Thread.new do
+              until (line = stdout.gets).nil?
+                puts line if #{verbose ? 'true' : 'false'}
+              end
+            end
+            threads << Thread.new do
+              until (line = stderr.gets).nil?
+                puts line
+              end
+            end
+            threads.each(&:join)
+          end
+        end
+      )
+
+      simulator_parent_process = spawn("ruby -e \"#{launch_simulator}\"")
+      Process.detach(simulator_parent_process)
 
       timeout_connection(15) do
-        puts "WAITING" * 25
         @socket = server.accept
         @connection_established = true
         if @connection_timed_out

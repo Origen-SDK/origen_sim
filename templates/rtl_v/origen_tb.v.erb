@@ -1,4 +1,4 @@
-`include "dut.v"
+%#`include "<%= options[:top] %>"
 
 `timescale 1ns/1ns
 
@@ -93,9 +93,9 @@ module origen_tb;
     .errors(errors)
   );
 
-  dut dut (
+  <%= options[:top].sub(/\..*/, '') %> dut (
 % dut.pins.each_with_index do |(name, pin), i|
-    .<%= pin.id %>(<%= pin.id %>)<%= i == (dut.pins.size - 1) ? '' : ',' %>
+    .<%= pin.rtl_name %>(<%= pin.id %>)<%= i == (dut.pins.size - 1) ? '' : ',' %>
 % end
   );
 
@@ -103,10 +103,12 @@ module origen_tb;
     .errors(errors)
   );
 
+% if options[:vendor] == :icarus  
   initial
   begin
     $dumpfile("dut.vcd");
     $dumpvars(0,origen_tb);
   end
+% end
 
 endmodule

@@ -6,6 +6,10 @@ module Origen
       # The index number that is used to refer to the pin within the simulation
       attr_accessor :simulation_index
 
+      def rtl_name
+        (@rtl_name || id).to_s
+      end
+
       alias_method :_orig_set_value, :set_value
       def set_value(val)
         ret = _orig_set_value(val)

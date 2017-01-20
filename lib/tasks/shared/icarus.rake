@@ -10,8 +10,7 @@ c_source_files = Rake::FileList["#{Origen.root!}/ext/*.c"]
 source_files = Rake::FileList["#{Origen.root!}/ext/*.c", "#{Origen.root!}/ext/*.h"]
 
 namespace :icarus do
-
-  desc 'Compiles the VPI extension'
+  # desc 'Compiles the VPI extension'
   task compile: [tmp_dir, "#{tmp_dir}/origen.vpi"]
 
   file "#{tmp_dir}/origen.vpi" => source_files do
@@ -20,12 +19,12 @@ namespace :icarus do
     end
   end
 
-  desc 'Deletes all compiled objects'
+  # desc 'Deletes all compiled objects'
   task :clean do
     sh "rm -fr #{tmp_dir}"
   end
 
-  desc 'Build the object containing the DUT and testbench'
+  # desc 'Build the object containing the DUT and testbench'
   task build: [:compile, "#{tmp_dir}/dut.vvp"]
 
   v_source_files = Rake::FileList["#{Origen.root}/spec/rtl_v/*.v"]
@@ -58,5 +57,4 @@ namespace :icarus do
       end
     end
   end
-
 end
