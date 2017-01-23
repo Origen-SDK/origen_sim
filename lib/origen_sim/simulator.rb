@@ -65,23 +65,30 @@ module OrigenSim
     end
 
     def run_cmd
-      input_file = "#{tmp_dir}/#{id}.tcl"
-      unless File.exist?(input_file)
-        Origen.app.runner.launch action:            :compile,
-                                 files:             "#{Origen.root!}/templates/probe.tcl.erb",
-                                 output:            tmp_dir,
-                                 check_for_changes: false,
-                                 quiet:             true,
-                                 options:           { dir: wave_dir },
-                                 output_file_name:  "#{id}.tcl"
-      end
-      wave_dir  # Ensure this exists since it won't be referenced above if the
-      # input file is already generated
+      case config[:vendor]
+      when :icarus
+        cmd = configuration[:vvp] || 'vvp'
+        cmd += " -M#{compiled_dir} -morigen #{compiled_dir}/dut.vvp +socket+#{socket_id}"
 
-      cmd = configuration[:irun] || 'irun'
-      cmd += " -r origen -snapshot origen +socket+#{socket_id}"
-      cmd += " -input #{input_file}"
-      cmd += " -nclibdirpath #{compiled_dir}"
+      when :cadence
+        input_file = "#{tmp_dir}/#{id}.tcl"
+        unless File.exist?(input_file)
+          Origen.app.runner.launch action:            :compile,
+                                   files:             "#{Origen.root!}/templates/probe.tcl.erb",
+                                   output:            tmp_dir,
+                                   check_for_changes: false,
+                                   quiet:             true,
+                                   options:           { dir: wave_dir },
+                                   output_file_name:  "#{id}.tcl"
+        end
+        wave_dir  # Ensure this exists since it won't be referenced above if the
+        # input file is already generated
+
+        cmd = configuration[:irun] || 'irun'
+        cmd += " -r origen -snapshot origen +socket+#{socket_id}"
+        cmd += " -input #{input_file}"
+        cmd += " -nclibdirpath #{compiled_dir}"
+      end
       cmd
     end
 

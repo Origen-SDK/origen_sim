@@ -58,6 +58,22 @@ unless options[:testrun]
 end
 
 case config[:vendor]
+when :icarus
+  # Compile the VPI extension first
+  Dir.chdir tmp_dir do
+    system "iverilog-vpi #{Origen.root!}/ext/*.c -DICARUS --name=origen"
+    system "mv origen.vpi #{simulator.compiled_dir}"
+  end
+  # Build the object containing the DUT and testbench
+  cmd = "iverilog -o #{simulator.compiled_dir}/dut.vvp"
+  Array(config[:rtl_dir] || config[:rtl_dirs]).each do |dir|
+    cmd += " -I #{dir}"
+  end
+  Array(config[:rtl_file] || config[:rtl_files]).each do |f|
+    cmd += " #{f}"
+  end
+  cmd += " #{tmp_dir}/origen_tb.v"
+
 when :cadence
   cmd = config[:irun] || 'irun'
   Array(config[:rtl_file] || config[:rtl_files]).each do |f|
@@ -74,10 +90,11 @@ when :cadence
   cmd += " #{Origen.root!}/ext/*.c -ccargs \"-std=gnu99\""
   cmd += ' -elaborate -snapshot origen -access +rw'
   cmd += " #{options[:explicit]}" if  options[:explicit]
-  puts cmd
-  unless options[:testrun]
-    Dir.chdir tmp_dir do
-      system cmd
-    end
+end
+
+puts cmd
+unless options[:testrun]
+  Dir.chdir tmp_dir do
+    system cmd
   end
 end
