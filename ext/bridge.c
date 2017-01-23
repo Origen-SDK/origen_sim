@@ -650,6 +650,16 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           vpi_put_value(handle, &v, NULL, vpiNoDelay);
         }
         break;
+      // Set Comment
+      //   c^Some comment about the pattern
+      case 'c' :
+        handle = vpi_handle_by_name("origen_tb.debug.comments", NULL);
+        arg1 = strtok(NULL, "^");
+
+        v.format = vpiStringVal;
+        v.value.str = arg1;
+        vpi_put_value(handle, &v, NULL, vpiNoDelay);
+        break;
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");
         runtime_errors += 1;

@@ -92,6 +92,15 @@ module OrigenSim
       cmd
     end
 
+    def run_dir
+      case config[:vendor]
+      when :icarus
+        wave_dir
+      else
+        tmp_dir
+      end
+    end
+
     def start
       server = UNIXServer.new(socket_id)
       verbose = Origen.debugger_enabled?
@@ -99,7 +108,7 @@ module OrigenSim
       launch_simulator = %(
         require 'open3'
 
-        Dir.chdir '#{tmp_dir}' do
+        Dir.chdir '#{run_dir}' do
           Open3.popen3('#{run_cmd + ' & echo $!'}') do |stdin, stdout, stderr, thread|
             pid = stdout.gets.strip
             File.open '#{pid_dir}/#{socket_number}', 'w' do |f|
@@ -181,6 +190,10 @@ module OrigenSim
         # Set the current pattern name in the simulation
         put("a^#{name.sub(/\..*/, '')}")
       end
+    end
+
+    def write_comment(comment)
+      put("c^#{comment}")
     end
 
     # Applies the current state of all pins to the simulation

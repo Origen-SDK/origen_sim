@@ -6,12 +6,12 @@
   @param  reset  Zeroes the counter's value when asserted.
   @param  count  The counter's value.
 */
-module counter #(parameter Size = 5) (
+module counter #(parameter Size = 32) (
   input                   clock,
   input                   reset,
   output reg [Size-1 : 0] count
 );
-  always @(posedge clock) begin
+  always @(posedge clock or posedge reset) begin
     if (reset)
       count <= 0;
     else

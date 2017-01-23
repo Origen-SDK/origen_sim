@@ -80,26 +80,21 @@ module tap_top(
                 tdo_padoe_o,
  
                 // TAP states
-				test_logic_reset_o,
-				run_test_idle_o,
+                test_logic_reset_o,
+                run_test_idle_o,
                 shift_dr_o,
                 pause_dr_o, 
                 update_dr_o,
                 capture_dr_o,
  
-                // Select signals for boundary scan or mbist
-                extest_select_o, 
-                sample_preload_select_o,
-                mbist_select_o,
-                debug_select_o,
+                // Select signals for sub-modules
+                debug_select_o, // enable debug module
  
                 // TDO signal that is connected to TDI of sub-modules.
                 tdi_o, 
  
                 // TDI signals from sub-modules
-                debug_tdo_i,    // from debug module
-                bs_chain_tdo_i, // from Boundary Scan Chain
-                mbist_tdo_i     // from Mbist Chain
+                debug_tdo_i    // from debug module
               );
  
  
@@ -120,9 +115,6 @@ output  update_dr_o;
 output  capture_dr_o;
  
 // Select signals for boundary scan or mbist
-output  extest_select_o;
-output  sample_preload_select_o;
-output  mbist_select_o;
 output  debug_select_o;
  
 // TDO signal that is connected to TDI of sub-modules.
@@ -130,8 +122,6 @@ output  tdi_o;
  
 // TDI signals from sub-modules
 input   debug_tdo_i;    // from debug module
-input   bs_chain_tdo_i; // from Boundary Scan Chain
-input   mbist_tdo_i;    // from Mbist Chain
  
 // Wires which depend on the state of the TAP FSM
 reg     test_logic_reset;
@@ -152,10 +142,7 @@ reg     exit2_ir;
 reg     update_ir;
  
 // Wires which depend on the current value in the IR
-reg     extest_select;
-reg     sample_preload_select;
 reg     idcode_select;
-reg     mbist_select;
 reg     debug_select;
 reg     bypass_select;
  
@@ -172,9 +159,6 @@ assign pause_dr_o = pause_dr;
 assign update_dr_o = update_dr;
 assign capture_dr_o = capture_dr;
  
-assign extest_select_o = extest_select;
-assign sample_preload_select_o = sample_preload_select;
-assign mbist_select_o = mbist_select;
 assign debug_select_o = debug_select;
  
  
@@ -463,20 +447,13 @@ assign bypassed_tdo = bypass_reg;   // This is latched on a negative TCK edge af
 **********************************************************************************/
 always @ (latched_jtag_ir)
 begin
-  extest_select           = 1'b0;
-  sample_preload_select   = 1'b0;
   idcode_select           = 1'b0;
-  mbist_select            = 1'b0;
   debug_select            = 1'b0;
   bypass_select           = 1'b0;
  
   case(latched_jtag_ir)    /* synthesis parallel_case */ 
-    `EXTEST:            extest_select           = 1'b1;    // External test
-    `SAMPLE_PRELOAD:    sample_preload_select   = 1'b1;    // Sample preload
     `IDCODE:            idcode_select           = 1'b1;    // ID Code
-    `MBIST:             mbist_select            = 1'b1;    // Mbist test
     `DEBUG:             debug_select            = 1'b1;    // Debug
-    `BYPASS:            bypass_select           = 1'b1;    // BYPASS
     default:            bypass_select           = 1'b1;    // BYPASS
   endcase
 end
@@ -490,8 +467,7 @@ end
 reg tdo_mux_out;  // really just a wire
  
 always @ (shift_ir or instruction_tdo or latched_jtag_ir or idcode_tdo or
-          debug_tdo_i or bs_chain_tdo_i or mbist_tdo_i or bypassed_tdo or
-			bs_chain_tdo_i)
+          debug_tdo_i or bypassed_tdo)
 begin
   if(shift_ir)
     tdo_mux_out = instruction_tdo;
@@ -500,9 +476,6 @@ begin
       case(latched_jtag_ir)    // synthesis parallel_case
         `IDCODE:            tdo_mux_out = idcode_tdo;       // Reading ID code
         `DEBUG:             tdo_mux_out = debug_tdo_i;      // Debug
-        `SAMPLE_PRELOAD:    tdo_mux_out = bs_chain_tdo_i;   // Sampling/Preloading
-        `EXTEST:            tdo_mux_out = bs_chain_tdo_i;   // External test
-        `MBIST:             tdo_mux_out = mbist_tdo_i;      // Mbist test
         default:            tdo_mux_out = bypassed_tdo;     // BYPASS instruction
       endcase
     end

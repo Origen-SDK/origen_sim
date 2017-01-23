@@ -37,5 +37,9 @@ module OrigenSim
       end
       simulator.cycle(options[:repeat] || 1)
     end
+
+    def c1(msg, options = {})
+      simulator.write_comment(msg) if @step_comment_on
+    end
   end
 end
