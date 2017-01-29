@@ -267,7 +267,7 @@ module OrigenSim
 
     # Applies the current state of all pins to the simulation
     def put_all_pin_states
-      dut.pins.each { |name, pin| pin.update_simulation }
+      dut.rtl_pins.each { |name, pin| pin.update_simulation }
     end
 
     # This will be called automatically whenever tester.set_timeset
@@ -286,9 +286,11 @@ module OrigenSim
     # Tells the simulator about the pins in the current device so that it can
     # set up internal handles to efficiently access them
     def define_pins
-      dut.pins.each_with_index do |(name, pin), i|
-        pin.simulation_index = i
-        put("0^#{pin.id}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
+      dut.rtl_pins.each_with_index do |(name, pin), i|
+        unless pin.tie_off
+          pin.simulation_index = i
+          put("0^#{pin.id}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
+        end
       end
     end
 

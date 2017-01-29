@@ -17,6 +17,12 @@ module OrigenSimDev
       add_pin_alias :tclk, :tck
       add_pin :dout, size: 32
       add_pin :din_port, size: 32, rtl_name: 'din'
+      add_pin :p1, tie_off: 0
+      add_pin :p2, tie_off: 1
+      add_pin :p3, size: 4, tie_off: 0
+      add_pin :p4, size: 4, tie_off: 1
+      add_pin :v1, rtl_name: 'nc'
+      add_pin :v2, rtl_name: :nc
 
       timeset :func do |t|
         # Generate a clock pulse on TCK
@@ -45,6 +51,13 @@ module OrigenSimDev
       add_reg :data_out, 0xC
 
       add_reg :data_in, 0x10
+
+      add_reg :p, 0x14 do |reg|
+        reg.bits 0, :p1
+        reg.bits 1, :p2
+        reg.bits 5..2, :p3
+        reg.bits 9..6, :p4
+      end
     end
 
     def interactive_startup

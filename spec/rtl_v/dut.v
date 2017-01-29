@@ -5,12 +5,17 @@ module dut(tck,tdi,tdo,tms,trstn,
             rstn,
             done,
             test_bus,
-            din, dout
+            din, dout,
+            p1, p2, p3, p4
           );
 
   input tck, tdi, tms, trstn;
   input rstn;
   input [31:0] din;
+  input p1;
+  input p2;
+  input [3:0] p3;
+  input [3:0] p4;
 
   output tdo;
   output done;
@@ -137,6 +142,8 @@ module dut(tck,tdi,tdo,tms,trstn,
       dr[31:0] <= data_out[31:0];
     else if (read_register && address == 32'h10)
       dr[31:0] <= din[31:0];
+    else if (read_register && address == 32'h14)
+      dr[31:0] <= {24'b0, p4[3:0], p3[3:0], p2, p1};
     else
       dr[31:0] <= dr[31:0];
   end

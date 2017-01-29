@@ -43,7 +43,9 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
 % end
 
 % dut.rtl_pins.each do |name, pin, options|
+%   unless pin.tie_off
   wire <%= pin.id %>_err;
+%   end
 % end
 
   output reg [31:0] errors = 0;
@@ -51,10 +53,12 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
   always @(
 
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
-%   if i == 0
+%   unless pin.tie_off
+%     if i == 0
     posedge <%= pin.id %>_err
-%   else
+%     else
     or posedge <%= pin.id %>_err
+%     end
 %   end
 % end
   ) begin
@@ -62,7 +66,9 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
   end
 
 % dut.rtl_pins.each do |name, pin, options|
+%   unless pin.tie_off
   pin_driver <%= pin.id %> (.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err));
+%   end 
 % end
 
 endmodule
@@ -84,14 +90,18 @@ module origen;
   reg finish = 0;
 
 % dut.rtl_pins.each do |name, pin, options|
+%   unless pin.tie_off
   wire <%= pin.id %>;
+%   end
 % end
 
   wire [31:0] errors;
 
   pin_drivers pins (
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
+%   unless pin.tie_off
     .<%= pin.id %>_o(<%= pin.id %>),
+%   end
 % end
     .errors(errors)
   );
@@ -100,14 +110,18 @@ module origen;
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
 %   if options[:group]
 %     if pin.group_index == 0
+%       if pin.primary_group.tie_off
+    .<%= pin.rtl_name %>(<%= "#{pin.primary_group.size}'b#{pin.tie_off.to_s * pin.primary_group.size}" %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+%       else
     .<%= pin.rtl_name %>({
-%       pin.primary_group.each_with_index do |pin, i|
+%         pin.primary_group.each_with_index do |pin, i|
       <%= pin.id %><%= i == (pin.primary_group.size - 1) ? '' : ',' %>
-%       end
+%         end
     })<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+%       end
 %     end
 %   else
-    .<%= pin.rtl_name %>(<%= pin.id %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+    .<%= pin.rtl_name %>(<%= pin.tie_off ? "1'b#{pin.tie_off}" : pin.id %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
 %   end
 % end
   );
