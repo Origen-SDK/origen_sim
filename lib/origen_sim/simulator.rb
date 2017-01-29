@@ -439,8 +439,6 @@ module OrigenSim
       Origen.listeners_for(:simulation_shutdown).each(&:simulation_shutdown)
       ended = Time.now
       end_simulation
-      end_simulation
-      end_simulation
       # Give the simulator a few seconds to shut down, otherwise kill it
       sleep 1 while running? && (Time.now - ended) < 5
       Process.kill(15, pid) if running?
