@@ -4,15 +4,18 @@
 module dut(tck,tdi,tdo,tms,trstn,
             rstn,
             done,
-            test_bus
+            test_bus,
+            din, dout
           );
 
   input tck, tdi, tms, trstn;
   input rstn;
+  input [31:0] din;
 
   output tdo;
   output done;
   output [15:0] test_bus;
+  output [31:0] dout;
 
   wire [31:0] count;
   wire shift_dr;
@@ -52,6 +55,8 @@ module dut(tck,tdi,tdo,tms,trstn,
     .reset(count_reset),
     .count(count)
   );
+
+  assign dout = data_out;
 
   //****************************************************************
   // DEBUGGER INTERFACE
@@ -109,6 +114,17 @@ module dut(tck,tdi,tdo,tms,trstn,
       cmd[31:0] <= cmd[31:0];
   end
 
+  reg [31:0] data_out;  // Address 0xC
+
+  always @ (negedge tck or negedge rstn) begin
+    if (rstn == 0)
+      data_out[31:0] <= 32'b0;
+    else if (write_register && address == 32'hC)
+      data_out[31:0] <= data;
+    else
+      data_out[31:0] <= data_out[31:0];
+  end
+
   // Read regs
   always @ (negedge tck) begin
     if (read_register && address == 32'b0)
@@ -117,6 +133,10 @@ module dut(tck,tdi,tdo,tms,trstn,
       dr[31:0] <= cmd[31:0];
     else if (read_register && address == 32'h8)
       dr[31:0] <= count[31:0];
+    else if (read_register && address == 32'hC)
+      dr[31:0] <= data_out[31:0];
+    else if (read_register && address == 32'h10)
+      dr[31:0] <= din[31:0];
     else
       dr[31:0] <= dr[31:0];
   end

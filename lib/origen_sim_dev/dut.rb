@@ -15,6 +15,8 @@ module OrigenSimDev
       add_pin :rstn, reset: :drive_lo
       add_pin :trstn, reset: :drive_lo
       add_pin_alias :tclk, :tck
+      add_pin :dout, size: 32
+      add_pin :din_port, size: 32, rtl_name: 'din'
 
       timeset :func do |t|
         # Generate a clock pulse on TCK
@@ -39,6 +41,10 @@ module OrigenSimDev
       add_reg :cmd, 0x4
 
       add_reg :count, 0x8
+
+      add_reg :data_out, 0xC
+
+      add_reg :data_in, 0x10
     end
 
     def interactive_startup

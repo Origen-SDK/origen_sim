@@ -7,7 +7,11 @@ module Origen
       attr_accessor :simulation_index
 
       def rtl_name
-        (@rtl_name || id).to_s
+        if primary_group
+          (@rtl_name || primary_group.id).to_s
+        else
+          (@rtl_name || id).to_s
+        end
       end
 
       alias_method :_orig_set_value, :set_value

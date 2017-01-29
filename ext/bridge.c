@@ -13,6 +13,12 @@
 #define MAX_NUMBER_PINS 2000
 #define MAX_WAVE_EVENTS 10
 
+#ifdef ICARUS
+#define TIME_MULTIPLIER 1
+#else
+#define TIME_MULTIPLIER 1000
+#endif
+
 typedef struct Pin {
   vpiHandle data;        // A handle to the driver data register
   vpiHandle drive;       // A handle to the driver drive enable register
@@ -445,7 +451,7 @@ static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, i
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(delay_in_ns * 1000);
+  time.low  = (uint32_t)(delay_in_ns * TIME_MULTIPLIER);
 
   call.reason    = cbAfterDelay;
   call.cb_rtn    = bridge_apply_wave_event_cb;
@@ -469,8 +475,8 @@ void bridge_init() {
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(100 * 1000);  // 100ns chosen as a round number and since the actual
-                                       // period may not be declared yet
+  time.low  = (uint32_t)(100 * TIME_MULTIPLIER);  // 100ns chosen as a round number and since the actual
+                                                  // period may not be declared yet
 
   call.reason    = cbAfterDelay;
   call.obj       = 0;
@@ -683,6 +689,8 @@ static void end_simulation() {
   v.format = vpiDecStrVal;
   v.value.str = "1";
   vpi_put_value(handle, &v, NULL, vpiNoDelay);
+  // Corner case during testing, the timeset may not have been set yet
+  bridge_set_period("1");
   // Do a cycle so that the simulation sees the edge on origen.finish
   bridge_cycle();
 }
@@ -704,7 +712,7 @@ static void bridge_cycle() {
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(period_in_ns * 1000);
+  time.low  = (uint32_t)(period_in_ns * TIME_MULTIPLIER);
 
   call.reason    = cbAfterDelay;
   call.obj       = 0;

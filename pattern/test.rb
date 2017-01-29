@@ -43,4 +43,17 @@ Pattern.create do
   100.cycles
   dut.ctrl.write!(0b0)  # Stop counting
   dut.count.read!(0xAB)
+
+  ss "Verify that pin group read/write works"
+  dut.pins(:din_port).drive!(0x1234_5678)
+  dut.data_in.read!(0x1234_5678)
+
+  dut.data_out.write!(0)
+  dut.pins(:dout).assert!(0)
+  dut.pins(:dout).dont_care
+  dut.data_out.write!(0x5555_AAAA)
+  dut.pins(:dout).assert!(0x5555_AAAA)
+  dut.pins(:dout).dont_care
+
+  ss "Verify that tying off pins works"
 end

@@ -36,13 +36,13 @@ module pin_driver(error, pin);
 
 endmodule
 
-module pin_drivers(errors, <%= dut.rtl_pins.values.map { |p| "#{p.id}_o" }.join(', ') %>);
+module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>);
 
-% dut.rtl_pins.each do |name, pin|
+% dut.rtl_pins.each do |name, pin, options|
   output <%= pin.id %>_o;
 % end
 
-% dut.rtl_pins.each do |name, pin|
+% dut.rtl_pins.each do |name, pin, options|
   wire <%= pin.id %>_err;
 % end
 
@@ -50,7 +50,7 @@ module pin_drivers(errors, <%= dut.rtl_pins.values.map { |p| "#{p.id}_o" }.join(
 
   always @(
 
-% dut.rtl_pins.each_with_index do |(name, pin), i|
+% dut.rtl_pins.each_with_index do |(name, pin, options), i|
 %   if i == 0
     posedge <%= pin.id %>_err
 %   else
@@ -61,7 +61,7 @@ module pin_drivers(errors, <%= dut.rtl_pins.values.map { |p| "#{p.id}_o" }.join(
     errors[31:0] = errors[31:0] + 1;
   end
 
-% dut.rtl_pins.each do |name, pin|
+% dut.rtl_pins.each do |name, pin, options|
   pin_driver <%= pin.id %> (.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err));
 % end
 
@@ -83,22 +83,32 @@ module origen;
 
   reg finish = 0;
 
-% dut.rtl_pins.each do |name, pin|
+% dut.rtl_pins.each do |name, pin, options|
   wire <%= pin.id %>;
 % end
 
   wire [31:0] errors;
 
   pin_drivers pins (
-% dut.rtl_pins.each_with_index do |(name, pin), i|
+% dut.rtl_pins.each_with_index do |(name, pin, options), i|
     .<%= pin.id %>_o(<%= pin.id %>),
 % end
     .errors(errors)
   );
 
   <%= options[:top].sub(/\..*/, '') %> dut (
-% dut.rtl_pins.each_with_index do |(name, pin), i|
+% dut.rtl_pins.each_with_index do |(name, pin, options), i|
+%   if options[:group]
+%     if pin.group_index == 0
+    .<%= pin.rtl_name %>({
+%       pin.primary_group.each_with_index do |pin, i|
+      <%= pin.id %><%= i == (pin.primary_group.size - 1) ? '' : ',' %>
+%       end
+    })<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+%     end
+%   else
     .<%= pin.rtl_name %>(<%= pin.id %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+%   end
 % end
   );
 

@@ -4,7 +4,7 @@ describe "The simulator" do
 
   before :all do
     # Test the build process
-    #system "origen origen_sim:build"
+    system "origen origen_sim:build"
     Origen.load_target
     Origen.enable_debugger # Show simulator output
     sim.start
