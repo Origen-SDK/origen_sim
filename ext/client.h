@@ -6,5 +6,6 @@
 int client_connect(char *);
 int client_get(int, char*);
 int client_put(char*);
+bool is_server_alive(void);
 
 #endif

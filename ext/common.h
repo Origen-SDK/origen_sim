@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "vpi_user.h"
+#include <stdbool.h>
+#include <stdint.h>
 #define UNUSED(x) (void)(x)
 
 #define ENABLE_DEBUG

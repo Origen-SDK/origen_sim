@@ -1,0 +1,100 @@
+#
+# Preferences
+#
+preferences set plugin-enable-svdatabrowser-new 1
+preferences set toolbar-SimControl-WaveWindow {
+  usual
+  position -row 1 -pos 4 -anchor e
+}
+preferences set plugin-enable-groupscope 0
+preferences set sb-display-values 1
+preferences set plugin-enable-interleaveandcompare 0
+preferences set plugin-enable-waveformfrequencyplot 0
+preferences set toolbar-WaveZoom-WaveWindow {
+  usual
+  position -row 1 -pos 3 -anchor w
+}
+preferences set whats-new-dont-show-at-startup 1
+#
+# Groups
+#
+catch {group new -name Debug -overlay 0}
+catch {group new -name {Group 2} -overlay 0}
+catch {group new -name DUT -overlay 0}
+group using Debug
+group set -overlay 0
+group set -comment {}
+group clear 0 end
+
+group insert \
+    [subst  {[format {origen.debug.pattern[1023:0]}]} ] \
+    [subst  {[format {origen.debug.comments[1023:0]}]} ] \
+    [subst  {[format {origen.debug.errors[31:0]}]} ]
+group using {Group 2}
+group set -overlay 0
+group set -comment {}
+group clear 0 end
+
+group using DUT
+group set -overlay 0
+group set -comment {}
+group clear 0 end
+
+
+#
+# Mnemonic Maps
+#
+mmap new -reuse -name {Boolean as Logic} -radix %b -contents {{%c=FALSE -edgepriority 1 -shape low}
+{%c=TRUE -edgepriority 1 -shape high}}
+mmap new -reuse -name {Example Map} -radix %x -contents {{%b=11???? -bgcolor orange -label REG:%x -linecolor yellow -shape bus}
+{%x=1F -bgcolor red -label ERROR -linecolor white -shape EVENT}
+{%x=2C -bgcolor red -label ERROR -linecolor white -shape EVENT}
+{%x=* -label %x -linecolor gray -shape bus}}
+
+#
+# Waveform windows
+#
+if {[catch {window new WaveWindow -name "Waveform 1" -geometry 1604x996+38+65}] != ""} {
+    window geometry "Waveform 1" 1604x996+38+65
+}
+window target "Waveform 1" on
+waveform using {Waveform 1}
+waveform sidebar select designbrowser
+waveform set \
+    -primarycursor TimeA \
+    -signalnames name \
+    -signalwidth 175 \
+    -units ns \
+    -valuewidth 75
+waveform baseline set -time 0
+
+
+set groupId0 [waveform add -groups Debug]
+set gpGlist0 [waveform hierarchy contents $groupId0]
+set gpID0 [lindex $gpGlist0 0]
+foreach {name attrs} [subst  {
+    {[format {origen.debug.pattern[1023:0]}]} {-radix %a}
+    {[format {origen.debug.comments[1023:0]}]} {-radix %a}
+    {[format {origen.debug.errors[31:0]}]} {}
+}] childcmds {
+    {}
+    {}
+    {}
+} {
+    set expected [ join [waveform signals -format path $gpID0] ]
+    if {[string equal $name $expected] || $name == "cdivider"} {
+        if {$attrs != ""} {
+            eval waveform format $gpID0 $attrs
+        }
+        if { $childcmds != ""} {
+            eval $childcmds
+        }
+    }
+    set gpGlist0 [lrange $gpGlist0 1 end]
+    set gpID0 [lindex $gpGlist0 0]
+}
+
+
+set groupId0 [waveform add -groups DUT]
+
+

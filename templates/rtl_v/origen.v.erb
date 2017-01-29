@@ -36,13 +36,13 @@ module pin_driver(error, pin);
 
 endmodule
 
-module pin_drivers(errors, <%= dut.pins.values.map { |p| "#{p.id}_o" }.join(', ') %>);
+module pin_drivers(errors, <%= dut.rtl_pins.values.map { |p| "#{p.id}_o" }.join(', ') %>);
 
-% dut.pins.each do |name, pin|
+% dut.rtl_pins.each do |name, pin|
   output <%= pin.id %>_o;
 % end
 
-% dut.pins.each do |name, pin|
+% dut.rtl_pins.each do |name, pin|
   wire <%= pin.id %>_err;
 % end
 
@@ -50,7 +50,7 @@ module pin_drivers(errors, <%= dut.pins.values.map { |p| "#{p.id}_o" }.join(', '
 
   always @(
 
-% dut.pins.each_with_index do |(name, pin), i|
+% dut.rtl_pins.each_with_index do |(name, pin), i|
 %   if i == 0
     posedge <%= pin.id %>_err
 %   else
@@ -61,7 +61,7 @@ module pin_drivers(errors, <%= dut.pins.values.map { |p| "#{p.id}_o" }.join(', '
     errors[31:0] = errors[31:0] + 1;
   end
 
-% dut.pins.each do |name, pin|
+% dut.rtl_pins.each do |name, pin|
   pin_driver <%= pin.id %> (.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err));
 % end
 
@@ -79,24 +79,26 @@ module debug(errors);
 
 endmodule
 
-module origen_tb;
+module origen;
 
-% dut.pins.each do |name, pin|
+  reg finish = 0;
+
+% dut.rtl_pins.each do |name, pin|
   wire <%= pin.id %>;
 % end
 
   wire [31:0] errors;
 
   pin_drivers pins (
-% dut.pins.each_with_index do |(name, pin), i|
+% dut.rtl_pins.each_with_index do |(name, pin), i|
     .<%= pin.id %>_o(<%= pin.id %>),
 % end
     .errors(errors)
   );
 
   <%= options[:top].sub(/\..*/, '') %> dut (
-% dut.pins.each_with_index do |(name, pin), i|
-    .<%= pin.rtl_name %>(<%= pin.id %>)<%= i == (dut.pins.size - 1) ? '' : ',' %>
+% dut.rtl_pins.each_with_index do |(name, pin), i|
+    .<%= pin.rtl_name %>(<%= pin.id %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
 % end
   );
 
@@ -108,8 +110,11 @@ module origen_tb;
   initial
   begin
     $dumpfile("dut.vcd");
-    $dumpvars(0,origen_tb);
+    $dumpvars(0,origen);
   end
 % end
-
+    
+  always @(posedge finish) begin
+    $finish;
+  end
 endmodule

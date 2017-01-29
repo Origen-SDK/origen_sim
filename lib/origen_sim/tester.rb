@@ -3,6 +3,8 @@ module OrigenSim
   class Tester
     include OrigenTesters::VectorBasedTester
 
+    TEST_PROGRAM_GENERATOR = OrigenSim::Generator
+
     def initialize(options = {})
       simulator.configure(options)
       super()

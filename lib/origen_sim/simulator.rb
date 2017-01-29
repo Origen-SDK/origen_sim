@@ -17,7 +17,7 @@ module OrigenSim
         fail "Unknown vendor #{options[:vendor]}, valid values are: #{VENDORS.map { |v| ':' + v.to_s }.join(', ')}"
       end
       unless options[:rtl_top]
-        fail "The name of the file containing the DUT top-level must be supplied, e.g. OrigenSim::Tester.new(rtl_top: 'my_ip.v')" unless options[:rtl_top]
+        fail "The name of the file containing the DUT top-level must be supplied, e.g. OrigenSim::Tester.new(rtl_top: 'my_ip')" unless options[:rtl_top]
       end
       @configuration = options
       @tmp_dir = nil
@@ -64,6 +64,38 @@ module OrigenSim
       end
     end
 
+    def wave_config_dir
+      @wave_config_dir ||= begin
+        d = "#{Origen.root}/config/waves/#{id}"
+        FileUtils.mkdir_p(d)
+        d
+      end
+    end
+
+    def wave_config_file
+      @wave_config_file ||= begin
+        f = "#{wave_config_dir}/#{User.current.id}.svcf"
+        unless File.exist?(f)
+          # Take a default wave if one has been set up
+          d = "#{wave_config_dir}/default.svcf"
+          if File.exist?(d)
+            FileUtils.cp(d, f)
+          else
+            # Otherwise seed it with the latest existing setup by someone else
+            d = Dir.glob("#{wave_config_dir}/*.svcf").max { |a, b| File.ctime(a) <=> File.ctime(b) }
+            if d
+              FileUtils.cp(d, f)
+            else
+              # We tried our best, start from scratch
+              d = "#{Origen.root!}/templates/empty.svcf"
+              FileUtils.cp(d, f)
+            end
+          end
+        end
+        f
+      end
+    end
+
     def run_cmd
       case config[:vendor]
       when :icarus
@@ -80,6 +112,8 @@ module OrigenSim
                                    quiet:             true,
                                    options:           { dir: wave_dir },
                                    output_file_name:  "#{id}.tcl"
+          puts 'Had to generate simulator input file, please run again'
+          exit 0
         end
         wave_dir  # Ensure this exists since it won't be referenced above if the
         # input file is already generated
@@ -88,6 +122,21 @@ module OrigenSim
         cmd += " -r origen -snapshot origen +socket+#{socket_id}"
         cmd += " -input #{input_file}"
         cmd += " -nclibdirpath #{compiled_dir}"
+      end
+      cmd
+    end
+
+    def view_wave_command
+      cmd = nil
+      case config[:vendor]
+      when :cadence
+        edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
+        cmd = "cd #{edir} && "
+        cmd += configuration[:simvision] || 'simvision'
+        dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+        cmd += " #{dir}/#{id}.dsn #{dir}/#{id}.trn"
+        f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+        cmd += " -input #{f} &"
       end
       cmd
     end
@@ -104,12 +153,13 @@ module OrigenSim
     def start
       server = UNIXServer.new(socket_id)
       verbose = Origen.debugger_enabled?
+      cmd = run_cmd + ' & echo \$!'
 
       launch_simulator = %(
         require 'open3'
 
         Dir.chdir '#{run_dir}' do
-          Open3.popen3('#{run_cmd + ' & echo $!'}') do |stdin, stdout, stderr, thread|
+          Open3.popen3('#{cmd}') do |stdin, stdout, stderr, thread|
             pid = stdout.gets.strip
             File.open '#{pid_dir}/#{socket_number}', 'w' do |f|
               f.puts pid
@@ -149,12 +199,31 @@ module OrigenSim
         fail "The simulator didn't start properly!"
       end
       @enabled = true
+      Origen.listeners_for(:simulation_startup).each(&:simulation_startup)
     end
 
     # Returns the pid of the simulator process
     def pid
-      f = "#{Origen.root}/tmp/origen_sim/pids/#{socket_number}"
-      File.readlines(f).first.strip.to_i
+      return @pid if @pid_set
+      @pid = File.readlines(pid_file).first.strip.to_i if File.exist?(pid_file)
+      @pid ||= 0
+      @pid_set = true
+      @pid
+    end
+
+    def pid_file
+      "#{Origen.root}/tmp/origen_sim/pids/#{socket_number}"
+    end
+
+    # Returns true if the simulator process is running
+    def running?
+      return false if pid == 0
+      begin
+        Process.getpgid(pid)
+        true
+      rescue Errno::ESRCH
+        false
+      end
     end
 
     # Send the given message string to the simulator
@@ -271,7 +340,7 @@ module OrigenSim
 
     # Returns the current simulation error count
     def error_count
-      peek('origen_tb.debug.errors')
+      peek('origen.debug.errors')
     end
 
     # Returns the current value of the given net, or nil if the given path does not
@@ -367,7 +436,16 @@ module OrigenSim
 
     # Stop the simulator
     def stop
+      Origen.listeners_for(:simulation_shutdown).each(&:simulation_shutdown)
+      ended = Time.now
       end_simulation
+      # Give the simulator a few seconds to shut down, otherwise kill it
+      sleep 1 while running? && (Time.now - ended) < 5
+      Process.kill(15, pid) if running?
+      sleep 0.1
+      # Leave the pid file around if we couldn't verify the simulator
+      # has stopped
+      FileUtils.rm_f(pid_file) if File.exist?(pid_file) && !running?
       @socket.close if @socket
       File.unlink(socket_id) if File.exist?(socket_id)
     end
@@ -392,7 +470,16 @@ module OrigenSim
             Origen.app.stats.report_pass
           end
         end
+        if view_wave_command
+          puts
+          puts 'To view the simulation run the following command:'
+          puts
+          puts "  #{view_wave_command}"
+          puts
+        end
       end
+    ensure
+      Process.kill(15, pid) if @enabled && running?
     end
 
     def socket_id
@@ -425,7 +512,7 @@ module OrigenSim
 
     def clean(net)
       if net =~ /^dut\./
-        "origen_tb.#{net}"
+        "origen.#{net}"
       else
         net
       end

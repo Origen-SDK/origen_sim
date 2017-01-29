@@ -51,7 +51,7 @@ unless options[:testrun]
 
   # Create the testbench for the current Origen target and simulator vendor
   Origen.app.runner.launch action:            :compile,
-                           files:             "#{Origen.root!}/templates/rtl_v/origen_tb.v.erb",
+                           files:             "#{Origen.root!}/templates/rtl_v/origen.v.erb",
                            output:            tmp_dir,
                            check_for_changes: false,
                            options:           { vendor: config[:vendor], top: config[:rtl_top] }
@@ -72,7 +72,7 @@ when :icarus
   Array(config[:rtl_file] || config[:rtl_files]).each do |f|
     cmd += " #{f}"
   end
-  cmd += " #{tmp_dir}/origen_tb.v"
+  cmd += " #{tmp_dir}/origen.v"
 
 when :cadence
   cmd = config[:irun] || 'irun'
@@ -85,7 +85,7 @@ when :cadence
   Array(config[:rtl_dir] || config[:rtl_dirs]).each do |dir|
     cmd += " -incdir #{dir}"
   end
-  cmd += " #{tmp_dir}/origen_tb.v -top origen_tb -timescale 1ns/1ns"
+  cmd += " #{tmp_dir}/origen.v -top origen -timescale 1ns/1ns"
   cmd += " -nclibdirpath #{simulator.compiled_dir}"
   cmd += " #{Origen.root!}/ext/*.c -ccargs \"-std=gnu99\""
   cmd += ' -elaborate -snapshot origen -access +rw'

@@ -63,6 +63,7 @@ static void bridge_enable_compare_wave(Pin*);
 static void bridge_disable_compare_wave(Pin*);
 static void bridge_clear_waves_and_pins(void);
 static bool bridge_is_drive_whole_cycle(Pin*);
+static void end_simulation(void);
 
 static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * compare_wave_ix) {
   int index = atoi(pin_ix);
@@ -75,7 +76,7 @@ static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, 
   (*pin).previous_state = 0;
 
   char * driver = (char *) malloc(strlen(name) + 16);
-  strcpy(driver, "origen_tb.pins.");
+  strcpy(driver, "origen.pins.");
   strcat(driver, name);
 
   char * data = (char *) malloc(strlen(driver) + 16);
@@ -444,7 +445,7 @@ static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, i
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(delay_in_ns);
+  time.low  = (uint32_t)(delay_in_ns * 1000);
 
   call.reason    = cbAfterDelay;
   call.cb_rtn    = bridge_apply_wave_event_cb;
@@ -468,8 +469,8 @@ void bridge_init() {
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(100);  // 100ns chosen as a round number and since the actual
-                                // period may not be declared yet
+  time.low  = (uint32_t)(100 * 1000);  // 100ns chosen as a round number and since the actual
+                                       // period may not be declared yet
 
   call.reason    = cbAfterDelay;
   call.obj       = 0;
@@ -506,9 +507,11 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
     err = client_get(max_msg_len, msg);
     if (err) {
       vpi_printf("ERROR: Failed to receive from Origen!\n");
+      end_simulation();
       return 1;
     }
     if (runtime_errors) {
+      end_simulation();
       return 1;
     }
 
@@ -608,11 +611,12 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       // Complete
       //   8^
       case '8' :
+        end_simulation();
         return 0;
       // Peek
       //   Returns the current value of the given net
       //
-      //   9^origen_tb.debug.errors
+      //   9^origen.debug.errors
       case '9' :
         arg1 = strtok(NULL, "^");
         handle = vpi_handle_by_name(arg1, NULL);
@@ -628,7 +632,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       // Set Pattern Name
       //   a^atd_ramp_25mhz
       case 'a' :
-        handle = vpi_handle_by_name("origen_tb.debug.pattern", NULL);
+        handle = vpi_handle_by_name("origen.debug.pattern", NULL);
         arg1 = strtok(NULL, "^");
 
         v.format = vpiStringVal;
@@ -639,7 +643,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       //   Sets the given value on the given net, the number should be
       //   given as a decimal string
       //
-      //   b^origen_tb.debug.errors^15
+      //   b^origen.debug.errors^15
       case 'b' :
         arg1 = strtok(NULL, "^");
         arg2 = strtok(NULL, "^");
@@ -653,7 +657,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       // Set Comment
       //   c^Some comment about the pattern
       case 'c' :
-        handle = vpi_handle_by_name("origen_tb.debug.comments", NULL);
+        handle = vpi_handle_by_name("origen.debug.comments", NULL);
         arg1 = strtok(NULL, "^");
 
         v.format = vpiStringVal;
@@ -663,9 +667,24 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");
         runtime_errors += 1;
+        end_simulation();
         return 1;
     }
   }
+}
+
+
+static void end_simulation() {
+  vpiHandle handle;
+  s_vpi_value v;
+
+  // Setting this node will cause the testbench to call $finish
+  handle = vpi_handle_by_name("origen.finish", NULL);
+  v.format = vpiDecStrVal;
+  v.value.str = "1";
+  vpi_put_value(handle, &v, NULL, vpiNoDelay);
+  // Do a cycle so that the simulation sees the edge on origen.finish
+  bridge_cycle();
 }
 
 
@@ -685,7 +704,7 @@ static void bridge_cycle() {
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(period_in_ns);
+  time.low  = (uint32_t)(period_in_ns * 1000);
 
   call.reason    = cbAfterDelay;
   call.obj       = 0;

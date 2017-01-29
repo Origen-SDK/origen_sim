@@ -1,5 +1,5 @@
 database -open waves -into <%= options[:dir] %> -default -event
-probe -create -shm origen_tb -depth all -database waves
-probe -create -assertions -transaction origen_tb -depth all -database waves
+probe -create -shm origen -depth all -database waves
+probe -create -assertions -transaction origen -depth all -database waves
 run
 exit

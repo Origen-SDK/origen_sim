@@ -7,26 +7,26 @@
 #include "client.h"
 #include <string.h>
 
-static void origen_register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data));
-static void origen_init(void);
+static void register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data));
+static void init(void);
 
-static void origen_init() {
-  origen_register_callback(cbStartOfSimulation, origen_startup);
+static void init() {
+  register_callback(cbStartOfSimulation, origen_startup);
 
-  origen_register_callback(cbEndOfSimulation, origen_shutdown);
+  register_callback(cbEndOfSimulation, origen_shutdown);
 }
 
 
 /// Returns the value of the given argument, or NULL if not supplied.
 /// This example: 
 ///
-///   origen_get_arg("socket");   # => "/tmp/sim.sock"
+///   get_arg("socket");   # => "/tmp/sim.sock"
 ///
 /// Will work for the arguement passed in either of these formats:
 ///
 ///   -socket /tmp/sim.sock
 ///   +socket+/tmp/sim.sock
-char * origen_get_arg(char *arg) {
+char * get_arg(char *arg) {
   s_vpi_vlog_info info;
   vpi_get_vlog_info(&info);
   char * pch;
@@ -65,7 +65,7 @@ PLI_INT32 origen_startup(p_cb_data data) {
   UNUSED(data);
   //vpi_printf("Simulation started!\n");
 
-  int err = client_connect(origen_get_arg("socket"));
+  int err = client_connect(get_arg("socket"));
 
   if (err) {
     vpi_printf("ERROR: Couldn't connect to Origen app!\n");
@@ -91,7 +91,7 @@ PLI_INT32 origen_shutdown(p_cb_data data) {
 ///
 /// Registers a very basic VPI callback with reason and handler.
 ///
-static void origen_register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data))
+static void register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data))
 {
     s_cb_data call;
 
@@ -107,9 +107,9 @@ static void origen_register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_
 
 
 ///
-/// Bootstrap vector, make the simulator execute origen_init() on startup
+/// Bootstrap vector, make the simulator execute init() on startup
 ///
-void (*vlog_startup_routines[])(void) = { origen_init, 0 };
+void (*vlog_startup_routines[])(void) = { init, 0 };
 
 #if defined(CVER) || defined(VCS) || defined(NCSIM)
     void vlog_startup_routines_bootstrap()

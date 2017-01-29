@@ -42,6 +42,7 @@ module Origen
       # Applies the current pin state to the simulation, this is triggered everytime
       # the pin state or value changes
       def update_simulation
+        return unless tester.timeset
         case state
           when :drive
             simulator.put("2^#{simulation_index}^#{value}")

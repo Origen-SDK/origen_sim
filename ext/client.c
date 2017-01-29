@@ -8,8 +8,11 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <time.h>
 
 static int sock;
+static uint64_t msg_count = 0;
+static uint64_t last_msg_count = 0;
 
 /// Connects to the Origen app's socket
 int client_connect(char * socketId) {
@@ -34,7 +37,25 @@ int client_connect(char * socketId) {
     perror("ERROR: The simulator failed to connect to Origen's socket!");
     return 1;
   }
+
   return 0;
+}
+
+
+/// Returns true if the server has sent at least one message since the last time
+/// this was called, it will always return true the very first time it is called.
+/// The caller is responsible for setting the calling interval and therefore
+/// deciding how long without a message we should allow before considering that
+/// the server has died and that we are now an orphaned process.
+bool is_server_alive() {
+  if (last_msg_count) {
+    bool res = msg_count > last_msg_count;
+    last_msg_count = msg_count;
+    return res;
+  } else {
+    last_msg_count = msg_count;
+    return true;
+  }
 }
 
 
@@ -69,6 +90,7 @@ int client_get(int max_size, char* data) {
         // If so then pull that message out and return it
         recv(sock, data, i + 1, 0);
         data[i] = '\0';
+        msg_count++;
         return 0;
       } 
     }
