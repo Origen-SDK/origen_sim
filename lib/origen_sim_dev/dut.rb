@@ -16,7 +16,7 @@ module OrigenSimDev
       add_pin :trstn, reset: :drive_lo
       add_pin_alias :tclk, :tck
       add_pin :dout, size: 32
-      add_pin :din_port, size: 32, rtl_name: 'din'
+      add_pin :din_port, size: 32, rtl_name: 'din', reset: :drive_lo
       add_pin :p1, tie_off: 0
       add_pin :p2, tie_off: 1
       add_pin :p3, size: 4, tie_off: 0

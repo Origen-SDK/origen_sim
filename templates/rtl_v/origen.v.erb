@@ -12,6 +12,7 @@
 // 0 - Force data 0
 // 1 - Force data 1
 module pin_driver(error, pin);
+  parameter init_drive = 2; // Which means don't drive initially, set to 0 or 1 to drive
 
   output reg error;
 
@@ -34,12 +35,24 @@ module pin_driver(error, pin);
     error = compare ? (pin == data[0] ? 0 : 1) : 0;
   end
 
+  initial begin
+    if (init_drive == 1) begin
+      drive = 1;
+      data[0] = 1;
+    end else if (init_drive == 0) begin
+      drive = 1;
+      data[0] = 0;
+    end
+  end
+
 endmodule
 
-module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>);
+module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" unless p.tie_off }.compact.join(', ') %>);
 
 % dut.rtl_pins.each do |name, pin, options|
+%   unless pin.tie_off
   output <%= pin.id %>_o;
+%   end
 % end
 
 % dut.rtl_pins.each do |name, pin, options|
@@ -67,7 +80,7 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
 
 % dut.rtl_pins.each do |name, pin, options|
 %   unless pin.tie_off
-  pin_driver <%= pin.id %> (.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err));
+  pin_driver <%= pin.driving? ? "#(#{pin.value}) " : '' %><%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err));
 %   end 
 % end
 
@@ -106,12 +119,32 @@ module origen;
     .errors(errors)
   );
 
+  // Create wires to tie off DUT signals, initially this was done by hardcoded values when instantiating
+  // below, however the simulator didn't like that if the target pin was defined as an inout
+% dut.rtl_pins.each do |name, pin, options|
+%   if options[:group]
+%     if pin.group_index == 0
+%       if pin.primary_group.tie_off
+  wire [<%= pin.primary_group.size %>:0] <%= pin.rtl_name %>;
+  assign <%= pin.rtl_name %> = <%= "#{pin.primary_group.size}'b#{pin.tie_off.to_s * pin.primary_group.size}" %>;
+%       end
+%     end
+%   else
+%     if pin.tie_off
+  wire <%= pin.rtl_name %>;
+  assign <%= pin.rtl_name %> = 1'b<%= pin.tie_off %>;
+%     end
+%   end
+% end
+
+
+  // Instantiate the DUT
   <%= options[:top].sub(/\..*/, '') %> dut (
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
 %   if options[:group]
 %     if pin.group_index == 0
 %       if pin.primary_group.tie_off
-    .<%= pin.rtl_name %>(<%= "#{pin.primary_group.size}'b#{pin.tie_off.to_s * pin.primary_group.size}" %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+    .<%= pin.rtl_name %>(<%= pin.rtl_name %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
 %       else
     .<%= pin.rtl_name %>({
 %         pin.primary_group.each_with_index do |pin, i|
@@ -121,7 +154,7 @@ module origen;
 %       end
 %     end
 %   else
-    .<%= pin.rtl_name %>(<%= pin.tie_off ? "1'b#{pin.tie_off}" : pin.id %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+    .<%= pin.rtl_name %>(<%= pin.tie_off ? pin.rtl_name : pin.id %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
 %   end
 % end
   );

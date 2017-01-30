@@ -74,9 +74,7 @@ PLI_INT32 origen_startup(p_cb_data data) {
 
   // Start the server to listen for commands from an Origen application and apply them via VPI,
   // this will run until it receives a complete message from the Origen app
-  bridge_init();
-  
-  return 0;
+  return bridge_init();
 }
 
 

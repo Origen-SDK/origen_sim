@@ -206,6 +206,11 @@ static void bridge_enable_drive_wave(Pin * pin) {
 static void bridge_disable_drive_wave(Pin * pin) {
   Wave *wave = &compare_waves[(*pin).drive_wave];
 
+  if ((*wave).active_pin_count == 0) {
+    vpi_printf("Wanted to disable drive on pin %i, but its drive wave has no active pins!\n", (*pin).index);
+    end_simulation();
+  }
+
   // If pin is last, we can clear it by just decrementing the active pin counter
   if ((*pin).drive_wave_pos != (*wave).active_pin_count - 1) {
     // Otherwise we can remove it by overwriting it with the current last pin in the
@@ -341,7 +346,9 @@ static void bridge_dont_care_pin(char * index) {
 
   if ((*pin).previous_state != 0) {
     if ((*pin).previous_state == 1) {
-      bridge_disable_drive_wave(pin);
+      if (!bridge_is_drive_whole_cycle(pin)) {
+        bridge_disable_drive_wave(pin);
+      }
     }
     if ((*pin).previous_state == 2) {
       bridge_disable_compare_wave(pin);
@@ -466,34 +473,8 @@ static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, i
 
 
 /// Entry point to the bridge_wait_for_msg loop
-///
-/// This advances the simulator by 1 cycle to apply the initial values set by the
-/// testbench, it will then signal to Origen that it is ready to start accepting
-/// commands.
-void bridge_init() {
-  s_cb_data call;
-  s_vpi_time time;
-
-  time.type = vpiSimTime;
-  time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(100 * TIME_MULTIPLIER);  // 100ns chosen as a round number and since the actual
-                                                  // period may not be declared yet
-
-  call.reason    = cbAfterDelay;
-  call.obj       = 0;
-  call.time      = &time;
-  call.value     = 0;
-  call.user_data = 0;
-  call.cb_rtn    = bridge_init_done;
-
-  vpi_free_object(vpi_register_cb(&call));
-}
-
-
-PLI_INT32 bridge_init_done(p_cb_data data) {
-  UNUSED(data);
+PLI_INT32 bridge_init() {
   client_put("READY!\n");
-
   return bridge_wait_for_msg(NULL);
 }
 

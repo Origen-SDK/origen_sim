@@ -49,6 +49,14 @@ module OrigenSim
       end
     end
 
+    def artifacts_dir
+      @artifacts_dir ||= begin
+        d = "#{Origen.root}/simulation/#{id}/artifacts"
+        FileUtils.mkdir_p(d)
+        d
+      end
+    end
+
     # Returns the directory where the compiled simulation object lives, this should
     # be checked into your Origen app's repository
     def compiled_dir
@@ -161,9 +169,22 @@ module OrigenSim
       end
     end
 
+    def link_artifacts
+      done = "#{run_dir}/.artifacts_linked"
+      unless File.exist?(done)
+        Dir.foreach(artifacts_dir) do |item|
+          next if item == '.' || item == '..'
+          FileUtils.ln_s("#{artifacts_dir}/#{item}", "#{run_dir}/#{item}") unless File.exist?("#{run_dir}/#{item}")
+        end
+        FileUtils.touch(done)
+      end
+    end
+
+    # Starts up the simulator process
     def start
       server = UNIXServer.new(socket_id)
       verbose = Origen.debugger_enabled?
+      link_artifacts
       cmd = run_cmd + ' & echo \$!'
 
       launch_simulator = %(
@@ -210,6 +231,12 @@ module OrigenSim
         fail "The simulator didn't start properly!"
       end
       @enabled = true
+      # Tick the simulation on, this seems to be required since any VPI puts operations before
+      # the simulation has started are not applied.
+      # Note that this is not setting a tester timeset, so the application will still have to
+      # do that before generating any vectors.
+      set_period(100)
+      cycle(1)
       Origen.listeners_for(:simulation_startup).each(&:simulation_startup)
     end
 

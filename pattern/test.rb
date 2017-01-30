@@ -10,6 +10,7 @@ Pattern.create do
   dut.jtag.write_ir(0xE, size: 4)
   dut.jtag.read_ir(0xE, size: 4)
 
+  ss "Switch to slower timeset"
   tester.set_timeset("func", 200)
 
   dut.jtag.write_ir(0x5, size: 4)

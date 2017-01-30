@@ -48,6 +48,11 @@ unless options[:testrun]
   FileUtils.mkdir_p(tmp_dir)
   FileUtils.rm_rf(simulator.compiled_dir) unless options[:incremental]
   FileUtils.mkdir_p(simulator.compiled_dir)
+  FileUtils.rm_rf(simulator.artifacts_dir)
+  FileUtils.mkdir_p(simulator.artifacts_dir)
+  Array(config[:artifacts] || config[:artifact]).each do |f|
+    FileUtils.cp(f, simulator.artifacts_dir)
+  end
 
   # Create the testbench for the current Origen target and simulator vendor
   Origen.app.runner.launch action:            :compile,
@@ -89,7 +94,7 @@ when :cadence
   cmd += " -nclibdirpath #{simulator.compiled_dir}"
   cmd += " #{Origen.root!}/ext/*.c -ccargs \"-std=gnu99\""
   cmd += ' -elaborate -snapshot origen -access +rw'
-  cmd += " #{options[:explicit]}" if  options[:explicit]
+  cmd += " #{config[:explicit].strip.gsub(/\s+/, ' ')}" if  config[:explicit]
 end
 
 puts cmd
