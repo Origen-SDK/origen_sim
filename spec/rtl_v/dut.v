@@ -61,8 +61,6 @@ module dut(tck,tdi,tdo,tms,trstn,
     .count(count)
   );
 
-  assign dout = data_out;
-
   //****************************************************************
   // DEBUGGER INTERFACE
   //****************************************************************
@@ -129,6 +127,8 @@ module dut(tck,tdi,tdo,tms,trstn,
     else
       data_out[31:0] <= data_out[31:0];
   end
+
+  assign dout = data_out;
 
   // Read regs
   always @ (negedge tck) begin
