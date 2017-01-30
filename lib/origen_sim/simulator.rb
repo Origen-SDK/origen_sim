@@ -11,6 +11,17 @@ module OrigenSim
     attr_reader :socket, :failed, :configuration
     alias_method :config, :configuration
 
+    # When set to true the simulator will log all messages it receives, note that
+    # this must be run in conjunction with -d supplied to the Origen command to actually
+    # see the messages
+    def log_messages=(val)
+      if val
+        put('d^1')
+      else
+        put('d^0')
+      end
+    end
+
     def configure(options)
       fail 'A vendor must be supplied, e.g. OrigenSim::Tester.new(vendor: :icarus)' unless options[:vendor]
       unless VENDORS.include?(options[:vendor])
@@ -267,7 +278,10 @@ module OrigenSim
 
     # Applies the current state of all pins to the simulation
     def put_all_pin_states
-      dut.rtl_pins.each { |name, pin| pin.update_simulation }
+      dut.rtl_pins.each do |name, pin|
+        pin.reset_simulator_state
+        pin.update_simulation
+      end
     end
 
     # This will be called automatically whenever tester.set_timeset

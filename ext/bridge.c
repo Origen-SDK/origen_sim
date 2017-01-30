@@ -53,6 +53,7 @@ static int number_of_drive_waves = 0;
 static Wave compare_waves[MAX_NUMBER_PINS];
 static int number_of_compare_waves = 0;
 static int runtime_errors = 0;
+static int log_messages = 0;
 
 static void bridge_set_period(char*);
 static void bridge_define_pin(char*, char*, char*, char*);
@@ -521,6 +522,10 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       return 1;
     }
 
+    if (log_messages) {
+      vpi_printf("[MESSAGE] %s\n", msg);
+    }
+
     opcode = strtok(msg, "^");
 
     switch(*opcode) {
@@ -669,6 +674,13 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         v.format = vpiStringVal;
         v.value.str = arg1;
         vpi_put_value(handle, &v, NULL, vpiNoDelay);
+        break;
+      // Log all messages
+      //   d^1  Turn logging on
+      //   d^0  Turn logging off
+      case 'd' :
+        arg1 = strtok(NULL, "^");
+        log_messages = atoi(arg1);
         break;
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");

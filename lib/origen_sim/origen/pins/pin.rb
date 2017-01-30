@@ -52,19 +52,35 @@ module Origen
         OrigenSim.simulator
       end
 
+      # Returns true if the current pin state is different to that last given to the simulator
+      def simulator_needs_update?
+        return false if state == :dont_care && @simulator_state == :dont_care
+        state != @simulator_state || value != @simulator_value
+      end
+
+      def reset_simulator_state
+        @simulator_state = nil
+        @simulator_value = nil
+      end
+
       # Applies the current pin state to the simulation, this is triggered everytime
       # the pin state or value changes
       def update_simulation
-        return unless tester.timeset
-        return if tie_off
+        return if tie_off || !simulation_index || !tester.timeset || !simulator_needs_update?
         case state
           when :drive
+            @simulator_state = :drive
+            @simulator_value = value
             simulator.put("2^#{simulation_index}^#{value}")
           when :compare
+            @simulator_state = :compare
+            @simulator_value = value
             simulator.put("4^#{simulation_index}^#{value}")
           when :dont_care
+            @simulator_state = :dont_care
             simulator.put("5^#{simulation_index}")
           when :capture
+            @simulator_state = :capture
           when :drive_very_high, :drive_mem, :expect_mem, :compare_midband
             fail "Simulation of pin state #{state} is not implemented yet!"
           else
