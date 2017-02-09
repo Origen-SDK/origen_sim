@@ -4,7 +4,7 @@ Pattern.create do
 
   ss "Some basic shift operations to verify functionality"
   dut.jtag.write_ir(0x0, size: 4)
-  dut.jtag.read_ir(0x0, size: 4)
+  dut.jtag.read_ir(0x1, size: 4)
   dut.jtag.write_ir(0xA, size: 4)
   dut.jtag.read_ir(0xA, size: 4)
   dut.jtag.write_ir(0xE, size: 4)
