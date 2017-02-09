@@ -125,7 +125,7 @@ module origen;
 %   if options[:group]
 %     if pin.group_index == 0
 %       if pin.primary_group.tie_off
-  wire [<%= pin.primary_group.size %>:0] <%= pin.rtl_name %>;
+  wire [<%= pin.primary_group.size - 1 %>:0] <%= pin.rtl_name %>;
   assign <%= pin.rtl_name %> = <%= "#{pin.primary_group.size}'b#{pin.tie_off.to_s * pin.primary_group.size}" %>;
 %       end
 %     end
