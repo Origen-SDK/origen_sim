@@ -1,5 +1,15 @@
 database -open waves -into <%= options[:dir] %> -default -event
 probe -create -shm origen -depth all -database waves
-probe -create -assertions -transaction origen -depth all -database waves
+#probe -create -assertions -transaction origen -depth all -database waves
+
+% Hash(options[:force]).each do |net, value|
+%   net = net.to_s.strip.sub(/^(origen\.|origen\.dut\.|\.)/, '')
+force origen.dut.<%= net %> <%= value %>
+% end
+
+% (options[:setup] || '').split("\n").each do |line|
+<%= line.strip.gsub(" dut", " origen.dut") %>
+% end
+
 run
 exit

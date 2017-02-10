@@ -13,12 +13,6 @@
 #define MAX_NUMBER_PINS 2000
 #define MAX_WAVE_EVENTS 10
 
-#ifdef ICARUS
-#define TIME_MULTIPLIER 1
-#else
-#define TIME_MULTIPLIER 1000
-#endif
-
 typedef struct Pin {
   vpiHandle data;        // A handle to the driver data register
   vpiHandle drive;       // A handle to the driver drive enable register
@@ -153,7 +147,7 @@ static void bridge_register_wave_events() {
     if (drive_waves[i].active_pin_count) {
       int x = 0;
 
-      while (drive_waves[i].events[x].data != 'T') {
+      while (drive_waves[i].events[x].data != 'T' && x < MAX_WAVE_EVENTS) {
         int time;
 
         time = drive_waves[i].events[x].time;
@@ -173,7 +167,7 @@ static void bridge_register_wave_events() {
     if (compare_waves[i].active_pin_count) {
       int x = 0;
 
-      while (compare_waves[i].events[x].data != 'T') {
+      while (compare_waves[i].events[x].data != 'T' && x < MAX_WAVE_EVENTS) {
         int time;
 
         time = compare_waves[i].events[x].time;
@@ -381,8 +375,9 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
         d = 0;
         break;
       default :
-        vpi_printf("ERROR: Unknown compare event: %c", (*wave).events[*event_ix].data);
+        vpi_printf("ERROR: Unknown compare event: %c\n", (*wave).events[*event_ix].data);
         runtime_errors += 1;
+        end_simulation();
         return 1;
     }
 
@@ -395,6 +390,8 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
   } else {
 
     wave = &drive_waves[*wave_ix];
+
+    //vpi_printf("[DEBUG] Apply drive wave %i, event %i, data %c\n", *wave_ix, *event_ix, (*wave).events[*event_ix].data);
 
     int d;
     int on;
@@ -416,8 +413,9 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
         on = 0;
         break;
       default :
-        vpi_printf("ERROR: Unknown drive event: %c", (*wave).events[*event_ix].data);
+        vpi_printf("ERROR: Unknown drive event: %c\n", (*wave).events[*event_ix].data);
         runtime_errors += 1;
+        end_simulation();
         return 1;
     }
 
@@ -459,7 +457,7 @@ static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, i
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(delay_in_ns * TIME_MULTIPLIER);
+  time.low  = (uint32_t)(delay_in_ns);
 
   call.reason    = cbAfterDelay;
   call.cb_rtn    = bridge_apply_wave_event_cb;
@@ -705,7 +703,7 @@ static void bridge_cycle() {
 
   time.type = vpiSimTime;
   time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(period_in_ns * TIME_MULTIPLIER);
+  time.low  = (uint32_t)(period_in_ns);
 
   call.reason    = cbAfterDelay;
   call.obj       = 0;

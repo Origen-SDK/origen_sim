@@ -43,7 +43,7 @@ module OrigenSim
 
     def tmp_dir
       @tmp_dir ||= begin
-        d = "#{Origen.root}/tmp/origen_sim/#{config[:vendor]}"
+        d = "#{Origen.root}/tmp/origen_sim/#{id}/#{config[:vendor]}"
         FileUtils.mkdir_p(d)
         d
       end
@@ -129,7 +129,7 @@ module OrigenSim
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir: wave_dir },
+                                   options:           { dir: wave_dir, force: config[:force], setup: config[:setup] },
                                    output_file_name:  "#{id}.tcl"
           puts 'Had to generate simulator input file, please run again'
           exit 0
@@ -215,7 +215,7 @@ module OrigenSim
       simulator_parent_process = spawn("ruby -e \"#{launch_simulator}\"")
       Process.detach(simulator_parent_process)
 
-      timeout_connection(15) do
+      timeout_connection(config[:startup_timeout] || 15) do
         @socket = server.accept
         @connection_established = true
         if @connection_timed_out
@@ -337,6 +337,7 @@ module OrigenSim
 
     def wave_to_str(wave)
       wave.evaluated_events.map do |time, data|
+        time = time * (config[:time_factor] || 1)
         if data == :x
           data = 'X'
         elsif data == :data
@@ -364,6 +365,7 @@ module OrigenSim
     end
 
     def set_period(period_in_ns)
+      period_in_ns = period_in_ns * (config[:time_factor] || 1)
       put("1^#{period_in_ns}")
     end
 

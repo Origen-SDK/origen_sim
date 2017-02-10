@@ -4,6 +4,7 @@
 .irb_history
 .byebug_history
 /waves
+/config/waves
 
 # Editor cruft
 *.swp
