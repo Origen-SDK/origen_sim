@@ -344,7 +344,7 @@ module OrigenSim
           data = wave.drive? ? 'D' : 'C'
         end
         if data == 'C'
-          "#{time}_#{data}_#{time + 1}_X"
+          "#{time}_#{data}_#{time + (config[:time_factor] || 1)}_X"
         else
           "#{time}_#{data}"
         end
