@@ -14,9 +14,18 @@ module OrigenSim
       OrigenSim.simulator
     end
 
+    def store_next_cycle(*pins)
+    end
+
     # Start the simulator
     def start
       simulator.start
+    end
+
+    # Blocks the Origen process until the simulator indicates that it has
+    # processed all operations up to this point
+    def sync_up
+      simulator.sync_up
     end
 
     def set_timeset(name, period_in_ns)

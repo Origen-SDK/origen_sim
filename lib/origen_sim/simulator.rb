@@ -300,6 +300,9 @@ module OrigenSim
     end
 
     def write_comment(comment)
+      # Not sure what the limiting factor here is, the comment memory in the test bench should
+      # be able to handle 1024 / 8 length strings, but any bigger than this hangs the simulation
+      comment = comment[0..96]
       put("c^#{comment}")
     end
 
