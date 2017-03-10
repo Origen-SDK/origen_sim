@@ -17,6 +17,9 @@ module OrigenSim
     def store_next_cycle(*pins)
     end
 
+    def handshake(options = {})
+    end
+
     # Start the simulator
     def start
       simulator.start
@@ -52,5 +55,12 @@ module OrigenSim
     def c1(msg, options = {})
       simulator.write_comment(msg) if @step_comment_on
     end
+
+    def loop_vectors(name, number_of_loops, options = {})
+      number_of_loops.times do
+        yield
+      end
+    end
+    alias_method :loop_vector, :loop_vectors
   end
 end
