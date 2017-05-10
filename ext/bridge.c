@@ -55,6 +55,7 @@ static void bridge_define_wave(char*, char*, char*);
 static void bridge_cycle(void);
 static void bridge_drive_pin(char*, char*);
 static void bridge_compare_pin(char*, char*);
+static void bridge_capture_pin(char*);
 static void bridge_dont_care_pin(char*);
 static void bridge_register_wave_events(void);
 static void bridge_register_wave_event(int, int, int, int);
@@ -325,6 +326,32 @@ static void bridge_compare_pin(char * index, char * val) {
     }
     (*pin).previous_state = 2;
   }
+}
+
+
+/// Immediately sets the given pin to capture
+static void bridge_capture_pin(char * index) {
+  Pin *pin = &pins[atoi(index)];
+  //s_vpi_value v = {vpiIntVal, {0}};
+
+  //// Apply the data value to the pin's driver, don't enable compare yet,
+  //// the wave will do that later
+  //v.value.integer = (val[0] - '0');
+  //vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
+  //// Make sure not driving
+  //v.value.integer = 0;
+  //vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
+
+  //// Register it as actively comparing with it's wave
+  //
+  //// If it is already comparing the wave will already be setup
+  //if ((*pin).previous_state != 2) {
+  //  bridge_enable_compare_wave(pin);
+  //  if ((*pin).previous_state == 1) {
+  //    bridge_disable_drive_wave(pin);
+  //  }
+  //  (*pin).previous_state = 2;
+  //}
 }
 
 
@@ -660,6 +687,14 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       case 'd' :
         arg1 = strtok(NULL, "^");
         log_messages = atoi(arg1);
+        break;
+      // Capture Pin
+      //   e^pin_index
+      //
+      //   e^14
+      case 'e' :
+        arg1 = strtok(NULL, "^");
+        bridge_capture_pin(arg1);
         break;
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");

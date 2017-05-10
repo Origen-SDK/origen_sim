@@ -75,6 +75,11 @@ module OrigenSim
     #   tester.cycle                # This is the vector that will be captured
     def store_next_cycle(*pins)
       options = pins.last.is_a?(Hash) ? pins.pop : {}
+      if pins.empty?
+        pins.each(&:capture)
+      else
+        dut.rtl_pins.each { |name, pin| pin.capture }
+      end
     end
   end
 end

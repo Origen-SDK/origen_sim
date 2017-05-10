@@ -81,6 +81,7 @@ module Origen
             simulator.put("5^#{simulation_index}")
           when :capture
             @simulator_state = :capture
+            simulator.put("e^#{simulation_index}")
           when :drive_very_high, :drive_mem, :expect_mem, :compare_midband
             fail "Simulation of pin state #{state} is not implemented yet!"
           else
