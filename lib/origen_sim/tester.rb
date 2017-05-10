@@ -14,9 +14,6 @@ module OrigenSim
       OrigenSim.simulator
     end
 
-    def store_next_cycle(*pins)
-    end
-
     def handshake(options = {})
     end
 
@@ -62,5 +59,22 @@ module OrigenSim
       end
     end
     alias_method :loop_vector, :loop_vectors
+
+    # Capture the next vector generated
+    #
+    # This method applies a store request to the next vector to be generated,
+    # note that is does not actually generate a new vector.
+    #
+    # The captured data is added to the captured_data array.
+    #
+    # This method is intended to be used by pin drivers, see the #capture method for the application
+    # level API.
+    #
+    # @example
+    #   tester.store_next_cycle
+    #   tester.cycle                # This is the vector that will be captured
+    def store_next_cycle(*pins)
+      options = pins.last.is_a?(Hash) ? pins.pop : {}
+    end
   end
 end

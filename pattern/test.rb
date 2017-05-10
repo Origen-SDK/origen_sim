@@ -37,6 +37,19 @@ Pattern.create do
   tester.simulator.poke("dut.cmd", 0x1122_3344)
   dut.cmd.read!(0x1122_3344)
 
+  ss "Test storing a register"
+  dut.cmd.write!(0x2244_6688)
+  dut.cmd.store!
+
+  capture_value = tester.simulator.peek("origen_tb.pins.tdo.memory")
+  unless capture_value == 0x2244_6688
+    if capture_value
+      fail "Captured #{capture_value.to_hex} instead of 0x2244_6688!"
+    else
+      fail "Nothing captured instead of 0x2244_6688!"
+    end
+  end
+
   ss "Do some operations with the counter, just for fun"
   dut.ctrl.write!(0b11) # Reset the counter
   dut.count.read!(0x0)
