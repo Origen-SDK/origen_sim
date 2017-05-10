@@ -22,7 +22,8 @@ module pin_driver(error, pin);
   reg [1:0] force_data = 0;
   reg compare = 0;
   reg drive = 0;
-  reg [1023:0] memory = 0;
+  //reg [1023:0] memory = 0;
+  reg [128:0] memory = 0;
 
   wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : data[0]);
 
