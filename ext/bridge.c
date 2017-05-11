@@ -24,6 +24,7 @@ typedef struct Pin {
   int compare_wave_pos;  // Position of the pin in the compare_wave's active pin array
   int index;             // The pin's index in the pins array
   int previous_state;    // Used to keep track of whether the pin was previously driving or comparing
+  bool capture;          // Used to indicated when compare data should be captured instead of compared
 } Pin;
 
 typedef struct Event {
@@ -76,6 +77,7 @@ static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, 
   (*pin).drive_wave = atoi(drive_wave_ix);
   (*pin).compare_wave = atoi(compare_wave_ix);
   (*pin).previous_state = 0;
+  (*pin).capture = false;
 
   char * driver = (char *) malloc(strlen(name) + 16);
   strcpy(driver, "origen.pins.");
@@ -329,29 +331,17 @@ static void bridge_compare_pin(char * index, char * val) {
 }
 
 
-/// Immediately sets the given pin to capture
+/// Immediately sets the given pin to capture by registering it for compare
+/// but with its capture flag set
 static void bridge_capture_pin(char * index) {
   Pin *pin = &pins[atoi(index)];
-  //s_vpi_value v = {vpiIntVal, {0}};
+  (*pin).capture = true;
 
-  //// Apply the data value to the pin's driver, don't enable compare yet,
-  //// the wave will do that later
-  //v.value.integer = (val[0] - '0');
-  //vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
-  //// Make sure not driving
-  //v.value.integer = 0;
-  //vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
+  //char * str = malloc(8);
+  //snprintf(str, 8, "%d", (*pin).index);
 
-  //// Register it as actively comparing with it's wave
-  //
-  //// If it is already comparing the wave will already be setup
-  //if ((*pin).previous_state != 2) {
-  //  bridge_enable_compare_wave(pin);
-  //  if ((*pin).previous_state == 1) {
-  //    bridge_disable_drive_wave(pin);
-  //  }
-  //  (*pin).previous_state = 2;
-  //}
+  //bridge_compare_pin(str, "0");
+  //free(str);
 }
 
 
