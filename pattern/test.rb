@@ -42,11 +42,11 @@ Pattern.create do
   dut.cmd.store!
 
   capture_value = tester.simulator.peek("origen.pins.tdo.memory")
-  unless capture_value == 0x2244_6688
+  unless capture_value == 0x11662244 # 0x2244_6688 reversed
     if capture_value
-      fail "Captured #{capture_value.to_hex} instead of 0x22446688!"
+      fail "Captured #{capture_value.to_hex} instead of 0x11662244!"
     else
-      fail "Nothing captured instead of 0x22446688!"
+      fail "Nothing captured instead of 0x11662244!"
     end
   end
 

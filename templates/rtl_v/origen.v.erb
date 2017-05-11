@@ -34,7 +34,7 @@ module pin_driver(error, pin);
   wire expect_data = compare ? data[0] : 1'bz;
 
   always @(*) begin
-    error = compare ? (pin == data[0] ? 0 : 1) : 0;
+    error = (compare && !capture) ? (pin == data[0] ? 0 : 1) : 0;
   end
 
   always @(posedge capture) begin

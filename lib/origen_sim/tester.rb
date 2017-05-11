@@ -76,9 +76,9 @@ module OrigenSim
     def store_next_cycle(*pins)
       options = pins.last.is_a?(Hash) ? pins.pop : {}
       if pins.empty?
-        pins.each(&:capture)
-      else
         dut.rtl_pins.each { |name, pin| pin.capture }
+      else
+        pins.each(&:capture)
       end
     end
   end

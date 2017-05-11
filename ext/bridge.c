@@ -18,13 +18,14 @@ typedef struct Pin {
   vpiHandle drive;       // A handle to the driver drive enable register
   vpiHandle force_data;  // A handle to the driver force_data register
   vpiHandle compare;     // A handle to the driver compare enable register
+  vpiHandle capture;     // A handle to the driver capture enable register
   int drive_wave;        // Index of the drive wave to be used for this pin
   int compare_wave;      // Index of the compare wave to be used for this pin
   int drive_wave_pos;    // Position of the pin in the drive_wave's active pin array
   int compare_wave_pos;  // Position of the pin in the compare_wave's active pin array
   int index;             // The pin's index in the pins array
   int previous_state;    // Used to keep track of whether the pin was previously driving or comparing
-  bool capture;          // Used to indicated when compare data should be captured instead of compared
+  bool capture_en;       // Used to indicated when compare data should be captured instead of compared
 } Pin;
 
 typedef struct Event {
@@ -77,7 +78,7 @@ static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, 
   (*pin).drive_wave = atoi(drive_wave_ix);
   (*pin).compare_wave = atoi(compare_wave_ix);
   (*pin).previous_state = 0;
-  (*pin).capture = false;
+  (*pin).capture_en = false;
 
   char * driver = (char *) malloc(strlen(name) + 16);
   strcpy(driver, "origen.pins.");
@@ -106,6 +107,12 @@ static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, 
   strcat(compare, ".compare");
   (*pin).compare = vpi_handle_by_name(compare, NULL);
   free(compare);
+
+  char * capture = (char *) malloc(strlen(driver) + 16);
+  strcpy(capture, driver);
+  strcat(capture, ".capture");
+  (*pin).capture = vpi_handle_by_name(capture, NULL);
+  free(capture);
 
   free(driver);
 }
@@ -335,13 +342,8 @@ static void bridge_compare_pin(char * index, char * val) {
 /// but with its capture flag set
 static void bridge_capture_pin(char * index) {
   Pin *pin = &pins[atoi(index)];
-  (*pin).capture = true;
-
-  //char * str = malloc(8);
-  //snprintf(str, 8, "%d", (*pin).index);
-
-  //bridge_compare_pin(str, "0");
-  //free(str);
+  (*pin).capture_en = true;
+  bridge_compare_pin(index, "0");
 }
 
 
@@ -400,7 +402,11 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
 
     v.value.integer = d;
     for (int i = 0; i < (*wave).active_pin_count; i++) {
-      vpi_put_value((*(*wave).active_pins[i]).compare, &v, NULL, vpiNoDelay);
+      if ((*(*wave).active_pins[i]).capture_en) {
+        vpi_put_value((*(*wave).active_pins[i]).capture, &v, NULL, vpiNoDelay);
+      } else {
+        vpi_put_value((*(*wave).active_pins[i]).compare, &v, NULL, vpiNoDelay);
+      }
     }
 
 
