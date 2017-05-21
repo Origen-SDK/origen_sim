@@ -692,6 +692,20 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         arg1 = strtok(NULL, "^");
         bridge_capture_pin(arg1);
         break;
+      // Sync enable
+      case 'f' :
+        handle = vpi_handle_by_name("origen.pins.sync", NULL);
+        v.format = vpiDecStrVal;
+        v.value.str = "1";
+        vpi_put_value(handle, &v, NULL, vpiNoDelay);
+        break;
+      // Sync disable
+      case 'g' :
+        handle = vpi_handle_by_name("origen.pins.sync", NULL);
+        v.format = vpiDecStrVal;
+        v.value.str = "0";
+        vpi_put_value(handle, &v, NULL, vpiNoDelay);
+        break;
       default :
         vpi_printf("ERROR: Illegal opcode received!\n");
         runtime_errors += 1;

@@ -556,6 +556,18 @@ module OrigenSim
       yield
     end
 
+    def sync
+      put('f')
+      @sync_active = true
+      yield
+      put('g')
+      @sync_active = false
+    end
+
+    def sync_active?
+      @sync_active
+    end
+
     private
 
     def clean(net)

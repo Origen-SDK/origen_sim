@@ -17,6 +17,15 @@ module OrigenSim
     def handshake(options = {})
     end
 
+    def capture
+      simulator.sync do
+        @sync_pins = []
+        @sync_cycles = 0
+        yield
+      end
+      @sync_pins.map { |pin| simulator.peek("origen.pins.#{pin.id}.sync_memory[#{@sync_cycles - 1}:0]") }
+    end
+
     # Start the simulator
     def start
       simulator.start
@@ -75,11 +84,14 @@ module OrigenSim
     #   tester.cycle                # This is the vector that will be captured
     def store_next_cycle(*pins)
       options = pins.last.is_a?(Hash) ? pins.pop : {}
-      if pins.empty?
-        dut.rtl_pins.each { |name, pin| pin.capture }
-      else
-        pins.each(&:capture)
+      pins = dut.rtl_pins.values if pins.empty?
+      if simulator.sync_active?
+        pins.each do |pin|
+          @sync_cycles += 1
+          @sync_pins << pin unless @sync_pins.include?(pin)
+        end
       end
+      pins.each(&:capture)
     end
   end
 end

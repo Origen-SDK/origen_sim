@@ -50,6 +50,13 @@ Pattern.create do
     end
   end
 
+  ss "Test sync of a register"
+  dut.cmd.write(0) # Make Origen forget the actual value
+  dut.cmd.sync
+  unless dut.cmd.data == 0x2244_6688
+    fail "CMD register did not sync from simulation"
+  end
+
   ss "Do some operations with the counter, just for fun"
   dut.ctrl.write!(0b11) # Reset the counter
   dut.count.read!(0x0)
