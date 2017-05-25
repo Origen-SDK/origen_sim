@@ -528,6 +528,10 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       vpi_printf("[MESSAGE] %s\n", msg);
     }
 
+    // Keep a copy of the original message, helpful for debugging
+    char* orig_msg = calloc(strlen(msg)+1, sizeof(char));
+    strcpy(orig_msg, msg);
+
     opcode = strtok(msg, "^");
 
     switch(*opcode) {
@@ -707,11 +711,12 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         vpi_put_value(handle, &v, NULL, vpiNoDelay);
         break;
       default :
-        vpi_printf("ERROR: Illegal opcode received!\n");
+        vpi_printf("ERROR: Illegal message received from Origen: %s\n", orig_msg);
         runtime_errors += 1;
         end_simulation();
         return 1;
     }
+    free(orig_msg);
   }
 }
 

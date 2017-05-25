@@ -131,8 +131,6 @@ module OrigenSim
                                    quiet:             true,
                                    options:           { dir: wave_dir, force: config[:force], setup: config[:setup] },
                                    output_file_name:  "#{id}.tcl"
-          puts 'Had to generate simulator input file, please run again'
-          exit 0
         end
         wave_dir  # Ensure this exists since it won't be referenced above if the
         # input file is already generated
