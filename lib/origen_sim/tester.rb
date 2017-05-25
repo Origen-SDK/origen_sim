@@ -56,6 +56,10 @@ module OrigenSim
         exit 1
       end
       simulator.cycle(options[:repeat] || 1)
+      if @after_next_vector
+        @after_next_vector.call(@after_next_vector_args)
+        @after_next_vector = nil
+      end
     end
 
     def c1(msg, options = {})
@@ -92,6 +96,18 @@ module OrigenSim
         end
       end
       pins.each(&:capture)
+      # A store request is only valid for one cycle, this tells the simulator
+      # to stop after the next vector is generated
+      after_next_vector do
+        pins.each { |pin| simulator.put("h^#{pin.simulation_index}") }
+      end
+    end
+
+    private
+
+    def after_next_vector(*args, &block)
+      @after_next_vector = block
+      @after_next_vector_args = args
     end
   end
 end

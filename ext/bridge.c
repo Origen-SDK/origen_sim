@@ -58,6 +58,7 @@ static void bridge_cycle(void);
 static void bridge_drive_pin(char*, char*);
 static void bridge_compare_pin(char*, char*);
 static void bridge_capture_pin(char*);
+static void bridge_stop_capture_pin(char*);
 static void bridge_dont_care_pin(char*);
 static void bridge_register_wave_events(void);
 static void bridge_register_wave_event(int, int, int, int);
@@ -344,6 +345,13 @@ static void bridge_capture_pin(char * index) {
   Pin *pin = &pins[atoi(index)];
   (*pin).capture_en = true;
   bridge_compare_pin(index, "0");
+}
+
+
+/// Immediately sets the given pin to stop capture by clearing its capture flag
+static void bridge_stop_capture_pin(char * index) {
+  Pin *pin = &pins[atoi(index)];
+  (*pin).capture_en = false;
 }
 
 
@@ -709,6 +717,14 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         v.format = vpiDecStrVal;
         v.value.str = "0";
         vpi_put_value(handle, &v, NULL, vpiNoDelay);
+        break;
+      // Stop Capture Pin
+      //   h^pin_index
+      //
+      //   h^14
+      case 'h' :
+        arg1 = strtok(NULL, "^");
+        bridge_stop_capture_pin(arg1);
         break;
       default :
         vpi_printf("ERROR: Illegal message received from Origen: %s\n", orig_msg);
