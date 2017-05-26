@@ -294,12 +294,16 @@ module OrigenSim
         end
         # Set the current pattern name in the simulation
         put("a^#{name.sub(/\..*/, '')}")
-        c = error_count
-        if c > 0
-          Origen.log.error "The simulation currently has #{c} error(s)!"
-        else
-          Origen.log.success 'There are no simulation errors yet!'
+        @pattern_count ||= 0
+        if @pattern_count > 0
+          c = error_count
+          if c > 0
+            Origen.log.error "The simulation currently has #{c} error(s)!"
+          else
+            Origen.log.success 'There are no simulation errors yet!'
+          end
         end
+        @pattern_count += 1
       end
     end
 
