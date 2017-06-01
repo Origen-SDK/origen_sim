@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    origen_sim (0.1.0)
+    origen_sim (0.5.0)
       origen (>= 0.12)
       origen_testers
 
