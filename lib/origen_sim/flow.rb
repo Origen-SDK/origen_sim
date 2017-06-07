@@ -3,7 +3,7 @@ module OrigenSim
     include OrigenTesters::Flow
 
     def test(name, options = {})
-      pattern = (options[:pattern] || name.try(:pattern) || name).to_s
+      pattern = (name || options[:pattern] || name.try(:pattern)).to_s
 
       Origen.interface.referenced_patterns << pattern
 
