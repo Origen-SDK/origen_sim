@@ -44,7 +44,7 @@ origen
 
 
 The driver contains a number of registers which are written to directly by the VPI process, allowing it to drive or expect a given data value (stored in <code>origen.pins.\<pin\>.data</code>) by writing a 1 to <code>origen.pins.\<pin\>.drive</code> or <code>origen.pins.\<pin\>.compare respectively</code>.
-If the value being driven by the pin does match the expect data during a cycle, then an error signal will be asserted by the driver and this will increment an error counter that lives in origen.debug.errors[31:0].
+If the value being driven by the pin does match the expect data during a cycle, then an error signal will be asserted by the driver and this will increment an error counter that lives in <code>origen.debug.errors[31:0]</code>.
 
 
 
