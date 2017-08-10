@@ -1,4 +1,4 @@
-source 'https://rubygems.org'
+source 'http://rubygems.org'
 
 # Only development dependencies (things your only plugin needs when running in its own workspace) should
 # be listed here in the Gemfile

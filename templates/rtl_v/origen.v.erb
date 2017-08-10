@@ -157,6 +157,16 @@ module origen;
 
   // Instantiate the DUT
   <%= options[:top].sub(/\..*/, '') %> dut (
+% dut.power_pins.each do |name, pin, options|
+%   unless pin.tie_off
+    .<%= pin.id %>(<%= pin.id %>),
+%   end
+% end
+% dut.ground_pins.each do |name, pin, options|
+%   unless pin.tie_off
+    .<%= pin.id %>(<%= pin.id %>),
+%   end
+% end
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
 %   if options[:group]
 %     if pin.group_index == 0
@@ -191,4 +201,9 @@ module origen;
   always @(posedge finish) begin
     $finish(2);
   end
+
+%  Array(options[:incl]).each do |f|
+  `include "<%= "#{f}" %>"
+%  end
+
 endmodule

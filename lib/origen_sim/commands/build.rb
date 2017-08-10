@@ -59,7 +59,7 @@ unless options[:testrun]
                            files:             "#{Origen.root!}/templates/rtl_v/origen.v.erb",
                            output:            tmp_dir,
                            check_for_changes: false,
-                           options:           { vendor: config[:vendor], top: config[:rtl_top] }
+                           options:           { vendor: config[:vendor], top: config[:rtl_top], incl: config[:incl_files] }
 end
 
 case config[:vendor]
@@ -90,9 +90,15 @@ when :cadence
   Array(config[:rtl_dir] || config[:rtl_dirs]).each do |dir|
     cmd += " -incdir #{dir}"
   end
-  cmd += " #{tmp_dir}/origen.v -top origen -timescale 1ns/1ns"
+  cmd += " #{tmp_dir}/origen.v"
+  if config[:alt_top]
+    cmd += " -top #{config[:alt_top]}"
+  else
+    cmd += ' -top origen'
+  end
+  cmd += ' -timescale 1ns/1ns'
   cmd += " -nclibdirpath #{simulator.compiled_dir}"
-  cmd += " #{Origen.root!}/ext/*.c -ccargs \"-std=gnu99\""
+  cmd += " #{Origen.root!}/ext/*.c -ccargs \"-std=c99\""
   cmd += ' -elaborate -snapshot origen -access +rw'
   cmd += " #{config[:explicit].strip.gsub(/\s+/, ' ')}" if  config[:explicit]
 end
