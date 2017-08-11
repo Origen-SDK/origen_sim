@@ -1,3 +1,18 @@
+<a class="anchor release_tag" name="v0_5_2"></a>
+<h1><a href="#v0_5_2">Tag: v0.5.2</a></h1>
+
+##### Branch: 'master'
+
+##### by Lajaunie Ronald-B01784 on 11-Aug-2017 08:34AM
+
+
+* Add incl\_files in configuration. Any file listed here will be included by the top-level
+origen.v file when generated. Allows developer to easily add custom verilog control.
+* Allow alternate -top to be used in case of custom configuration; defaults to 'origen' if
+not specified.
+* Switch to c99 std from gnu99 to be more flexible between RHEL5 and RHEL6
+* Add power and ground pins to origen.v template.
+
 <a class="anchor release_tag" name="v0_5_1"></a>
 <h1><a href="#v0_5_1">Tag: v0.5.1</a></h1>
 
