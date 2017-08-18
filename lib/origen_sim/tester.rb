@@ -88,7 +88,17 @@ module OrigenSim
     #   tester.cycle                # This is the vector that will be captured
     def store_next_cycle(*pins)
       options = pins.last.is_a?(Hash) ? pins.pop : {}
-      pins = dut.rtl_pins.values if pins.empty?
+      if pins.empty?
+        pins = dut.rtl_pins.values
+      else
+        pins_orig = pins.dup
+        pins_orig.each do |p|
+          if p.is_a? Origen::Pins::PinCollection
+            pins.concat(p.map(&:id).map{ |p| dut.pin(p) })
+            pins.delete(p)
+          end
+        end  
+      end
       if simulator.sync_active?
         pins.each do |pin|
           @sync_cycles += 1
