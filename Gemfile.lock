@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    origen_sim (0.5.2)
+    origen_sim (0.5.3)
       origen (>= 0.12)
       origen_testers
 
@@ -173,4 +173,4 @@ DEPENDENCIES
   rspec-autotest
 
 BUNDLED WITH
-   1.14.6
+   1.15.3
