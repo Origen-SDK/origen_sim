@@ -94,10 +94,10 @@ module OrigenSim
         pins_orig = pins.dup
         pins_orig.each do |p|
           if p.is_a? Origen::Pins::PinCollection
-            pins.concat(p.map(&:id).map{ |p| dut.pin(p) })
+            pins.concat(p.map(&:id).map { |p| dut.pin(p) })
             pins.delete(p)
           end
-        end  
+        end
       end
       if simulator.sync_active?
         pins.each do |pin|
