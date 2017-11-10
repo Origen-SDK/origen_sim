@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    origen_sim (0.5.3)
+    origen_sim (0.5.4)
       origen (>= 0.12)
       origen_testers
 
@@ -93,7 +93,7 @@ GEM
       origen (>= 0.7.15)
     origen_jtag (0.15.0)
       origen (~> 0.7, >= 0.7.35)
-    origen_testers (0.9.8)
+    origen_testers (0.9.9)
       atp (~> 0.5.4)
       origen (>= 0.7.40)
       require_all (~> 1)
