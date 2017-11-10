@@ -20,6 +20,10 @@ module OrigenSim
       end
     end
 
+    def test(name, options = {})
+      flow.test(name, options)
+    end
+
     def flow_sheets
       @@flow_sheets ||= {}
     end
