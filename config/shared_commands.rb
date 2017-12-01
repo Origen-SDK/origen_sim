@@ -2,7 +2,6 @@
 case @command
 
 when 'generate'
-  Origen.log.info 'FAST SIMULATION'
   $use_fast_probe_depth = false
   @application_options << ["--fast", "Fast simulation, minimum probe depth"]
   $use_fast_probe_depth = true if ARGV.include?('--fast')
