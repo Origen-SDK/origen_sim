@@ -129,15 +129,26 @@ module OrigenSim
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir: wave_dir, force: config[:force], setup: config[:setup] },
+                                   options:           { dir: wave_dir, force: config[:force], setup: config[:setup], depth: :all },
                                    output_file_name:  "#{id}.tcl"
+        end
+        input_file_fast = "#{tmp_dir}/#{id}_fast.tcl"
+        if $use_fast_probe_depth
+          fast_probe_depth = config[:fast_probe_depth] || 1
+          Origen.app.runner.launch action:            :compile,
+                                   files:             "#{Origen.root!}/templates/probe.tcl.erb",
+                                   output:            tmp_dir,
+                                   check_for_changes: false,
+                                   quiet:             true,
+                                   options:           { dir: wave_dir, force: config[:force], setup: config[:setup], depth: fast_probe_depth },
+                                   output_file_name:  "#{id}_fast.tcl"
         end
         wave_dir  # Ensure this exists since it won't be referenced above if the
         # input file is already generated
 
         cmd = configuration[:irun] || 'irun'
         cmd += " -r origen -snapshot origen +socket+#{socket_id}"
-        cmd += " -input #{input_file}"
+        cmd += $use_fast_probe_depth ? " -input #{input_file_fast}" : " -input #{input_file}"
         cmd += " -nclibdirpath #{compiled_dir}"
       end
       cmd

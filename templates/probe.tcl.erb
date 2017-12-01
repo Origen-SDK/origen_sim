@@ -1,5 +1,5 @@
 database -open waves -into <%= options[:dir] %> -default -event
-probe -create -shm origen -depth all -database waves
+probe -create -shm origen -depth <%= options[:depth] %> -database waves
 #probe -create -assertions -transaction origen -depth all -database waves
 
 % Hash(options[:force]).each do |net, value|
