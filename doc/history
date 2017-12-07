@@ -1,3 +1,27 @@
+<a class="anchor release_tag" name="v0_5_5"></a>
+<h1><a href="#v0_5_5">Tag: v0.5.5</a></h1>
+
+##### Branch: 'master'
+
+##### by Lajaunie Ronald-B01784 on 07-Dec-2017 08:40AM
+
+
+* Implemented '--fast' command line option for using alternate probe depth (specified in
+OrigenSim::Tester instantiation)
+
+~~~ruby
+  OrigenSim::Tester.new vendor: :cadence,
+                        irun: 'irun',
+                        simvision: 'simvision',
+                        time\_factor: 1000000,
+                        fast\_probe\_depth: 2       # use depth of 2 when --fast option is
+used
+
+  #------------
+
+  $ origen g <pattern> --fast
+~~~
+
 <a class="anchor release_tag" name="v0_5_4"></a>
 <h1><a href="#v0_5_4">Tag: v0.5.4</a></h1>
 
