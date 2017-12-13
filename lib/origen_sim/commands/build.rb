@@ -1,5 +1,6 @@
 require 'optparse'
 require 'origen_sim'
+require 'origen_verilog'
 
 options = {}
 
@@ -7,19 +8,13 @@ options = {}
 app_options = @application_options || []
 opt_parser = OptionParser.new do |opts|
   opts.banner = <<-EOT
-Compile an RTL design into an object that Origen can simulate.
+Build an Origen testbench and simulator VPI extension for the given top-level RTL design.
 
-All configuration apart from target selection should be done when instantiating the
-OrigenSim::Tester in an environment file. This encourages the configuration to be
-checked in, enabling repeatable builds in future.
+The created artifacts should be included in a compilation of the given design to create
+an Origen-enabled simulation object that can be used to simulate Origen-based test patterns.
 
-Usage: origen origen_sim:build [options]
+Usage: origen sim:build TOP_LEVEL_RTL_FILE [options]
   EOT
-  opts.on('-e', '--environment NAME', String, 'Override the default environment, NAME can be a full path or a fragment of an environment file name') { |e| options[:environment] = e }
-  opts.on('-t', '--target NAME', String, 'Override the default target, NAME can be a full path or a fragment of a target file name') { |t| options[:target] = t }
-  opts.on('-pl', '--plugin PLUGIN_NAME', String, 'Set current plugin') { |pl_n|  options[:current_plugin] = pl_n }
-  opts.on('--testrun', 'Displays the commands that will be generated but does not execute them') { options[:testrun] = true }
-  opts.on('-i', '--incremental', 'Preserve existing compiled files to do an incremental build instead of starting from scratch') { options[:incremental] = true }
   opts.on('-d', '--debugger', 'Enable the debugger') {  options[:debugger] = true }
   app_options.each do |app_option|
     opts.on(*app_option) {}
@@ -29,83 +24,60 @@ Usage: origen origen_sim:build [options]
 end
 
 opt_parser.parse! ARGV
-Origen.app.plugins.temporary = options[:current_plugin] if options[:current_plugin]
-Origen.environment.temporary = options[:environment] if options[:environment]
-Origen.target.temporary = options[:target] if options[:target]
-Origen.app.load_target!
 
-unless tester.is_a?(OrigenSim::Tester)
-  puts 'The target/environment does not instantiate an OrigenSim::Tester instance!'
-  exit
+unless ARGV.size > 0
+  puts 'You must supply a path to the top-level RTL file'
+  exit 1
+end
+rtl_top = ARGV.first
+unless File.exist?(rtl_top)
+  puts "File does not exist: #{rtl_top}"
+  exit 1
 end
 
-simulator = OrigenSim.simulator
-config = simulator.configuration
-tmp_dir = simulator.tmp_dir
+ast = OrigenVerilog.parse_file(rtl_top)
 
-unless options[:testrun]
-  FileUtils.rm_rf(tmp_dir) unless options[:incremental]
-  FileUtils.mkdir_p(tmp_dir)
-  FileUtils.rm_rf(simulator.compiled_dir) unless options[:incremental]
-  FileUtils.mkdir_p(simulator.compiled_dir)
-  FileUtils.rm_rf(simulator.artifacts_dir)
-  FileUtils.mkdir_p(simulator.artifacts_dir)
-  Array(config[:artifacts] || config[:artifact]).each do |f|
-    FileUtils.cp(f, simulator.artifacts_dir)
-  end
+rtl_top_module = ast.module_names.first
 
-  # Create the testbench for the current Origen target and simulator vendor
-  Origen.app.runner.launch action:            :compile,
-                           files:             "#{Origen.root!}/templates/rtl_v/origen.v.erb",
-                           output:            tmp_dir,
-                           check_for_changes: false,
-                           options:           { vendor: config[:vendor], top: config[:rtl_top], incl: config[:incl_files] }
-end
+ast.modules.first.to_top_level # Creates dut
 
-case config[:vendor]
-when :icarus
-  # Compile the VPI extension first
-  Dir.chdir tmp_dir do
-    system "iverilog-vpi #{Origen.root!}/ext/*.c -DICARUS --name=origen"
-    system "mv origen.vpi #{simulator.compiled_dir}"
-  end
-  # Build the object containing the DUT and testbench
-  cmd = "iverilog -o #{simulator.compiled_dir}/dut.vvp"
-  Array(config[:rtl_dir] || config[:rtl_dirs]).each do |dir|
-    cmd += " -I #{dir}"
-  end
-  Array(config[:rtl_file] || config[:rtl_files]).each do |f|
-    cmd += " #{f}"
-  end
-  cmd += " #{tmp_dir}/origen.v"
+Origen.app.runner.launch action:            :compile,
+                         files:             "#{Origen.root!}/templates/rtl_v/origen.v.erb",
+                         check_for_changes: false,
+                         options:           { vendor: :cadence, top: dut.name, incl: options[:incl_files] }
 
-when :cadence
-  cmd = config[:irun] || 'irun'
-  Array(config[:rtl_file] || config[:rtl_files]).each do |f|
-    cmd += " #{f}"
-  end
-  Array(config[:lib_file] || config[:lib_files]).each do |f|
-    cmd += " -v #{f}"
-  end
-  Array(config[:rtl_dir] || config[:rtl_dirs]).each do |dir|
-    cmd += " -incdir #{dir}"
-  end
-  cmd += " #{tmp_dir}/origen.v"
-  if config[:alt_top]
-    cmd += " -top #{config[:alt_top]}"
-  else
-    cmd += ' -top origen'
-  end
-  cmd += ' -timescale 1ns/1ns'
-  cmd += " -nclibdirpath #{simulator.compiled_dir}"
-  cmd += " #{Origen.root!}/ext/*.c -ccargs \"-std=c99\""
-  cmd += ' -elaborate -snapshot origen -access +rw'
-  cmd += " #{config[:explicit].strip.gsub(/\s+/, ' ')}" if  config[:explicit]
-end
+Origen.app.runner.launch action:            :compile,
+                         files:             "#{Origen.root!}/ext",
+                         check_for_changes: false
 
-puts cmd
-unless options[:testrun]
-  Dir.chdir tmp_dir do
-    system cmd
-  end
-end
+dut.export(rtl_top_module, file_path: "#{Origen.config.output_directory}")
+
+puts
+puts
+puts 'Testbench and VPI extension created, see below for what to do now for your particular simulator:'
+puts
+puts '-----------------------------------------------------------'
+puts 'Cadence (irun)'
+puts '-----------------------------------------------------------'
+puts
+puts 'Add the following to your build script to create an Origen-enabled simulation object (AND REMOVE ANY OTHER TESTBENCH!):'
+puts
+puts "  #{Origen.config.output_directory}/origen.v \\"
+puts "  #{Origen.config.output_directory}/*.c \\"
+puts '  -ccargs "-std=c99" \\'
+puts '  -top origen \\'
+puts '  -elaborate  \\'
+puts '  -snapshot origen \\'
+puts '  -access +rw \\'
+puts '  -timescale 1ns/1ns'
+puts
+puts 'The following files should then be used for Origen integration:'
+puts
+puts "  #{Origen.config.output_directory}/#{rtl_top_module}.rb"
+puts '  INCA_libs/ (created by irun)'
+puts
+puts '-----------------------------------------------------------'
+puts 'Icarus'
+puts '-----------------------------------------------------------'
+puts
+puts '  TBD'

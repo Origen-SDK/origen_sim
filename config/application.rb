@@ -27,7 +27,8 @@ class OrigenSimApplication < Origen::Application
     #:patterns => "pattern",
     #:templates => "templates",
     #:programs => "program",
-    :command_launcher => "config/shared_commands.rb"
+    :command_launcher => "config/shared_commands.rb",
+    :global_launcher => "config/global_commands.rb"
   }
 
   # See: http://origen-sdk.org/origen/latest/guides/utilities/lint/
