@@ -4,6 +4,7 @@
 ///
 #include "bridge.h"
 #include "client.h"
+#include "defines.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -725,6 +726,11 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       case 'h' :
         arg1 = strtok(NULL, "^");
         bridge_stop_capture_pin(arg1);
+        break;
+      // Get version, returns the version of OrigenSim the DUT object was compiled with
+      //   i^
+      case 'i' :
+        client_put(ORIGEN_SIM_VERSION"\n");
         break;
       default :
         vpi_printf("ERROR: Illegal message received from Origen: %s\n", orig_msg);

@@ -44,11 +44,13 @@ ast.modules.first.to_top_level # Creates dut
 Origen.app.runner.launch action:            :compile,
                          files:             "#{Origen.root!}/templates/rtl_v/origen.v.erb",
                          check_for_changes: false,
+                         quiet:             true,
                          options:           { vendor: :cadence, top: dut.name, incl: options[:incl_files] }
 
 Origen.app.runner.launch action:            :compile,
                          files:             "#{Origen.root!}/ext",
-                         check_for_changes: false
+                         check_for_changes: false,
+                         quiet:             true
 
 dut.export(rtl_top_module, file_path: "#{Origen.config.output_directory}")
 

@@ -9,6 +9,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <time.h>
+#include <string.h>
 
 static int sock;
 static uint64_t msg_count = 0;
