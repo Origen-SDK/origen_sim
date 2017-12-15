@@ -40,7 +40,7 @@ typedef struct Wave {
   int active_pin_count;
 } Wave;
 
-static int period_in_ns;
+static uint64_t period_in_ps;
 static long repeat = 0;
 static Pin pins[MAX_NUMBER_PINS];
 static int number_of_pins = 0;
@@ -262,7 +262,7 @@ static void bridge_clear_waves_and_pins() {
 
 static void bridge_set_period(char * p_in_ns) {
   int p = (int) strtol(p_in_ns, NULL, 10);
-  period_in_ns = p;
+  period_in_ps = p * 1000;
   bridge_clear_waves_and_pins();
 }
 
@@ -473,6 +473,7 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
 
 /// Registers a callback to apply the given wave during this cycle
 static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, int delay_in_ns) {
+  uint64_t delay_in_ps = delay_in_ns * 1000;
   s_cb_data call;
   s_vpi_time time;
 
@@ -488,8 +489,9 @@ static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, i
   *d2 = compare;
 
   time.type = vpiSimTime;
-  time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(delay_in_ns);
+
+  time.high = (uint32_t)(delay_in_ps >> 32);
+  time.low  = (uint32_t)(delay_in_ps);
 
   call.reason    = cbAfterDelay;
   call.cb_rtn    = bridge_apply_wave_event_cb;
@@ -774,8 +776,8 @@ static void bridge_cycle() {
   s_vpi_time time;
 
   time.type = vpiSimTime;
-  time.high = (uint32_t)(0);
-  time.low  = (uint32_t)(period_in_ns);
+  time.high = (uint32_t)(period_in_ps >> 32);
+  time.low  = (uint32_t)(period_in_ps);
 
   call.reason    = cbAfterDelay;
   call.obj       = 0;
