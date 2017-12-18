@@ -108,10 +108,14 @@ puts '  -snapshot origen \\'
 puts '  -access +rw \\'
 puts '  -timescale 1ns/1ns'
 puts
+puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
+puts
+puts "irun #{rtl_top} #{output_directory}/origen.v #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
+puts
 puts 'The following files should then be used for Origen integration:'
 puts
 puts "  #{output_directory}/#{rtl_top_module}.rb"
-puts '  INCA_libs/ (created by irun)'
+puts '  INCA_libs/ (created by irun, place in the simulation/<target>/cadence/ directory of the application)'
 puts
 puts '-----------------------------------------------------------'
 puts 'Icarus'
