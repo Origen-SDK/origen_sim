@@ -2,7 +2,7 @@ require 'optparse'
 require 'origen_sim'
 require 'origen_verilog'
 
-options = {}
+options = { source_dirs: [] }
 
 # App options are options that the application can supply to extend this command
 app_options = @application_options || []
@@ -15,6 +15,11 @@ an Origen-enabled simulation object that can be used to simulate Origen-based te
 
 Usage: origen sim:build TOP_LEVEL_RTL_FILE [options]
   EOT
+  opts.on('-o', '--output DIR', String, 'Override the default output directory') { |t| options[:output] = t }
+  opts.on('-t', '--top NAME', String, 'Specify the top-level Verilog module name if OrigenSim can\'t work it out') { |t| options[:top_level_name] = t }
+  opts.on('-s', '--source_dir PATH', 'Directories to look for include files in (the directory containing the top-level is already considered)') do |path|
+    options[:source_dirs] << path
+  end
   opts.on('-d', '--debugger', 'Enable the debugger') {  options[:debugger] = true }
   app_options.each do |app_option|
     opts.on(*app_option) {}
@@ -37,22 +42,52 @@ end
 
 ast = OrigenVerilog.parse_file(rtl_top)
 
-rtl_top_module = ast.module_names.first
+unless ast
+  puts 'Sorry, but the given top-level RTL file failed to parse'
+  exit 1
+end
 
-ast.modules.first.to_top_level # Creates dut
+candidates = ast.top_level_modules
+candidates = ast.modules if candidates.empty?
+
+if candidates.size == 0
+  puts "Sorry, couldn't find any Verilog module declarations in that file"
+  exit 1
+elsif candidates.size > 1
+  if options[:top_level_name]
+    mod = candidates.find { |c| c.name == options[:top_level_name] }
+  end
+  unless mod
+    puts "Sorry, couldn't work out what the top-level module is, please help by running again and specifying it via the --top switch with one of the following names:"
+    candidates.each do |c|
+      puts "  #{c.name}"
+    end
+    exit 1
+  end
+else
+  mod = candidates.first
+end
+
+rtl_top_module = mod.name
+
+mod.to_top_level # Creates dut
+
+output_directory = options[:output] || Origen.config.output_directory
 
 Origen.app.runner.launch action:            :compile,
                          files:             "#{Origen.root!}/templates/rtl_v/origen.v.erb",
+                         output:            output_directory,
                          check_for_changes: false,
                          quiet:             true,
                          options:           { vendor: :cadence, top: dut.name, incl: options[:incl_files] }
 
 Origen.app.runner.launch action:            :compile,
                          files:             "#{Origen.root!}/ext",
+                         output:            output_directory,
                          check_for_changes: false,
                          quiet:             true
 
-dut.export(rtl_top_module, file_path: "#{Origen.config.output_directory}")
+dut.export(rtl_top_module, file_path: "#{output_directory}")
 
 puts
 puts
@@ -64,8 +99,8 @@ puts '-----------------------------------------------------------'
 puts
 puts 'Add the following to your build script to create an Origen-enabled simulation object (AND REMOVE ANY OTHER TESTBENCH!):'
 puts
-puts "  #{Origen.config.output_directory}/origen.v \\"
-puts "  #{Origen.config.output_directory}/*.c \\"
+puts "  #{output_directory}/origen.v \\"
+puts "  #{output_directory}/*.c \\"
 puts '  -ccargs "-std=c99" \\'
 puts '  -top origen \\'
 puts '  -elaborate  \\'
@@ -75,7 +110,7 @@ puts '  -timescale 1ns/1ns'
 puts
 puts 'The following files should then be used for Origen integration:'
 puts
-puts "  #{Origen.config.output_directory}/#{rtl_top_module}.rb"
+puts "  #{output_directory}/#{rtl_top_module}.rb"
 puts '  INCA_libs/ (created by irun)'
 puts
 puts '-----------------------------------------------------------'
