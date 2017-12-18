@@ -22,33 +22,65 @@ module OrigenSim
       end
     end
 
-    def fetch_simulation_object
-      if config[:rc_url]
+    def fetch_simulation_objects(options = {})
+      sid = options[:id] || id
+      ldir = "#{Origen.root}/simulation/#{sid}"
+      tmp_dir = "#{Origen.root}/tmp/origen_sim/tmp"
+      if config[:rc_dir_url]
         unless config[:rc_version]
-          puts "You must supply an :rc_version option when using :rc_url (you can set this to something like 'Trunk' or 'master' if you want)"
+          puts "You must supply an :rc_version option when using :rc_dir_url (you can set this to something like 'Trunk' or 'master' if you want)"
           exit 1
         end
-        unless (File.exist?(compiled_dir) && Dir.entries(compiled_dir).size > 2) &&
-               (Origen.app.session.origen_sim[id] == config[:rc_version])
-          Origen.log.info "Fetching the simulation object for #{id}..."
-          Origen.app.session.origen_sim[id] = nil # Clear this up front, if the checkout fails we won't know what we have
-          rc = Origen::RevisionControl.new remote: config[:rc_url], local: compiled_dir
-          rc.checkout force: true, version: config[:rc_version]
-          Origen.app.session.origen_sim[id] = config[:rc_version]
-          # Untar all contained tar files, and delete the tarballs
-          Dir.chdir compiled_dir do
-            Dir['*.tar.gz'].each do |f|
-              system "tar -xvf #{f}"
-              FileUtils.rm_f(f)
-            end
+        if !File.exist?(compiled_dir) ||
+           (File.exist?(compiled_dir) && Dir.entries(compiled_dir).size <= 2) ||
+           (Origen.app.session.origen_sim[sid] != config[:rc_version]) ||
+           options[:force]
+          Origen.log.info "Fetching the simulation object for #{sid}..."
+          Origen.app.session.origen_sim[sid] = nil # Clear this up front, if the checkout fails we won't know what we have
+          FileUtils.rm_rf(tmp_dir) if File.exist?(tmp_dir)
+          FileUtils.mkdir_p(tmp_dir)
+          FileUtils.mkdir_p("#{Origen.root}/simulation")
+          rc = Origen::RevisionControl.new remote: config[:rc_dir_url], local: tmp_dir
+          rc.checkout "#{sid}.tar.gz", force: true, version: config[:rc_version]
+          FileUtils.mv "#{tmp_dir}/#{sid}.tar.gz", "#{Origen.root}/simulation"
+          FileUtils.rm_rf(ldir) if File.exist?(ldir)
+          Dir.chdir "#{Origen.root}/simulation/" do
+            system "tar -xvf #{sid}.tar.gz"
           end
+          Origen.app.session.origen_sim[sid] = config[:rc_version]
         end
       else
-        unless File.exist?(compiled_dir) && Dir.entries(compiled_dir).size > 2
+        if !File.exist?(compiled_dir) ||
+           (File.exist?(compiled_dir) && Dir.entries(compiled_dir).size <= 2)
           puts "There is no previously compiled simulation object in: #{compiled_dir}"
           exit 1
         end
       end
+    ensure
+      FileUtils.rm_f "#{ldir}.tar.gz" if File.exist?("#{ldir}.tar.gz")
+      FileUtils.rm_rf tmp_dir if File.exist?(tmp_dir)
+    end
+
+    def commit_simulation_objects(options = {})
+      sid = options[:id] || id
+      ldir = "#{Origen.root}/simulation/#{sid}"
+      tmp_dir = "#{Origen.root}/tmp/origen_sim/tmp"
+      unless File.exist?(ldir)
+        fail "The simulation directory to check in does not exist: #{ldir}"
+      end
+      Dir.chdir "#{Origen.root}/simulation/" do
+        system "tar -cvzf #{sid}.tar.gz #{sid}"
+      end
+
+      FileUtils.rm_rf(tmp_dir) if File.exist?(tmp_dir)
+      FileUtils.mkdir_p(tmp_dir)
+      FileUtils.cp "#{ldir}.tar.gz", tmp_dir
+
+      rc = Origen::RevisionControl.new remote: config[:rc_dir_url], local: tmp_dir
+      rc.checkin "#{sid}.tar.gz", unmanaged: true, force: true, comment: 'Checked in via sim:rc command'
+    ensure
+      FileUtils.rm_f "#{ldir}.tar.gz" if File.exist?("#{ldir}.tar.gz")
+      FileUtils.rm_rf tmp_dir if File.exist?(tmp_dir)
     end
 
     def configure(options)
@@ -217,7 +249,7 @@ module OrigenSim
 
     # Starts up the simulator process
     def start
-      fetch_simulation_object
+      fetch_simulation_objects
 
       server = UNIXServer.new(socket_id)
       verbose = Origen.debugger_enabled?
@@ -252,7 +284,7 @@ module OrigenSim
       simulator_parent_process = spawn("ruby -e \"#{launch_simulator}\"")
       Process.detach(simulator_parent_process)
 
-      timeout_connection(config[:startup_timeout] || 15) do
+      timeout_connection(config[:startup_timeout] || 60) do
         @socket = server.accept
         @connection_established = true
         if @connection_timed_out
