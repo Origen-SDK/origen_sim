@@ -1,5 +1,6 @@
 require 'optparse'
 require 'origen_sim'
+require_relative '../../../config/version'
 require 'origen_verilog'
 
 options = { source_dirs: [] }
