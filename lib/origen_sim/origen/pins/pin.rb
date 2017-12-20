@@ -5,22 +5,10 @@ module Origen
     class Pin
       # The index number that is used to refer to the pin within the simulation
       attr_accessor :simulation_index
-      # When generating a testbench the top-level signal will be tied off to the given
-      # logic level if this is set to 0 or 1
-      attr_accessor :tie_off
 
       alias_method :_orig_initialize, :initialize
       def initialize(id, owner, options = {})
-        @tie_off = options[:tie_off]
         _orig_initialize(id, owner, options)
-      end
-
-      def rtl_name
-        if primary_group
-          (@rtl_name || primary_group.id).to_s
-        else
-          (@rtl_name || id).to_s
-        end
       end
 
       alias_method :_orig_set_value, :set_value
@@ -63,10 +51,16 @@ module Origen
         @simulator_value = nil
       end
 
+      def apply_force
+        if force
+          simulator.put("2^#{simulation_index}^#{force}")
+        end
+      end
+
       # Applies the current pin state to the simulation, this is triggered everytime
       # the pin state or value changes
       def update_simulation
-        return if tie_off || !simulation_index || !tester.timeset || !simulator_needs_update?
+        return if force || !simulation_index || !tester.timeset || !simulator_needs_update?
         case state
           when :drive
             @simulator_state = :drive

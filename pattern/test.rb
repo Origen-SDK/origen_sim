@@ -76,9 +76,9 @@ Pattern.create do
   dut.pins(:dout).assert!(0x5555_AAAA)
   dut.pins(:dout).dont_care
 
-  ss "Verify that tying off pins works"
+  ss "Verify that forcing pins works"
   dut.p.p1.assert!(0)
   dut.p.p2.assert!(1)
   dut.p.p3.assert!(0)
-  dut.p.p4.assert!(0xF)
+  dut.p.p4.assert!(0xA)
 end

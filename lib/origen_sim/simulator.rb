@@ -410,10 +410,11 @@ module OrigenSim
     # set up internal handles to efficiently access them
     def define_pins
       dut.rtl_pins.each_with_index do |(name, pin), i|
-        unless pin.tie_off
-          pin.simulation_index = i
-          put("0^#{pin.rtl_name}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
-        end
+        pin.simulation_index = i
+        put("0^#{pin.rtl_name}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
+      end
+      dut.rtl_pins.each do |name, pin|
+        pin.apply_force
       end
     end
 
