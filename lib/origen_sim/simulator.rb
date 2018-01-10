@@ -107,14 +107,6 @@ module OrigenSim
       end
     end
 
-    def artifacts_dir
-      @artifacts_dir ||= begin
-        d = "#{Origen.root}/simulation/#{id}/artifacts"
-        FileUtils.mkdir_p(d)
-        d
-      end
-    end
-
     # Returns the directory where the compiled simulation object lives, this should
     # be checked into your Origen app's repository
     def compiled_dir
@@ -177,7 +169,7 @@ module OrigenSim
       case config[:vendor]
       when :icarus
         cmd = configuration[:vvp] || 'vvp'
-        cmd += " -M#{compiled_dir} -morigen #{compiled_dir}/dut.vvp +socket+#{socket_id}"
+        cmd += " -M#{compiled_dir} -morigen #{compiled_dir}/origen.vvp +socket+#{socket_id}"
 
       when :cadence
         input_file = "#{tmp_dir}/#{id}.tcl"
@@ -215,6 +207,11 @@ module OrigenSim
     def view_wave_command
       cmd = nil
       case config[:vendor]
+      when :icarus
+        cmd = configuration[:viewer] || configuration[:gtkwave] || 'gtkwave'
+        dir = Pathname.new(wave_dir).relative_path_from(Pathname.pwd)
+        cmd += " #{dir}/origen.vcd &"
+
       when :cadence
         edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
         cmd = "cd #{edir} && "
@@ -223,6 +220,7 @@ module OrigenSim
         cmd += " #{dir}/#{id}.dsn #{dir}/#{id}.trn"
         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
         cmd += " -input #{f} &"
+
       end
       cmd
     end
@@ -236,24 +234,12 @@ module OrigenSim
       end
     end
 
-    def link_artifacts
-      done = "#{run_dir}/.artifacts_linked"
-      unless File.exist?(done)
-        Dir.foreach(artifacts_dir) do |item|
-          next if item == '.' || item == '..'
-          FileUtils.ln_s("#{artifacts_dir}/#{item}", "#{run_dir}/#{item}") unless File.exist?("#{run_dir}/#{item}")
-        end
-        FileUtils.touch(done)
-      end
-    end
-
     # Starts up the simulator process
     def start
       fetch_simulation_objects
 
       server = UNIXServer.new(socket_id)
       verbose = Origen.debugger_enabled?
-      link_artifacts
       cmd = run_cmd + ' & echo \$!'
 
       launch_simulator = %(

@@ -151,13 +151,13 @@ module origen;
     .errors(errors)
   );
 
-% if options[:vendor] == :icarus  
+`ifdef ICARUS 
   initial
   begin
-    $dumpfile("dut.vcd");
+    $dumpfile("origen.vcd");
     $dumpvars(0,origen);
   end
-% end
+`endif
     
   always @(posedge finish) begin
     $finish(2);

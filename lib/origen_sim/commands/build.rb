@@ -92,13 +92,19 @@ dut.export(rtl_top_module, file_path: "#{output_directory}")
 
 puts
 puts
-puts 'Testbench and VPI extension created, see below for what to do now for your particular simulator:'
+puts 'Testbench and VPI extension created!'
+puts
+puts 'This file can be imported into an Origen top-level DUT model to define the pins:'
+puts
+puts "  #{output_directory}/#{rtl_top_module}.rb"
+puts
+puts 'See below for what to do now to create an Origen-enabled simulation object for your particular simulator:'
 puts
 puts '-----------------------------------------------------------'
-puts 'Cadence (irun)'
+puts 'Cadence Incisive (irun)'
 puts '-----------------------------------------------------------'
 puts
-puts 'Add the following to your build script to create an Origen-enabled simulation object (AND REMOVE ANY OTHER TESTBENCH!):'
+puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
 puts
 puts "  #{output_directory}/origen.v \\"
 puts "  #{output_directory}/*.c \\"
@@ -111,15 +117,31 @@ puts '  -timescale 1ns/1ns'
 puts
 puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
 puts
-puts "irun #{rtl_top} #{output_directory}/origen.v #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
+puts "  irun #{rtl_top} #{output_directory}/origen.v #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
 puts
-puts 'The following files should then be used for Origen integration:'
+puts 'Copy the following directory (produced by irun) to simulation/<target>/cadence/. within your Origen application:'
 puts
-puts "  #{output_directory}/#{rtl_top_module}.rb"
-puts '  INCA_libs/ (created by irun, place in the simulation/<target>/cadence/ directory of the application)'
+puts '  INCA_libs'
 puts
 puts '-----------------------------------------------------------'
-puts 'Icarus'
+puts 'Icarus Verilog'
 puts '-----------------------------------------------------------'
 puts
-puts '  TBD'
+puts 'Compile the VPI extension using the following command:'
+puts
+puts "  pushd #{output_directory} && iverilog-vpi *.c -DICARUS --name=origen && popd"
+puts
+puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
+puts
+puts "  #{output_directory}/origen.v \\"
+puts '  -o origen.vvp \\'
+puts '  -DICARUS'
+puts
+puts 'Here is an example which may work for the file you just parsed (add additional -includedir options at the end if required):'
+puts
+puts "  iverilog #{rtl_top} #{output_directory}/origen.v -o origen.vvp -DICARUS -includedir #{Pathname.new(rtl_top).dirname}"
+puts
+puts 'Copy the following files to simulation/<target>/icarus/. within your Origen application:'
+puts
+puts "  #{output_directory}/origen.vpi"
+puts '  origen.vvp   (produced by the iverilog command)'
