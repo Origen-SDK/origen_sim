@@ -17,6 +17,7 @@ gem 'origen_jtag'
 #gem "origen", path: "/home/stephen/Code/github/origen"
 #gem "origen", git: "https://github.com/Origen-SDK/origen.git", branch: "timing_api"
 #gem "origen_testers", path: "~/Code/github/origen_testers"
+#gem "origen_verilog", path: "~/Code/github/origen_verilog"
 
 # Specify your gem's runtime dependencies in origen_sim.gemspec
 # THIS LINE SHOULD BE LEFT AT THE END

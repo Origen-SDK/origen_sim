@@ -22,13 +22,71 @@ module OrigenSim
       end
     end
 
+    def fetch_simulation_objects(options = {})
+      sid = options[:id] || id
+      ldir = "#{Origen.root}/simulation/#{sid}"
+      tmp_dir = "#{Origen.root}/tmp/origen_sim/tmp"
+      if config[:rc_dir_url]
+        unless config[:rc_version]
+          puts "You must supply an :rc_version option when using :rc_dir_url (you can set this to something like 'Trunk' or 'master' if you want)"
+          exit 1
+        end
+        if !File.exist?(compiled_dir) ||
+           (File.exist?(compiled_dir) && Dir.entries(compiled_dir).size <= 2) ||
+           (Origen.app.session.origen_sim[sid] != config[:rc_version]) ||
+           options[:force]
+          Origen.log.info "Fetching the simulation object for #{sid}..."
+          Origen.app.session.origen_sim[sid] = nil # Clear this up front, if the checkout fails we won't know what we have
+          FileUtils.rm_rf(tmp_dir) if File.exist?(tmp_dir)
+          FileUtils.mkdir_p(tmp_dir)
+          FileUtils.mkdir_p("#{Origen.root}/simulation")
+          rc = Origen::RevisionControl.new remote: config[:rc_dir_url], local: tmp_dir
+          rc.checkout "#{sid}.tar.gz", force: true, version: config[:rc_version]
+          FileUtils.mv "#{tmp_dir}/#{sid}.tar.gz", "#{Origen.root}/simulation"
+          FileUtils.rm_rf(ldir) if File.exist?(ldir)
+          Dir.chdir "#{Origen.root}/simulation/" do
+            system "tar -xvf #{sid}.tar.gz"
+          end
+          Origen.app.session.origen_sim[sid] = config[:rc_version]
+        end
+      else
+        if !File.exist?(compiled_dir) ||
+           (File.exist?(compiled_dir) && Dir.entries(compiled_dir).size <= 2)
+          puts "There is no previously compiled simulation object in: #{compiled_dir}"
+          exit 1
+        end
+      end
+    ensure
+      FileUtils.rm_f "#{ldir}.tar.gz" if File.exist?("#{ldir}.tar.gz")
+      FileUtils.rm_rf tmp_dir if File.exist?(tmp_dir)
+    end
+
+    def commit_simulation_objects(options = {})
+      sid = options[:id] || id
+      ldir = "#{Origen.root}/simulation/#{sid}"
+      tmp_dir = "#{Origen.root}/tmp/origen_sim/tmp"
+      unless File.exist?(ldir)
+        fail "The simulation directory to check in does not exist: #{ldir}"
+      end
+      Dir.chdir "#{Origen.root}/simulation/" do
+        system "tar -cvzf #{sid}.tar.gz #{sid}"
+      end
+
+      FileUtils.rm_rf(tmp_dir) if File.exist?(tmp_dir)
+      FileUtils.mkdir_p(tmp_dir)
+      FileUtils.cp "#{ldir}.tar.gz", tmp_dir
+
+      rc = Origen::RevisionControl.new remote: config[:rc_dir_url], local: tmp_dir
+      rc.checkin "#{sid}.tar.gz", unmanaged: true, force: true, comment: 'Checked in via sim:rc command'
+    ensure
+      FileUtils.rm_f "#{ldir}.tar.gz" if File.exist?("#{ldir}.tar.gz")
+      FileUtils.rm_rf tmp_dir if File.exist?(tmp_dir)
+    end
+
     def configure(options)
       fail 'A vendor must be supplied, e.g. OrigenSim::Tester.new(vendor: :icarus)' unless options[:vendor]
       unless VENDORS.include?(options[:vendor])
         fail "Unknown vendor #{options[:vendor]}, valid values are: #{VENDORS.map { |v| ':' + v.to_s }.join(', ')}"
-      end
-      unless options[:rtl_top]
-        fail "The name of the file containing the DUT top-level must be supplied, e.g. OrigenSim::Tester.new(rtl_top: 'my_ip')" unless options[:rtl_top]
       end
       @configuration = options
       @tmp_dir = nil
@@ -123,7 +181,7 @@ module OrigenSim
 
       when :cadence
         input_file = "#{tmp_dir}/#{id}.tcl"
-        unless File.exist?(input_file)
+        if !File.exist?(input_file) || config_changed?
           Origen.app.runner.launch action:            :compile,
                                    files:             "#{Origen.root!}/templates/probe.tcl.erb",
                                    output:            tmp_dir,
@@ -133,7 +191,7 @@ module OrigenSim
                                    output_file_name:  "#{id}.tcl"
         end
         input_file_fast = "#{tmp_dir}/#{id}_fast.tcl"
-        if $use_fast_probe_depth
+        if !File.exist?(input_file_fast) || config_changed?
           fast_probe_depth = config[:fast_probe_depth] || 1
           Origen.app.runner.launch action:            :compile,
                                    files:             "#{Origen.root!}/templates/probe.tcl.erb",
@@ -143,8 +201,8 @@ module OrigenSim
                                    options:           { dir: wave_dir, force: config[:force], setup: config[:setup], depth: fast_probe_depth },
                                    output_file_name:  "#{id}_fast.tcl"
         end
-        wave_dir  # Ensure this exists since it won't be referenced above if the
-        # input file is already generated
+        save_config_signature
+        wave_dir  # Ensure this exists since it won't be referenced above if the input file is already generated
 
         cmd = configuration[:irun] || 'irun'
         cmd += " -r origen -snapshot origen +socket+#{socket_id}"
@@ -191,6 +249,8 @@ module OrigenSim
 
     # Starts up the simulator process
     def start
+      fetch_simulation_objects
+
       server = UNIXServer.new(socket_id)
       verbose = Origen.debugger_enabled?
       link_artifacts
@@ -224,7 +284,7 @@ module OrigenSim
       simulator_parent_process = spawn("ruby -e \"#{launch_simulator}\"")
       Process.detach(simulator_parent_process)
 
-      timeout_connection(config[:startup_timeout] || 15) do
+      timeout_connection(config[:startup_timeout] || 60) do
         @socket = server.accept
         @connection_established = true
         if @connection_timed_out
@@ -352,7 +412,7 @@ module OrigenSim
       dut.rtl_pins.each_with_index do |(name, pin), i|
         unless pin.tie_off
           pin.simulation_index = i
-          put("0^#{pin.id}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
+          put("0^#{pin.rtl_name}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
         end
       end
     end
@@ -585,6 +645,25 @@ module OrigenSim
 
     def sync_active?
       @sync_active
+    end
+
+    # Returns true if the config has been changed since the last time we called save_config_signature
+    def config_changed?
+      Origen.app.session.origen_sim["#{id}_config"] != config
+    end
+
+    # Locally saves a signature for the current config, this will cause config_changed? to return false
+    # until its contents change
+    def save_config_signature
+      Origen.app.session.origen_sim["#{id}_config"] = config
+    end
+
+    # Returns the version of Origen Sim that the current DUT object was compiled with
+    def dut_version
+      @dut_version ||= begin
+        put('i^')
+        Origen::VersionString.new(get.strip)
+      end
     end
 
     private

@@ -6,13 +6,18 @@ when 'generate'
   @application_options << ["--fast", "Fast simulation, minimum probe depth"]
   $use_fast_probe_depth = true if ARGV.include?('--fast')
 
-when "origen_sim:build", "sim:build"
-  require "origen_sim/commands/build"
+when "sim:ci", "origen_sim:ci"
+  require "#{Origen.root!}/lib/origen_sim/commands/ci"
+  exit 0
+
+when "sim:co", "origen_sim:co"
+  require "#{Origen.root!}/lib/origen_sim/commands/co"
   exit 0
 
 else
   @plugin_commands << <<-EOT
- sim:build       Build the simulation object for the current/given target
+ sim:ci       Checkin a simulation snapshot
+ sim:co       Checkout a simulation snapshot
   EOT
 
 end
