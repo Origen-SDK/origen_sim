@@ -9,9 +9,34 @@ at the given point in time and thereby allow it to be interatively debugged at t
 
 For further documentation on how to use origen_sim and to learn about its capabilities, see the website: http://origen-sdk.org/sim
 
-This document will now describe the technical details of how origen_sim works and hopefully with enough detail to enable other engineers to contribute to its future development.
+### How To Create a Simulation Object For Development of OrigenSim
+
+From an OrigenSim workspace:
+
+Select the environment you wish to use, e.g.:
+
+~~~
+origen e environment/cadence.rb
+~~~
+
+Run the following command to build a simulation object from [this example device](https://github.com/Origen-SDK/example_rtl/blob/master/dut1/dut1.v):
+
+~~~
+origen sim:build_example
+~~~
+
+Run a simulation to check that it is working:
+
+~~~
+origen g test
+~~~
+
+Repeat the above steps to recompile after making any changes to the VPI extension.
+
 
 ### Summary Of Operation
+
+Here are some technical details on how origen_sim works, hopefully with enough detail to enable other engineers to contribute to its future development.
 
 origen_sim provides components that can be compiled into a simulation object along with the design under test (DUT), a high level view of the process looks like this:
 

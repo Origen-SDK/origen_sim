@@ -129,7 +129,7 @@ puts '-----------------------------------------------------------'
 puts
 puts 'Compile the VPI extension using the following command:'
 puts
-puts "  pushd #{output_directory} && iverilog-vpi *.c -DICARUS --name=origen && popd"
+puts "  cd #{output_directory} && iverilog-vpi *.c -DICARUS --name=origen && cd #{Pathname.pwd}"
 puts
 puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
 puts
@@ -137,11 +137,13 @@ puts "  #{output_directory}/origen.v \\"
 puts '  -o origen.vvp \\'
 puts '  -DICARUS'
 puts
-puts 'Here is an example which may work for the file you just parsed (add additional -includedir options at the end if required):'
+puts 'Here is an example which may work for the file you just parsed (add additional source dirs with more -I options at the end if required):'
 puts
-puts "  iverilog #{rtl_top} #{output_directory}/origen.v -o origen.vvp -DICARUS -includedir #{Pathname.new(rtl_top).dirname}"
+puts "  iverilog #{rtl_top} #{output_directory}/origen.v -o origen.vvp -DICARUS -I #{Pathname.new(rtl_top).dirname}"
 puts
 puts 'Copy the following files to simulation/<target>/icarus/. within your Origen application:'
 puts
 puts "  #{output_directory}/origen.vpi"
 puts '  origen.vvp   (produced by the iverilog command)'
+puts
+puts

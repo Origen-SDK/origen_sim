@@ -31,6 +31,15 @@ class OrigenSimApplication < Origen::Application
     :global_launcher => "config/global_commands.rb"
   }
 
+  config.remotes = [
+    {
+      dir: "example_rtl",
+      rc_url: 'https://github.com/Origen-SDK/example_rtl.git',
+      version: "master",
+      development: true
+    }
+  ]
+
   # See: http://origen-sdk.org/origen/latest/guides/utilities/lint/
   config.lint_test = {
     # Require the lint tests to pass before allowing a release to proceed

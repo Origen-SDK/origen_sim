@@ -15,11 +15,34 @@ case @command
 
 # Here is an example of how to implement a command, the logic can go straight
 # in here or you can require an external file if preferred.
-when "my_command"
-  puts "Doing something..."
-  #require "commands/my_command"    # Would load file lib/commands/my_command.rb
-  # You must always exit upon successfully capturing a command to prevent 
-  # control flowing back to Origen
+when "sim:build_example"
+  Dir.chdir(Origen.root) do
+    output = `origen sim:build  #{Origen.app.remotes_dir}/example_rtl/dut1/dut1.v`
+    puts output
+    Origen.load_target
+    FileUtils.mkdir_p "simulation/default/#{tester.simulator.config[:vendor]}"
+    case tester.simulator.config[:vendor]
+    when :icarus
+      output =~ /  (cd .*)\n/
+      system $1
+      FileUtils.mv "#{Origen.config.output_directory}/origen.vpi", "simulation/default/icarus"
+      output =~ /  (iverilog .*)\n/
+      system $1
+      FileUtils.mv "origen.vvp", "simulation/default/icarus"
+
+    when :cadence
+      output =~ /  (irun .*)\n/
+      system = $1
+      FileUtils.mv "INCA_libs", "simulation/default/cadence"
+
+    end
+
+    puts
+    puts "Done, run this command to run a test simulation:"
+    puts
+    puts "  origen g test"
+    puts
+  end
   exit 0
 
 ## Example of how to make a command to run unit tests, this simply invokes RSpec on
@@ -65,10 +88,8 @@ else
   # You probably want to also add the your commands to the help shown via
   # origen -h, you can do this be assigning the required text to @application_commands
   # before handing control back to Origen. Un-comment the example below to get started.
-#  @application_commands = <<-EOT
-# specs        Run the specs (tests), -c will enable coverage
-# examples     Run the examples (tests), -c will enable coverage
-# test         Run both specs and examples, -c will enable coverage
-#  EOT
+  @application_commands = <<-EOT
+ sim:build_example        Build the example simulation object for the current environment setting
+  EOT
 
 end 

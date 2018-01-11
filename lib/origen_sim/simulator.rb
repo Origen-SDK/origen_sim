@@ -143,25 +143,34 @@ module OrigenSim
 
     def wave_config_file
       @wave_config_file ||= begin
-        f = "#{wave_config_dir}/#{User.current.id}.svcf"
+        f = "#{wave_config_dir}/#{User.current.id}.#{wave_config_ext}"
         unless File.exist?(f)
           # Take a default wave if one has been set up
-          d = "#{wave_config_dir}/default.svcf"
+          d = "#{wave_config_dir}/default.#{wave_config_ext}"
           if File.exist?(d)
             FileUtils.cp(d, f)
           else
             # Otherwise seed it with the latest existing setup by someone else
-            d = Dir.glob("#{wave_config_dir}/*.svcf").max { |a, b| File.ctime(a) <=> File.ctime(b) }
+            d = Dir.glob("#{wave_config_dir}/*.#{wave_config_ext}").max { |a, b| File.ctime(a) <=> File.ctime(b) }
             if d
               FileUtils.cp(d, f)
             else
               # We tried our best, start from scratch
-              d = "#{Origen.root!}/templates/empty.svcf"
+              d = "#{Origen.root!}/templates/empty.#{wave_config_ext}"
               FileUtils.cp(d, f)
             end
           end
         end
         f
+      end
+    end
+
+    def wave_config_ext
+      case config[:vendor]
+      when :icarus
+        'gtkw'
+      when :cadence
+        'svcf'
       end
     end
 
@@ -208,9 +217,13 @@ module OrigenSim
       cmd = nil
       case config[:vendor]
       when :icarus
-        cmd = configuration[:viewer] || configuration[:gtkwave] || 'gtkwave'
-        dir = Pathname.new(wave_dir).relative_path_from(Pathname.pwd)
-        cmd += " #{dir}/origen.vcd &"
+        edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
+        cmd = "cd #{edir} && "
+        cmd += configuration[:gtkwave] || 'gtkwave'
+        dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+        cmd += " #{dir}/origen.vcd "
+        f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+        cmd += " --save #{f} &"
 
       when :cadence
         edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
