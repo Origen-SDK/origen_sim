@@ -1,0 +1,26 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Thu Jan 11 09:12:49 2018
+[*]
+[dumpfile] "/home/stephen/Code/github/origen_sim/waves/default/origen.vcd"
+[dumpfile_mtime] "Wed Jan 10 17:49:53 2018"
+[dumpfile_size] 411132
+[savefile] "/home/stephen/Code/github/origen_sim/templates/empty.gtkw"
+[timestart] 0
+[size] 2308 1127
+[pos] -1 -1
+*-25.716982 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] origen.
+[treeopen] origen.debug.
+[treeopen] origen.dut.
+[sst_width] 225
+[signals_width] 158
+[sst_expanded] 1
+[sst_vpaned_height] 337
+@820
+origen.debug.pattern[1023:0]
+origen.debug.comments[1023:0]
+@22
+origen.debug.errors[31:0]
+[pattern_trace] 1
+[pattern_trace] 0
