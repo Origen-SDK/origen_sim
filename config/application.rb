@@ -1,5 +1,6 @@
 require 'origen'
 class OrigenSimApplication < Origen::Application
+  attr_accessor :update_sim_captures
 
   # See http://origen-sdk.org/origen/api/Origen/Application/Configuration.html
   # for a full list of the configuration options available

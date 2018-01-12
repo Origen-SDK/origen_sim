@@ -63,7 +63,6 @@ bool is_server_alive() {
 /// Send a message to the master Origen process.
 /// NOTE: THE CALLER IS RESPONSIBLE FOR ADDING A \n TERMINATOR TO
 ///       THE MESSAGE
-/// to the data as this function will do it for you.
 int client_put(char* data) {
   if(send(sock, data , strlen(data), 0) < 0) {
     return 1;

@@ -4,7 +4,9 @@ case @command
 when 'generate'
   $use_fast_probe_depth = false
   @application_options << ["--fast", "Fast simulation, minimum probe depth"]
-  $use_fast_probe_depth = true if ARGV.include?('--fast')
+  $use_fast_probe_depth = ARGV.include?('--fast')
+  @application_options << ["--sim_capture", "Update sim captures (ignored when not running a simulation)"]
+  Origen.app!.update_sim_captures = ARGV.include?('--sim_capture')
 
 when "sim:ci", "origen_sim:ci"
   require "#{Origen.root!}/lib/origen_sim/commands/ci"

@@ -41,7 +41,8 @@ Pattern.create do
   dut.cmd.write!(0x2244_6688)
   dut.cmd.store!
 
-  capture_value = tester.simulator.peek("origen.pins.tdo.memory")
+  sim = tester.simulator
+  capture_value = sim.peek("origen.pins.tdo.memory").to_i
   unless capture_value == 0x11662244 # 0x2244_6688 reversed
     if capture_value
       fail "Captured #{capture_value.to_hex} instead of 0x11662244!"
@@ -81,4 +82,11 @@ Pattern.create do
   dut.p.p2.assert!(1)
   dut.p.p3.assert!(0)
   dut.p.p4.assert!(0xA)
+
+  ss "Test sim_capture"
+  tester.sim_capture :cmd55, dut.pins(:dout) do
+    dut.pins(:din_port).drive!(0x1234_5678)
+    dut.cmd.write!(0x55)
+    60.cycles
+  end
 end

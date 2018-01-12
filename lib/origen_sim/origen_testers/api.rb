@@ -7,5 +7,9 @@ module OrigenTesters
       is_a?(OrigenSim::Tester)
     end
     alias_method :simulator?, :sim?
+
+    def sim_capture(*args)
+      yield
+    end
   end
 end

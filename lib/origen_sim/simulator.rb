@@ -467,11 +467,13 @@ module OrigenSim
 
     # Returns the current simulation error count
     def error_count
-      peek('origen.debug.errors')
+      peek('origen.debug.errors').to_i
     end
 
     # Returns the current value of the given net, or nil if the given path does not
     # resolve to a valid node
+    #
+    # The value is returned as an instance of Origen::Value
     def peek(net)
       # The Verilog spec does not specify that underlying VPI put method should
       # handle a part select, so some simulators do not handle it. Therefore we
@@ -487,21 +489,20 @@ module OrigenSim
 
       sync_up
       put("9^#{clean(net)}")
-
       m = get.strip
+
       if m == 'FAIL'
         return nil
       else
-        m = m.to_i
         if msb
           # Setting a range of bits
           if lsb
-            m[msb..lsb]
+            Origen::Value.new('b' + m[(m.size - 1 - msb)..(m.size - 1 - lsb)])
           else
-            m[msb]
+            Origen::Value.new('b' + m[m.size - 1 - msb])
           end
         else
-          m
+          Origen::Value.new('b' + m)
         end
       end
     end
