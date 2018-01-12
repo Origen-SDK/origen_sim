@@ -33,7 +33,7 @@ module OrigenTesters
             _origen_testers_cycle(options)
             l = ''
             @sim_capture.each do |pin, net|
-              l += "#{pin.id},#{simulator.peek(net)};"
+              l += "#{pin.id},assert,#{simulator.peek(net)};1"
             end
             capture_file.puts l
           else
@@ -67,15 +67,17 @@ module OrigenTesters
     end
 
     def apply_captured_data
-      read_capture_line do |line|
-        line.each do |pin_id, data|
+      read_capture_line do |operations, cycles|
+        operations.each do |pin_id, operation, data|
           dut.pin(pin_id).assert(data.to_i(2))
         end
       end
     end
 
     def read_capture_line
-      yield @capture_file.readline.strip.split(';').map { |l| l.split(',') }
+      l = @capture_file.readline.strip.split(';')
+      cycles = l.pop.to_i
+      yield l.map { |l| l.split(',') }, cycles
     end
 
     def update_capture?
