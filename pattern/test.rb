@@ -34,28 +34,32 @@ Pattern.create do
   dut.cmd.write!(0x1234_5678)
   dut.cmd.read!(0x1234_5678)
 
-  tester.simulator.poke("dut.cmd", 0x1122_3344)
-  dut.cmd.read!(0x1122_3344)
+  if tester.sim?
+    tester.simulator.poke("dut.cmd", 0x1122_3344)
+    dut.cmd.read!(0x1122_3344)
+  end
 
   ss "Test storing a register"
   dut.cmd.write!(0x2244_6688)
   dut.cmd.store!
 
-  sim = tester.simulator
-  capture_value = sim.peek("origen.pins.tdo.memory").to_i
-  unless capture_value == 0x11662244 # 0x2244_6688 reversed
-    if capture_value
-      fail "Captured #{capture_value.to_hex} instead of 0x11662244!"
-    else
-      fail "Nothing captured instead of 0x11662244!"
+  if tester.sim?
+    sim = tester.simulator
+    capture_value = sim.peek("origen.pins.tdo.memory").to_i
+    unless capture_value == 0x11662244 # 0x2244_6688 reversed
+      if capture_value
+        fail "Captured #{capture_value.to_hex} instead of 0x11662244!"
+      else
+        fail "Nothing captured instead of 0x11662244!"
+      end
     end
-  end
 
-  ss "Test sync of a register"
-  dut.cmd.write(0) # Make Origen forget the actual value
-  dut.cmd.sync
-  unless dut.cmd.data == 0x2244_6688
-    fail "CMD register did not sync from simulation"
+    ss "Test sync of a register"
+    dut.cmd.write(0) # Make Origen forget the actual value
+    dut.cmd.sync
+    unless dut.cmd.data == 0x2244_6688
+      fail "CMD register did not sync from simulation"
+    end
   end
 
   ss "Do some operations with the counter, just for fun"
