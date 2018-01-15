@@ -88,7 +88,8 @@ Pattern.create do
   dut.p.p4.assert!(0xA)
 
   ss "Test sim_capture"
-  tester.sim_capture :cmd55, dut.pins(:dout) do
+  #tester.sim_capture :cmd55, :dout, :test_bus do
+  tester.sim_capture :cmd55, :dout do
     dut.pins(:din_port).drive!(0x1234_5678)
     dut.cmd.write!(0x55)
     60.cycles

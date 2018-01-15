@@ -13,6 +13,7 @@ module OrigenTesters
         fail 'Nesting of sim_capture blocks is not yet supported!'
       end
       options = pins.last.is_a?(Hash) ? pins.pop : {}
+      pins = pins.map { |p| p.is_a?(String) || p.is_a?(Symbol) ? dut.pin(p) : p }
       pins.each(&:save)
       @sim_capture = pins.map { |p| [p, "origen.dut.#{p.rtl_name}"] }
       with_capture_file(id) do
@@ -33,9 +34,20 @@ module OrigenTesters
             _origen_testers_cycle(options)
             l = ''
             @sim_capture.each do |pin, net|
-              l += "#{pin.id},assert,#{simulator.peek(net)};1"
+              l += "#{pin.id},assert,b#{simulator.peek(net)};"
             end
-            capture_file.puts l
+            if @capture_buffer
+              if l == @capture_buffer
+                @capture_buffer_cycles += 1
+              else
+                capture_file.puts "#{@capture_buffer}#{@capture_buffer_cycles}"
+                @capture_buffer = l
+                @capture_buffer_cycles = 1
+              end
+            else
+              @capture_buffer = l
+              @capture_buffer_cycles = 1
+            end
           else
             apply_captured_data
             _origen_testers_cycle(options)
@@ -53,6 +65,7 @@ module OrigenTesters
         File.open(filename, 'w') do |f|
           @capture_file = f
           yield
+          capture_file.puts "#{@capture_buffer}#{@capture_buffer_cycles}"
         end
       else
         unless File.exist?(filename)
@@ -67,9 +80,14 @@ module OrigenTesters
     end
 
     def apply_captured_data
-      read_capture_line do |operations, cycles|
-        operations.each do |pin_id, operation, data|
-          dut.pin(pin_id).assert(data.to_i(2))
+      if @apply_captured_data_cycles && @apply_captured_data_cycles > 1
+        @apply_captured_data_cycles -= 1
+      else
+        read_capture_line do |operations, cycles|
+          @apply_captured_data_cycles = cycles
+          operations.each do |pin_id, operation, data|
+            dut.pin(pin_id).send(operation, Origen::Value.new(data))
+          end
         end
       end
     end
