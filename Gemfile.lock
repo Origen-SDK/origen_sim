@@ -1,7 +1,7 @@
 GIT
   remote: https://github.com/Origen-SDK/origen.git
-  revision: 0485109de10abc50aa0aa3aa4731d600733c3d49
-  branch: rtl_pins
+  revision: 63ef3ef0ccc8f2d274361fabaaf3d1d535c26925
+  branch: org_infrastructure
   specs:
     origen (0.28.2)
       activesupport (~> 4.1)
