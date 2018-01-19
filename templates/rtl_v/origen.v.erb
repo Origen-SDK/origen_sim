@@ -63,18 +63,14 @@ module pin_driver(error, pin, sync);
 
 endmodule
 
-module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" unless p.tie_off }.compact.join(', ') %>);
+module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>);
 
 % dut.rtl_pins.each do |name, pin, options|
-%   unless pin.tie_off
   output <%= pin.id %>_o;
-%   end
 % end
 
 % dut.rtl_pins.each do |name, pin, options|
-%   unless pin.tie_off
   wire <%= pin.id %>_err;
-%   end
 % end
 
   output reg [31:0] errors = 0;
@@ -83,12 +79,10 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" unless p
   always @(
 
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
-%   unless pin.tie_off
-%     if i == 0
+%   if i == 0
     posedge <%= pin.id %>_err
-%     else
+%   else
     or posedge <%= pin.id %>_err
-%     end
 %   end
 % end
   ) begin
@@ -96,9 +90,7 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" unless p
   end
 
 % dut.rtl_pins.each do |name, pin, options|
-%   unless pin.tie_off
   pin_driver <%= pin.driving? ? "#(#{pin.value}) " : '' %><%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err), .sync(sync));
-%   end 
 % end
 
 endmodule
@@ -120,68 +112,37 @@ module origen;
   reg finish = 0;
 
 % dut.rtl_pins.each do |name, pin, options|
-%   unless pin.tie_off
   wire <%= pin.id %>;
-%   end
 % end
 
   wire [31:0] errors;
 
   pin_drivers pins (
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
-%   unless pin.tie_off
     .<%= pin.id %>_o(<%= pin.id %>),
-%   end
 % end
     .errors(errors)
   );
 
-  // Create wires to tie off DUT signals, initially this was done by hardcoded values when instantiating
-  // below, however the simulator didn't like that if the target pin was defined as an inout
-% dut.rtl_pins.each do |name, pin, options|
-%   if options[:group]
-%     if pin.group_index == 0
-%       if pin.primary_group.tie_off
-  wire [<%= pin.primary_group.size - 1 %>:0] <%= pin.rtl_name %>;
-  assign <%= pin.rtl_name %> = <%= "#{pin.primary_group.size}'b#{pin.tie_off.to_s * pin.primary_group.size}" %>;
-%       end
-%     end
-%   else
-%     if pin.tie_off
-  wire <%= pin.rtl_name %>;
-  assign <%= pin.rtl_name %> = 1'b<%= pin.tie_off %>;
-%     end
-%   end
-% end
-
-
   // Instantiate the DUT
   <%= options[:top].sub(/\..*/, '') %> dut (
 % dut.power_pins.each do |name, pin, options|
-%   unless pin.tie_off
     .<%= pin.id %>(<%= pin.id %>),
-%   end
 % end
 % dut.ground_pins.each do |name, pin, options|
-%   unless pin.tie_off
     .<%= pin.id %>(<%= pin.id %>),
-%   end
 % end
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
 %   if options[:group]
 %     if pin.group_index == 0
-%       if pin.primary_group.tie_off
-    .<%= pin.rtl_name %>(<%= pin.rtl_name %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
-%       else
-    .<%= pin.rtl_name %>({
-%         pin.primary_group.each_with_index do |pin, i|
+    .<%= pin.primary_group.id %>({
+%       pin.primary_group.each_with_index do |pin, i|
       <%= pin.id %><%= i == (pin.primary_group.size - 1) ? '' : ',' %>
-%         end
-    })<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
 %       end
+    })<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
 %     end
 %   else
-    .<%= pin.rtl_name %>(<%= pin.tie_off ? pin.rtl_name : pin.id %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+    .<%= pin.rtl_name %>(<%= pin.id %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
 %   end
 % end
   );
@@ -190,13 +151,13 @@ module origen;
     .errors(errors)
   );
 
-% if options[:vendor] == :icarus  
+`ifdef ICARUS 
   initial
   begin
-    $dumpfile("dut.vcd");
+    $dumpfile("origen.vcd");
     $dumpvars(0,origen);
   end
-% end
+`endif
     
   always @(posedge finish) begin
     $finish(2);

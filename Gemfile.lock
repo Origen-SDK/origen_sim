@@ -1,10 +1,42 @@
+GIT
+  remote: https://github.com/Origen-SDK/origen.git
+  revision: 63ef3ef0ccc8f2d274361fabaaf3d1d535c26925
+  branch: org_infrastructure
+  specs:
+    origen (0.28.2)
+      activesupport (~> 4.1)
+      bundler (~> 1.7)
+      coderay (~> 1.1)
+      colored (~> 1.2)
+      colorize (~> 0.8.1)
+      dentaku (~> 2)
+      geminabox (= 0.12.4)
+      gems (~> 0.8)
+      highline (~> 1.7)
+      httparty (~> 0.13)
+      kramdown (~> 1.5)
+      log4r (~> 1.1.10, ~> 1.1)
+      nanoc (~> 3.7)
+      net-ldap (~> 0.13)
+      nokogiri (= 1.7.2)
+      pry (~> 0.10)
+      rake (~> 10)
+      rspec (~> 3)
+      rspec-legacy_formatters (~> 1)
+      rubocop (= 0.30)
+      scrub_rb (~> 1.0)
+      simplecov (~> 0.9)
+      sinatra (~> 1)
+      thor (~> 0.19)
+      yard (~> 0.8)
+
 PATH
   remote: .
   specs:
     origen_sim (0.5.5)
       origen (>= 0.12)
       origen_testers
-      origen_verilog (>= 0.2.2)
+      origen_verilog (>= 0.3)
 
 GEM
   remote: http://rubygems.org/
@@ -59,7 +91,7 @@ GEM
     log4r (1.1.10)
     method_source (0.9.0)
     mini_portile2 (2.1.0)
-    minitest (5.10.3)
+    minitest (5.11.1)
     multi_xml (0.6.0)
     multipart-post (2.0.0)
     nanoc (3.8.0)
@@ -68,41 +100,16 @@ GEM
     net-ldap (0.16.1)
     nokogiri (1.7.2)
       mini_portile2 (~> 2.1.0)
-    origen (0.28.2)
-      activesupport (~> 4.1)
-      bundler (~> 1.7)
-      coderay (~> 1.1)
-      colored (~> 1.2)
-      colorize (~> 0.8.1)
-      dentaku (~> 2)
-      geminabox (= 0.12.4)
-      gems (~> 0.8)
-      highline (~> 1.7)
-      httparty (~> 0.13)
-      kramdown (~> 1.5)
-      log4r (~> 1.1.10, ~> 1.1)
-      nanoc (~> 3.7)
-      net-ldap (~> 0.13)
-      nokogiri (= 1.7.2)
-      pry (~> 0.10)
-      rake (~> 10)
-      rspec (~> 3)
-      rspec-legacy_formatters (~> 1)
-      rubocop (= 0.30)
-      scrub_rb (~> 1.0)
-      simplecov (~> 0.9)
-      sinatra (~> 1)
-      thor (~> 0.19)
-      yard (~> 0.8)
-    origen_doc_helpers (0.5.0)
+    origen_doc_helpers (0.5.2)
       origen (>= 0.7.15)
-    origen_jtag (0.15.0)
+    origen_jtag (0.17.1)
       origen (~> 0.7, >= 0.7.35)
+      origen_testers (>= 0.13.2)
     origen_testers (0.15.0)
       atp (~> 1)
       origen (>= 0.26.0)
       require_all (~> 1)
-    origen_verilog (0.2.2)
+    origen_verilog (0.3.0)
       ast (~> 2)
       treetop
     parser (2.4.0.2)
@@ -161,7 +168,7 @@ GEM
     thor (0.19.4)
     thread_safe (0.3.6)
     tilt (2.0.8)
-    tins (1.15.0)
+    tins (1.16.3)
     treetop (1.6.9)
       polyglot (~> 0.3)
     tzinfo (1.2.4)
@@ -175,6 +182,7 @@ DEPENDENCIES
   ZenTest
   byebug
   coveralls
+  origen!
   origen_doc_helpers
   origen_jtag
   origen_sim!
@@ -182,4 +190,4 @@ DEPENDENCIES
   rspec-autotest
 
 BUNDLED WITH
-   1.15.3
+   1.16.1

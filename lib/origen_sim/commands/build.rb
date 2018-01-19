@@ -1,8 +1,9 @@
 require 'optparse'
 require 'origen_sim'
+require_relative '../../../config/version'
 require 'origen_verilog'
 
-options = {}
+options = { source_dirs: [] }
 
 # App options are options that the application can supply to extend this command
 app_options = @application_options || []
@@ -15,6 +16,11 @@ an Origen-enabled simulation object that can be used to simulate Origen-based te
 
 Usage: origen sim:build TOP_LEVEL_RTL_FILE [options]
   EOT
+  opts.on('-o', '--output DIR', String, 'Override the default output directory') { |t| options[:output] = t }
+  opts.on('-t', '--top NAME', String, 'Specify the top-level Verilog module name if OrigenSim can\'t work it out') { |t| options[:top_level_name] = t }
+  opts.on('-s', '--source_dir PATH', 'Directories to look for include files in (the directory containing the top-level is already considered)') do |path|
+    options[:source_dirs] << path
+  end
   opts.on('-d', '--debugger', 'Enable the debugger') {  options[:debugger] = true }
   app_options.each do |app_option|
     opts.on(*app_option) {}
@@ -37,35 +43,71 @@ end
 
 ast = OrigenVerilog.parse_file(rtl_top)
 
-rtl_top_module = ast.module_names.first
+unless ast
+  puts 'Sorry, but the given top-level RTL file failed to parse'
+  exit 1
+end
 
-ast.modules.first.to_top_level # Creates dut
+candidates = ast.top_level_modules
+candidates = ast.modules if candidates.empty?
+
+if candidates.size == 0
+  puts "Sorry, couldn't find any Verilog module declarations in that file"
+  exit 1
+elsif candidates.size > 1
+  if options[:top_level_name]
+    mod = candidates.find { |c| c.name == options[:top_level_name] }
+  end
+  unless mod
+    puts "Sorry, couldn't work out what the top-level module is, please help by running again and specifying it via the --top switch with one of the following names:"
+    candidates.each do |c|
+      puts "  #{c.name}"
+    end
+    exit 1
+  end
+else
+  mod = candidates.first
+end
+
+rtl_top_module = mod.name
+
+mod.to_top_level # Creates dut
+
+output_directory = options[:output] || Origen.config.output_directory
 
 Origen.app.runner.launch action:            :compile,
                          files:             "#{Origen.root!}/templates/rtl_v/origen.v.erb",
+                         output:            output_directory,
                          check_for_changes: false,
                          quiet:             true,
                          options:           { vendor: :cadence, top: dut.name, incl: options[:incl_files] }
 
 Origen.app.runner.launch action:            :compile,
                          files:             "#{Origen.root!}/ext",
+                         output:            output_directory,
                          check_for_changes: false,
                          quiet:             true
 
-dut.export(rtl_top_module, file_path: "#{Origen.config.output_directory}")
+dut.export(rtl_top_module, file_path: "#{output_directory}")
 
 puts
 puts
-puts 'Testbench and VPI extension created, see below for what to do now for your particular simulator:'
+puts 'Testbench and VPI extension created!'
+puts
+puts 'This file can be imported into an Origen top-level DUT model to define the pins:'
+puts
+puts "  #{output_directory}/#{rtl_top_module}.rb"
+puts
+puts 'See below for what to do now to create an Origen-enabled simulation object for your particular simulator:'
 puts
 puts '-----------------------------------------------------------'
-puts 'Cadence (irun)'
+puts 'Cadence Incisive (irun)'
 puts '-----------------------------------------------------------'
 puts
-puts 'Add the following to your build script to create an Origen-enabled simulation object (AND REMOVE ANY OTHER TESTBENCH!):'
+puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
 puts
-puts "  #{Origen.config.output_directory}/origen.v \\"
-puts "  #{Origen.config.output_directory}/*.c \\"
+puts "  #{output_directory}/origen.v \\"
+puts "  #{output_directory}/*.c \\"
 puts '  -ccargs "-std=c99" \\'
 puts '  -top origen \\'
 puts '  -elaborate  \\'
@@ -73,13 +115,35 @@ puts '  -snapshot origen \\'
 puts '  -access +rw \\'
 puts '  -timescale 1ns/1ns'
 puts
-puts 'The following files should then be used for Origen integration:'
+puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
 puts
-puts "  #{Origen.config.output_directory}/#{rtl_top_module}.rb"
-puts '  INCA_libs/ (created by irun)'
+puts "  irun #{rtl_top} #{output_directory}/origen.v #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
+puts
+puts 'Copy the following directory (produced by irun) to simulation/<target>/cadence/. within your Origen application:'
+puts
+puts '  INCA_libs'
 puts
 puts '-----------------------------------------------------------'
-puts 'Icarus'
+puts 'Icarus Verilog'
 puts '-----------------------------------------------------------'
 puts
-puts '  TBD'
+puts 'Compile the VPI extension using the following command:'
+puts
+puts "  cd #{output_directory} && iverilog-vpi *.c -DICARUS --name=origen && cd #{Pathname.pwd}"
+puts
+puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
+puts
+puts "  #{output_directory}/origen.v \\"
+puts '  -o origen.vvp \\'
+puts '  -DICARUS'
+puts
+puts 'Here is an example which may work for the file you just parsed (add additional source dirs with more -I options at the end if required):'
+puts
+puts "  iverilog #{rtl_top} #{output_directory}/origen.v -o origen.vvp -DICARUS -I #{Pathname.new(rtl_top).dirname}"
+puts
+puts 'Copy the following files to simulation/<target>/icarus/. within your Origen application:'
+puts
+puts "  #{output_directory}/origen.vpi"
+puts '  origen.vvp   (produced by the iverilog command)'
+puts
+puts

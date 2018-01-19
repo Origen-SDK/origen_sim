@@ -107,14 +107,6 @@ module OrigenSim
       end
     end
 
-    def artifacts_dir
-      @artifacts_dir ||= begin
-        d = "#{Origen.root}/simulation/#{id}/artifacts"
-        FileUtils.mkdir_p(d)
-        d
-      end
-    end
-
     # Returns the directory where the compiled simulation object lives, this should
     # be checked into your Origen app's repository
     def compiled_dir
@@ -151,20 +143,20 @@ module OrigenSim
 
     def wave_config_file
       @wave_config_file ||= begin
-        f = "#{wave_config_dir}/#{User.current.id}.svcf"
+        f = "#{wave_config_dir}/#{User.current.id}.#{wave_config_ext}"
         unless File.exist?(f)
           # Take a default wave if one has been set up
-          d = "#{wave_config_dir}/default.svcf"
+          d = "#{wave_config_dir}/default.#{wave_config_ext}"
           if File.exist?(d)
             FileUtils.cp(d, f)
           else
             # Otherwise seed it with the latest existing setup by someone else
-            d = Dir.glob("#{wave_config_dir}/*.svcf").max { |a, b| File.ctime(a) <=> File.ctime(b) }
+            d = Dir.glob("#{wave_config_dir}/*.#{wave_config_ext}").max { |a, b| File.ctime(a) <=> File.ctime(b) }
             if d
               FileUtils.cp(d, f)
             else
               # We tried our best, start from scratch
-              d = "#{Origen.root!}/templates/empty.svcf"
+              d = "#{Origen.root!}/templates/empty.#{wave_config_ext}"
               FileUtils.cp(d, f)
             end
           end
@@ -173,11 +165,20 @@ module OrigenSim
       end
     end
 
+    def wave_config_ext
+      case config[:vendor]
+      when :icarus
+        'gtkw'
+      when :cadence
+        'svcf'
+      end
+    end
+
     def run_cmd
       case config[:vendor]
       when :icarus
         cmd = configuration[:vvp] || 'vvp'
-        cmd += " -M#{compiled_dir} -morigen #{compiled_dir}/dut.vvp +socket+#{socket_id}"
+        cmd += " -M#{compiled_dir} -morigen #{compiled_dir}/origen.vvp +socket+#{socket_id}"
 
       when :cadence
         input_file = "#{tmp_dir}/#{id}.tcl"
@@ -215,6 +216,15 @@ module OrigenSim
     def view_wave_command
       cmd = nil
       case config[:vendor]
+      when :icarus
+        edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
+        cmd = "cd #{edir} && "
+        cmd += configuration[:gtkwave] || 'gtkwave'
+        dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+        cmd += " #{dir}/origen.vcd "
+        f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+        cmd += " --save #{f} &"
+
       when :cadence
         edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
         cmd = "cd #{edir} && "
@@ -223,6 +233,7 @@ module OrigenSim
         cmd += " #{dir}/#{id}.dsn #{dir}/#{id}.trn"
         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
         cmd += " -input #{f} &"
+
       end
       cmd
     end
@@ -236,24 +247,12 @@ module OrigenSim
       end
     end
 
-    def link_artifacts
-      done = "#{run_dir}/.artifacts_linked"
-      unless File.exist?(done)
-        Dir.foreach(artifacts_dir) do |item|
-          next if item == '.' || item == '..'
-          FileUtils.ln_s("#{artifacts_dir}/#{item}", "#{run_dir}/#{item}") unless File.exist?("#{run_dir}/#{item}")
-        end
-        FileUtils.touch(done)
-      end
-    end
-
     # Starts up the simulator process
     def start
       fetch_simulation_objects
 
       server = UNIXServer.new(socket_id)
       verbose = Origen.debugger_enabled?
-      link_artifacts
       cmd = run_cmd + ' & echo \$!'
 
       launch_simulator = %(
@@ -410,10 +409,11 @@ module OrigenSim
     # set up internal handles to efficiently access them
     def define_pins
       dut.rtl_pins.each_with_index do |(name, pin), i|
-        unless pin.tie_off
-          pin.simulation_index = i
-          put("0^#{pin.rtl_name}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
-        end
+        pin.simulation_index = i
+        put("0^#{pin.rtl_name}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
+      end
+      dut.rtl_pins.each do |name, pin|
+        pin.apply_force
       end
     end
 
@@ -467,11 +467,13 @@ module OrigenSim
 
     # Returns the current simulation error count
     def error_count
-      peek('origen.debug.errors')
+      peek('origen.debug.errors').to_i
     end
 
     # Returns the current value of the given net, or nil if the given path does not
     # resolve to a valid node
+    #
+    # The value is returned as an instance of Origen::Value
     def peek(net)
       # The Verilog spec does not specify that underlying VPI put method should
       # handle a part select, so some simulators do not handle it. Therefore we
@@ -487,21 +489,20 @@ module OrigenSim
 
       sync_up
       put("9^#{clean(net)}")
-
       m = get.strip
+
       if m == 'FAIL'
         return nil
       else
-        m = m.to_i
         if msb
           # Setting a range of bits
           if lsb
-            m[msb..lsb]
+            Origen::Value.new('b' + m[(m.size - 1 - msb)..(m.size - 1 - lsb)])
           else
-            m[msb]
+            Origen::Value.new('b' + m[m.size - 1 - msb])
           end
         else
-          m
+          Origen::Value.new('b' + m)
         end
       end
     end

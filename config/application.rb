@@ -1,5 +1,6 @@
 require 'origen'
 class OrigenSimApplication < Origen::Application
+  attr_accessor :update_sim_captures
 
   # See http://origen-sdk.org/origen/api/Origen/Application/Configuration.html
   # for a full list of the configuration options available
@@ -30,6 +31,15 @@ class OrigenSimApplication < Origen::Application
     :command_launcher => "config/shared_commands.rb",
     :global_launcher => "config/global_commands.rb"
   }
+
+  config.remotes = [
+    {
+      dir: "example_rtl",
+      rc_url: 'https://github.com/Origen-SDK/example_rtl.git',
+      version: "master",
+      development: true
+    }
+  ]
 
   # See: http://origen-sdk.org/origen/latest/guides/utilities/lint/
   config.lint_test = {

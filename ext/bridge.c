@@ -515,7 +515,7 @@ PLI_INT32 bridge_init() {
 /// When Origen requests a cycle, time will be advanced and this func will be called again.
 PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
   UNUSED(data);
-  int max_msg_len = 100;
+  int max_msg_len = 1024;
   char msg[max_msg_len];
   int err;
   char *opcode, *arg1, *arg2, *arg3, *arg4;
@@ -649,8 +649,10 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         arg1 = strtok(NULL, "^");
         handle = vpi_handle_by_name(arg1, NULL);
         if (handle) {
-          v.format = vpiDecStrVal; // Seems important to set this before get
+          //v.format = vpiDecStrVal; // Seems important to set this before get
+          v.format = vpiBinStrVal;
           vpi_get_value(handle, &v);
+          //DEBUG("%s\n", v.value.str);
           sprintf(msg, "%s\n", v.value.str);
           client_put(msg);
         } else {

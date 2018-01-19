@@ -110,12 +110,12 @@ static void register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data
 void (*vlog_startup_routines[])(void) = { init, 0 };
 
 #if defined(CVER) || defined(VCS) || defined(NCSIM)
-    void vlog_startup_routines_bootstrap()
+void vlog_startup_routines_bootstrap()
+{
+    unsigned int i;
+    for (i = 0; vlog_startup_routines[i]; i++)
     {
-        unsigned int i;
-        for (i = 0; vlog_startup_routines[i]; i++)
-        {
-            vlog_startup_routines[i]();
-        }
+        vlog_startup_routines[i]();
     }
+}
 #endif

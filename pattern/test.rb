@@ -34,27 +34,32 @@ Pattern.create do
   dut.cmd.write!(0x1234_5678)
   dut.cmd.read!(0x1234_5678)
 
-  tester.simulator.poke("dut.cmd", 0x1122_3344)
-  dut.cmd.read!(0x1122_3344)
+  if tester.sim?
+    tester.simulator.poke("dut.cmd", 0x1122_3344)
+    dut.cmd.read!(0x1122_3344)
+  end
 
   ss "Test storing a register"
   dut.cmd.write!(0x2244_6688)
   dut.cmd.store!
 
-  capture_value = tester.simulator.peek("origen.pins.tdo.memory")
-  unless capture_value == 0x11662244 # 0x2244_6688 reversed
-    if capture_value
-      fail "Captured #{capture_value.to_hex} instead of 0x11662244!"
-    else
-      fail "Nothing captured instead of 0x11662244!"
+  if tester.sim?
+    sim = tester.simulator
+    capture_value = sim.peek("origen.pins.tdo.memory").to_i
+    unless capture_value == 0x11662244 # 0x2244_6688 reversed
+      if capture_value
+        fail "Captured #{capture_value.to_hex} instead of 0x11662244!"
+      else
+        fail "Nothing captured instead of 0x11662244!"
+      end
     end
-  end
 
-  ss "Test sync of a register"
-  dut.cmd.write(0) # Make Origen forget the actual value
-  dut.cmd.sync
-  unless dut.cmd.data == 0x2244_6688
-    fail "CMD register did not sync from simulation"
+    ss "Test sync of a register"
+    dut.cmd.write(0) # Make Origen forget the actual value
+    dut.cmd.sync
+    unless dut.cmd.data == 0x2244_6688
+      fail "CMD register did not sync from simulation"
+    end
   end
 
   ss "Do some operations with the counter, just for fun"
@@ -76,9 +81,16 @@ Pattern.create do
   dut.pins(:dout).assert!(0x5555_AAAA)
   dut.pins(:dout).dont_care
 
-  ss "Verify that tying off pins works"
+  ss "Verify that forcing pins works"
   dut.p.p1.assert!(0)
   dut.p.p2.assert!(1)
   dut.p.p3.assert!(0)
-  dut.p.p4.assert!(0xF)
+  dut.p.p4.assert!(0xA)
+
+  ss "Test sim_capture"
+  tester.sim_capture :cmd55, :dout, :test_bus, :tdo do
+    dut.pins(:din_port).drive!(0x1234_5678)
+    dut.cmd.write!(0x55)
+    60.cycles
+  end
 end
