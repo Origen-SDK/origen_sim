@@ -1,3 +1,15 @@
+<a class="anchor release_tag" name="v0_6_0"></a>
+<h1><a href="#v0_6_0">Tag: v0.6.0</a></h1>
+
+##### Branch: 'master'
+
+##### by Stephen McGinty on 19-Jan-2018 10:32AM
+
+
+* Added simulation capture and replay feature
+* Restored and improved support for Icarus Verilog
+* General robustness improvements and bug fixes
+
 <a class="anchor release_tag" name="v0_5_5"></a>
 <h1><a href="#v0_5_5">Tag: v0.5.5</a></h1>
 
