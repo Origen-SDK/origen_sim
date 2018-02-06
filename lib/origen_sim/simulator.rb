@@ -6,7 +6,7 @@ module OrigenSim
   class Simulator
     include Origen::PersistentCallbacks
 
-    VENDORS = [:icarus, :cadence]
+    VENDORS = [:icarus, :cadence, :synopsys]
 
     attr_reader :socket, :failed, :configuration
     alias_method :config, :configuration
@@ -209,6 +209,13 @@ module OrigenSim
         cmd += " -r origen -snapshot origen +socket+#{socket_id}"
         cmd += $use_fast_probe_depth ? " -input #{input_file_fast}" : " -input #{input_file}"
         cmd += " -nclibdirpath #{compiled_dir}"
+
+      when :synopsys
+        cmd = "#{compiled_dir}/simv +socket+#{socket_id}"
+
+      else
+        fail "Run cmd not defined yet for simulator #{config[:vendor]}"
+
       end
       cmd
     end

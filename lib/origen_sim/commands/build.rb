@@ -117,11 +117,35 @@ puts '  -timescale 1ns/1ns'
 puts
 puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
 puts
-puts "  irun #{rtl_top} #{output_directory}/origen.v #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
+puts "  #{ENV['ORIGEN_SIM_IRUN'] || 'irun'} #{rtl_top} #{output_directory}/origen.v #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
 puts
 puts 'Copy the following directory (produced by irun) to simulation/<target>/cadence/. within your Origen application:'
 puts
 puts '  INCA_libs'
+puts
+puts '-----------------------------------------------------------'
+puts 'Synopsys VCS'
+puts '-----------------------------------------------------------'
+puts
+puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
+puts
+puts "  #{output_directory}/origen.v \\"
+puts "  #{output_directory}/brdige.c \\"
+puts "  #{output_directory}/client.c \\"
+puts '  -CFLAGS "-std=c99" \\'
+puts '  +vpi \\'
+puts "  -use_vpiobj #{output_directory}/origen.c \\"
+puts '  +define+ORIGEN_VCD \\'
+puts '  -timescale=1ns/1ns'
+puts
+puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
+puts
+puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/origen.v #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi -use_vpiobj #{output_directory}/origen.c -timescale=1ns/1ns  +define+ORIGEN_VCD +incdir+#{Pathname.new(rtl_top).dirname}"
+puts
+puts 'Copy the following files (produced by vcs) to simulation/<target>/synopsys/. within your Origen application:'
+puts
+puts '  simv'
+puts '  simv.daidir'
 puts
 puts '-----------------------------------------------------------'
 puts 'Icarus Verilog'
@@ -129,13 +153,13 @@ puts '-----------------------------------------------------------'
 puts
 puts 'Compile the VPI extension using the following command:'
 puts
-puts "  cd #{output_directory} && iverilog-vpi *.c -DICARUS --name=origen && cd #{Pathname.pwd}"
+puts "  cd #{output_directory} && iverilog-vpi *.c --name=origen && cd #{Pathname.pwd}"
 puts
 puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
 puts
 puts "  #{output_directory}/origen.v \\"
 puts '  -o origen.vvp \\'
-puts '  -DICARUS'
+puts '  -DORIGEN_VCD'
 puts
 puts 'Here is an example which may work for the file you just parsed (add additional source dirs with more -I options at the end if required):'
 puts

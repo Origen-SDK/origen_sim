@@ -20,25 +20,34 @@ when "sim:build_example"
     output = `origen sim:build  #{Origen.app.remotes_dir}/example_rtl/dut1/dut1.v`
     puts output
     Origen.load_target
-    FileUtils.mkdir_p "simulation/default/#{tester.simulator.config[:vendor]}"
+    dir = "simulation/default/#{tester.simulator.config[:vendor]}"
+    FileUtils.rm_rf(dir) if File.exist?(dir)
+    FileUtils.mkdir_p(dir)
     case tester.simulator.config[:vendor]
     when :icarus
       output =~ /  (cd .*)\n/
       system $1
       FileUtils.mv "#{Origen.config.output_directory}/origen.vpi", "simulation/default/icarus"
-      output =~ /  (iverilog .*)\n/
+      output =~ /\n(.*iverilog .*)\n/
       system $1
       FileUtils.mv "origen.vvp", "simulation/default/icarus"
 
     when :cadence
-      output =~ /  (irun .*)\n/
-      system = $1
+      output =~ /\n(.*irun .*)\n/
+      system $1
       FileUtils.mv "INCA_libs", "simulation/default/cadence"
+
+    when :synopsys
+      output =~ /\n(.*vcs .*)\n/
+      system $1
+      FileUtils.mv "simv", "simulation/default/synopsys"
+      FileUtils.mv "simv.daidir", "simulation/default/synopsys"
+      FileUtils.rm_rf "csrc"
 
     end
 
     puts
-    puts "Done, run this command to run a test simulation:"
+    puts "Done, run this command to run a test simulation using #{tester.simulator.config[:vendor]}:"
     puts
     puts "  origen g test"
     puts
