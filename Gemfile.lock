@@ -4,7 +4,7 @@ PATH
     origen_sim (0.6.0)
       origen (>= 0.29)
       origen_testers
-      origen_verilog (>= 0.3)
+      origen_verilog (>= 0.3.1)
 
 GEM
   remote: http://rubygems.org/
@@ -103,7 +103,7 @@ GEM
       atp (~> 1)
       origen (>= 0.26.0)
       require_all (~> 1)
-    origen_verilog (0.3.0)
+    origen_verilog (0.3.1)
       ast (~> 2)
       treetop
     parser (2.4.0.2)
