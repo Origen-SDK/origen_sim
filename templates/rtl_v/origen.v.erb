@@ -154,12 +154,18 @@ module origen;
 `ifdef ORIGEN_VCD 
   initial
   begin
+    //$display("********************************");
+    //$display("Creating origen.vcd...");
+    //$display("********************************");
     $dumpfile("origen.vcd");
     $dumpvars(0,origen);
   end
 `endif
     
   always @(posedge finish) begin
+    //$display("********************************");
+    //$display("Finishing simulation...");
+    //$display("********************************");
     $finish(2);
   end
 

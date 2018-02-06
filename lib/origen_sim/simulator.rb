@@ -247,7 +247,7 @@ module OrigenSim
 
     def run_dir
       case config[:vendor]
-      when :icarus
+      when :icarus, :synopsys
         wave_dir
       else
         tmp_dir
@@ -575,7 +575,7 @@ module OrigenSim
       ended = Time.now
       end_simulation
       # Give the simulator a few seconds to shut down, otherwise kill it
-      sleep 1 while running? && (Time.now - ended) < 5
+      sleep 1 while running? && (Time.now - ended) < 10
       Process.kill(15, pid) if running?
       sleep 0.1
       # Leave the pid file around if we couldn't verify the simulator
