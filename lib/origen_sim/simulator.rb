@@ -157,7 +157,7 @@ module OrigenSim
             else
               # We tried our best, start from scratch
               d = "#{Origen.root!}/templates/empty.#{wave_config_ext}"
-              FileUtils.cp(d, f)
+              FileUtils.cp(d, f) if File.exist?(d)
             end
           end
         end
@@ -171,6 +171,8 @@ module OrigenSim
         'gtkw'
       when :cadence
         'svcf'
+      when :synopsys
+        'tcl'
       end
     end
 
@@ -211,7 +213,7 @@ module OrigenSim
         cmd += " -nclibdirpath #{compiled_dir}"
 
       when :synopsys
-        cmd = "#{compiled_dir}/simv +socket+#{socket_id}"
+        cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file origen.vpd"
 
       else
         fail "Run cmd not defined yet for simulator #{config[:vendor]}"
@@ -240,6 +242,16 @@ module OrigenSim
         cmd += " #{dir}/#{id}.dsn #{dir}/#{id}.trn"
         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
         cmd += " -input #{f} &"
+
+      when :synopsys
+        edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
+        cmd = "cd #{edir} && "
+        cmd += configuration[:dve] || 'dve'
+        dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+        cmd += " -vpd #{dir}/origen.vpd"
+        f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+        cmd += " -session #{f}"
+        cmd += ' &'
 
       end
       cmd

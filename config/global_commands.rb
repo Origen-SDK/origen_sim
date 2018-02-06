@@ -6,7 +6,7 @@ when "sim:build", "origen_sim:build"
 
 else
   @global_commands << <<-EOT
- sim:build    Build an Origen testbench and simulator extension for a given RTL design
+ sim:build    Build an Origen testbench and simulator extension for a given design
   EOT
 
 end

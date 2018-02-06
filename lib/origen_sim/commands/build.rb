@@ -9,12 +9,12 @@ options = { source_dirs: [] }
 app_options = @application_options || []
 opt_parser = OptionParser.new do |opts|
   opts.banner = <<-EOT
-Build an Origen testbench and simulator VPI extension for the given top-level RTL design.
+Build an Origen testbench and simulator VPI extension for the given top-level RTL design file (or a stub).
 
 The created artifacts should be included in a compilation of the given design to create
 an Origen-enabled simulation object that can be used to simulate Origen-based test patterns.
 
-Usage: origen sim:build TOP_LEVEL_RTL_FILE [options]
+Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
   EOT
   opts.on('-o', '--output DIR', String, 'Override the default output directory') { |t| options[:output] = t }
   opts.on('-t', '--top NAME', String, 'Specify the top-level Verilog module name if OrigenSim can\'t work it out') { |t| options[:top_level_name] = t }
@@ -135,13 +135,14 @@ puts "  #{output_directory}/client.c \\"
 puts '  -CFLAGS "-std=c99" \\'
 puts '  +vpi \\'
 puts "  -use_vpiobj #{output_directory}/origen.c \\"
-puts '  +define+ORIGEN_VCD=1 \\'
+puts '  +define+ORIGEN_VPD=1 \\'
 puts '  -debug_access+all \\'
+puts '  -PP \\'
 puts '  -timescale=1ns/1ns'
 puts
 puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
 puts
-puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/origen.v #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi -use_vpiobj #{output_directory}/origen.c -timescale=1ns/1ns  +define+ORIGEN_VCD=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all"
+puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/origen.v #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi -use_vpiobj #{output_directory}/origen.c -timescale=1ns/1ns  +define+ORIGEN_VPD=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all -PP"
 puts
 puts 'Copy the following files (produced by vcs) to simulation/<target>/synopsys/. within your Origen application:'
 puts
@@ -154,7 +155,7 @@ puts '-----------------------------------------------------------'
 puts
 puts 'Compile the VPI extension using the following command:'
 puts
-puts "  cd #{output_directory} && iverilog-vpi *.c --name=origen && cd #{Pathname.pwd}"
+puts "  cd #{output_directory} && #{ENV['ORIGEN_SIM_IVERILOG_VPI'] || 'iverilog-vpi'} *.c --name=origen && cd #{Pathname.pwd}"
 puts
 puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
 puts
@@ -164,11 +165,11 @@ puts '  -DORIGEN_VCD'
 puts
 puts 'Here is an example which may work for the file you just parsed (add additional source dirs with more -I options at the end if required):'
 puts
-puts "  iverilog #{rtl_top} #{output_directory}/origen.v -o origen.vvp -DICARUS -I #{Pathname.new(rtl_top).dirname}"
+puts "  #{ENV['ORIGEN_SIM_IVERILOG'] || 'iverilog'} #{rtl_top} #{output_directory}/origen.v -o origen.vvp -DICARUS -I #{Pathname.new(rtl_top).dirname}"
 puts
-puts 'Copy the following files to simulation/<target>/icarus/. within your Origen application:'
+puts 'Copy the following files (produced by iverilog) to simulation/<target>/icarus/. within your Origen application:'
 puts
 puts "  #{output_directory}/origen.vpi"
-puts '  origen.vvp   (produced by the iverilog command)'
+puts '  origen.vvp'
 puts
 puts
