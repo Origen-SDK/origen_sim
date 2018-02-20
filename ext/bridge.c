@@ -30,7 +30,7 @@ typedef struct Pin {
 } Pin;
 
 typedef struct Event {
-  int time;
+  uint64_t time;
   char data;
 } Event;
 
@@ -62,7 +62,7 @@ static void bridge_capture_pin(char*);
 static void bridge_stop_capture_pin(char*);
 static void bridge_dont_care_pin(char*);
 static void bridge_register_wave_events(void);
-static void bridge_register_wave_event(int, int, int, int);
+static void bridge_register_wave_event(int, int, int, uint64_t);
 static void bridge_enable_drive_wave(Pin*);
 static void bridge_disable_drive_wave(Pin*);
 static void bridge_enable_compare_wave(Pin*);
@@ -160,7 +160,7 @@ static void bridge_register_wave_events() {
       int x = 0;
 
       while (drive_waves[i].events[x].data != 'T' && x < MAX_WAVE_EVENTS) {
-        int time;
+        uint64_t time;
 
         time = drive_waves[i].events[x].time;
 
@@ -180,7 +180,7 @@ static void bridge_register_wave_events() {
       int x = 0;
 
       while (compare_waves[i].events[x].data != 'T' && x < MAX_WAVE_EVENTS) {
-        int time;
+        uint64_t time;
 
         time = compare_waves[i].events[x].time;
 
@@ -260,9 +260,9 @@ static void bridge_clear_waves_and_pins() {
 }
 
 
-static void bridge_set_period(char * p_in_ns) {
-  int p = (int) strtol(p_in_ns, NULL, 10);
-  period_in_ps = p * 1000;
+static void bridge_set_period(char * p_in_ps_str) {
+  uint64_t p = (uint64_t) strtol(p_in_ps_str, NULL, 10);
+  period_in_ps = p;
   bridge_clear_waves_and_pins();
 }
 
@@ -472,8 +472,7 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
 
 
 /// Registers a callback to apply the given wave during this cycle
-static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, int delay_in_ns) {
-  uint64_t delay_in_ps = delay_in_ns * 1000;
+static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, uint64_t delay_in_ps) {
   s_cb_data call;
   s_vpi_time time;
 
@@ -565,7 +564,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         bridge_define_pin(arg1, arg2, arg3, arg4);
         break;
       // Set Period
-      //   1^100
+      //   1^100000
       case '1' :
         arg1 = strtok(NULL, "^");
         bridge_set_period(arg1);
@@ -757,7 +756,7 @@ static void end_simulation() {
   v.value.str = "1";
   vpi_put_value(handle, &v, NULL, vpiNoDelay);
   // Corner case during testing, the timeset may not have been set yet
-  bridge_set_period("1");
+  bridge_set_period("1000");
   // Do a cycle so that the simulation sees the edge on origen.finish
   bridge_cycle();
 }
