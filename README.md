@@ -1,4 +1,4 @@
-# origen_sim
+![origen_sim](https://user-images.githubusercontent.com/158364/36662666-6b49d096-1adf-11e8-997e-889caba391b2.png)
 
 origen_sim is an Origen plugin that enables semiconductor test patterns written in Origen/Ruby to be run in a dynamic Verilog simulation.
 
