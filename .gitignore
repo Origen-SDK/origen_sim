@@ -1,6 +1,8 @@
 /simulation
 .irb_history
 .byebug_history
+irun.history
+irun.log
 /waves
 /config/waves
 

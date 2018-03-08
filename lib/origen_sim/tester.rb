@@ -23,7 +23,13 @@ module OrigenSim
         @sync_cycles = 0
         yield
       end
-      @sync_pins.map { |pin| simulator.peek("origen.pins.#{pin.id}.sync_memory[#{@sync_cycles - 1}:0]") }
+      @sync_pins.map do |pin|
+        if @sync_cycles.size == 1
+          simulator.peek("origen.pins.#{pin.id}.sync_memory[0]")
+        else
+          simulator.peek("origen.pins.#{pin.id}.sync_memory[#{@sync_cycles - 1}:0]")
+        end
+      end
     end
 
     # Start the simulator
@@ -100,8 +106,8 @@ module OrigenSim
         end
       end
       if simulator.sync_active?
+        @sync_cycles += 1
         pins.each do |pin|
-          @sync_cycles += 1
           @sync_pins << pin unless @sync_pins.include?(pin)
         end
       end
