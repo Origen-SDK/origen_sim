@@ -1,40 +1,8 @@
-GIT
-  remote: git@github.com:Origen-SDK/origen.git
-  revision: 3c61b034d5e51227855908bd6ffe1b19013eaf53
-  branch: misc_updates
-  specs:
-    origen (0.31.0)
-      activesupport (~> 4.1)
-      bundler (~> 1.7)
-      coderay (~> 1.1)
-      colored (~> 1.2)
-      colorize (~> 0.8.1)
-      dentaku (~> 2)
-      geminabox (= 0.12.4)
-      gems (~> 0.8)
-      highline (~> 1.7)
-      httparty (~> 0.13)
-      kramdown (~> 1.5)
-      log4r (~> 1.1.10, ~> 1.1)
-      nanoc (~> 3.7)
-      net-ldap (~> 0.13)
-      nokogiri (= 1.7.2)
-      pry (~> 0.10)
-      rake (~> 10)
-      rspec (~> 3)
-      rspec-legacy_formatters (~> 1)
-      rubocop (= 0.30)
-      scrub_rb (~> 1.0)
-      simplecov (~> 0.9)
-      sinatra (~> 1)
-      thor (~> 0.19)
-      yard (~> 0.8)
-
 PATH
   remote: .
   specs:
     origen_sim (0.7.0)
-      origen (>= 0.31)
+      origen (>= 0.32)
       origen_testers
       origen_verilog (>= 0.3.1)
 
@@ -55,7 +23,7 @@ GEM
       origen (>= 0.2.3)
       sexpistol (~> 0.0)
     builder (3.2.3)
-    byebug (10.0.0)
+    byebug (9.0.6)
     coderay (1.1.2)
     colored (1.2)
     colorize (0.8.1)
@@ -81,7 +49,7 @@ GEM
       sinatra (>= 1.2.7)
     gems (0.8.3)
     highline (1.7.10)
-    httparty (0.16.0)
+    httparty (0.16.1)
       multi_xml (>= 0.5.2)
     httpclient (2.8.3)
     i18n (0.9.5)
@@ -90,7 +58,6 @@ GEM
     kramdown (1.16.2)
     log4r (1.1.10)
     method_source (0.9.0)
-    mini_portile2 (2.1.0)
     minitest (5.11.3)
     multi_xml (0.6.0)
     multipart-post (2.0.0)
@@ -98,8 +65,31 @@ GEM
       cri (~> 2.3)
     nesty (1.0.2)
     net-ldap (0.16.1)
-    nokogiri (1.7.2)
-      mini_portile2 (~> 2.1.0)
+    origen (0.33.0)
+      activesupport (~> 4.1)
+      bundler (~> 1.7)
+      coderay (~> 1.1)
+      colored (~> 1.2)
+      colorize (~> 0.8.1)
+      dentaku (~> 2)
+      geminabox (= 0.12.4)
+      gems (~> 0.8)
+      highline (~> 1.7)
+      httparty (~> 0.13)
+      kramdown (~> 1.5)
+      log4r (~> 1.1.10, ~> 1.1)
+      nanoc (~> 3.7)
+      net-ldap (~> 0.13)
+      pry (~> 0.10)
+      rake (~> 10)
+      rspec (~> 3)
+      rspec-legacy_formatters (~> 1)
+      rubocop (= 0.30)
+      scrub_rb (~> 1.0)
+      simplecov (~> 0.9)
+      sinatra (~> 1)
+      thor (~> 0.19)
+      yard (~> 0.8)
     origen_doc_helpers (0.5.2)
       origen (>= 0.7.15)
     origen_jtag (0.17.1)
@@ -112,7 +102,7 @@ GEM
     origen_verilog (0.3.1)
       ast (~> 2)
       treetop
-    parser (2.5.0.3)
+    parser (2.5.0.5)
       ast (~> 2.4.0)
     polyglot (0.3.5)
     powerpack (0.1.1)
@@ -169,7 +159,7 @@ GEM
     thread_safe (0.3.6)
     tilt (2.0.8)
     tins (1.16.3)
-    treetop (1.6.9)
+    treetop (1.6.10)
       polyglot (~> 0.3)
     tzinfo (1.2.5)
       thread_safe (~> 0.1)
@@ -180,9 +170,8 @@ PLATFORMS
 
 DEPENDENCIES
   ZenTest
-  byebug
+  byebug (~> 9)
   coveralls
-  origen!
   origen_doc_helpers
   origen_jtag
   origen_sim!
