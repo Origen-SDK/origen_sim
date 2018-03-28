@@ -172,9 +172,6 @@ module origen;
 `endif
     
   always @(posedge finish) begin
-`ifdef ORIGEN_VPD 
-    $vcdplusmemoff;
-`endif
     //$display("********************************");
     //$display("Finishing simulation...");
     //$display("********************************");
