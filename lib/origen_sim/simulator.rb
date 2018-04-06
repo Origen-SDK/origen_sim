@@ -440,14 +440,14 @@ module OrigenSim
 
     def wave_to_str(wave)
       wave.evaluated_events.map do |time, data|
-        time = time * 1000 * (config[:time_factor] || 1)
+        time = time * time_conversion_factor * (config[:time_factor] || 1)
         if data == :x
           data = 'X'
         elsif data == :data
           data = wave.drive? ? 'D' : 'C'
         end
         if data == 'C'
-          "#{time}_#{data}_#{time + (1000 * (config[:time_factor] || 1))}_X"
+          "#{time}_#{data}_#{time + (time_conversion_factor * (config[:time_factor] || 1))}_X"
         else
           "#{time}_#{data}"
         end
@@ -468,7 +468,7 @@ module OrigenSim
     end
 
     def set_period(period_in_ns)
-      period_in_ps = period_in_ns * 1000 * (config[:time_factor] || 1)
+      period_in_ps = period_in_ns * time_conversion_factor * (config[:time_factor] || 1)
       put("1^#{period_in_ps}")
     end
 
@@ -692,6 +692,11 @@ module OrigenSim
     end
 
     private
+
+    # Pre 0.8.0 the simulator represented the time in ns instead of ps
+    def time_conversion_factor
+      @time_conversion_factor ||= dut_version < '0.8.0' ? 1 : 1000
+    end
 
     def clean(net)
       if net =~ /^dut\./
