@@ -167,13 +167,11 @@ module origen;
   begin
     $vcdplusfile("origen.vpd");
     $vcdpluson;
+    $vcdplusmemon;
   end
 `endif
     
   always @(posedge finish) begin
-`ifdef ORIGEN_VPD 
-    $vcdplusoff;
-`endif
     //$display("********************************");
     //$display("Finishing simulation...");
     //$display("********************************");

@@ -88,7 +88,7 @@ Origen.app.runner.launch action:            :compile,
                          check_for_changes: false,
                          quiet:             true
 
-dut.export(rtl_top_module, file_path: "#{output_directory}")
+dut.export(rtl_top_module, dir: "#{output_directory}", namespace: nil)
 
 puts
 puts

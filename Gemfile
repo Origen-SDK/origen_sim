@@ -5,7 +5,7 @@ source 'http://rubygems.org'
 # This gem provides integration with https://coveralls.io/ to monitor
 # your application's test coverage
 gem 'coveralls', require: false
-gem 'byebug'
+gem 'byebug', '~>9'
 gem 'origen_doc_helpers'
 gem 'rake-compiler'
 gem 'ZenTest'

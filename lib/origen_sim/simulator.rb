@@ -367,12 +367,14 @@ module OrigenSim
     # moving onto another pattern
     def pattern_generated(path)
       sync_up if simulation_tester?
+      @simulation_completed_cleanly = true
     end
 
     # Called before every pattern is generated, but we only use it the
     # first time it is called to kick off the simulator process if the
     # current tester is an OrigenSim::Tester
     def before_pattern(name)
+      @simulation_completed_cleanly = false
       if simulation_tester?
         unless @enabled
           # When running pattern back-to-back, only want to launch the simulator the
@@ -438,14 +440,14 @@ module OrigenSim
 
     def wave_to_str(wave)
       wave.evaluated_events.map do |time, data|
-        time = time * (config[:time_factor] || 1)
+        time = time * time_conversion_factor * (config[:time_factor] || 1)
         if data == :x
           data = 'X'
         elsif data == :data
           data = wave.drive? ? 'D' : 'C'
         end
         if data == 'C'
-          "#{time}_#{data}_#{time + (config[:time_factor] || 1)}_X"
+          "#{time}_#{data}_#{time + (time_conversion_factor * (config[:time_factor] || 1))}_X"
         else
           "#{time}_#{data}"
         end
@@ -466,8 +468,8 @@ module OrigenSim
     end
 
     def set_period(period_in_ns)
-      period_in_ns = period_in_ns * (config[:time_factor] || 1)
-      put("1^#{period_in_ns}")
+      period_in_ps = period_in_ns * time_conversion_factor * (config[:time_factor] || 1)
+      put("1^#{period_in_ps}")
     end
 
     def cycle(number_of_cycles)
@@ -536,7 +538,7 @@ module OrigenSim
       # deal with it here to ensure cross simulator compatibility.
 
       # http://rubular.com/r/eTVGzrYmXQ
-      if net =~ /(.*)\[(\d+):?(\.\.)?(\d*)\]$/
+      if !config[:vendor] == :synopsys && net =~ /(.*)\[(\d+):?(\.\.)?(\d*)\]$/
         path = Regexp.last_match(1)
         msb = Regexp.last_match(2).to_i
         lsb = Regexp.last_match(4)
@@ -606,6 +608,9 @@ module OrigenSim
             if c > 0
               @failed = true
               Origen.log.error "The simulation failed with #{c} errors!"
+            elsif !@simulation_completed_cleanly
+              @failed = true
+              Origen.log.error 'The simulation exited early!'
             end
           end
         end
@@ -687,6 +692,11 @@ module OrigenSim
     end
 
     private
+
+    # Pre 0.8.0 the simulator represented the time in ns instead of ps
+    def time_conversion_factor
+      @time_conversion_factor ||= dut_version < '0.8.0' ? 1 : 1000
+    end
 
     def clean(net)
       if net =~ /^dut\./

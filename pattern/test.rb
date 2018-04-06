@@ -60,6 +60,16 @@ Pattern.create do
     unless dut.cmd.data == 0x2244_6688
       fail "CMD register did not sync from simulation"
     end
+
+    ss "Test sync of a register via a parallel interface"
+    dut.parallel_read.write(0)
+    dut.data_out.write!(0x7707_7077)
+    dut.pins(:dout).assert!(0x7707_7077)
+    dut.pins(:dout).dont_care
+    dut.parallel_read.sync
+    unless dut.parallel_read.data == 0x7707_7077
+      fail "PARALLEL_READ register did not sync from simulation"
+    end
   end
 
   ss "Do some operations with the counter, just for fun"

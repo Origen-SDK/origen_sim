@@ -59,6 +59,17 @@ module OrigenSimDev
         reg.bits 5..2, :p3
         reg.bits 9..6, :p4
       end
+
+      # Reg for testing parallel read/sync when this one is read the data will
+      # be read out via dout rather than JTAG
+      add_reg :parallel_read, 0x18 do |reg|
+        reg.bits 30..28, :b1
+        reg.bits 26..24, :b2
+        reg.bits 18..16, :b3
+        reg.bits 14..12, :b4
+        reg.bits 6..4, :b5
+        reg.bits 2..0, :b6
+      end
     end
 
     def interactive_startup
@@ -90,14 +101,27 @@ module OrigenSimDev
     end
 
     def read_register(reg, options = {})
-      jtag.write_ir(0x8, size: 4)
-      dr.rg_enable.write(1)
-      dr.rg_read.write(1)
-      dr.rg_addr.write(reg.address)
-      jtag.write_dr(dr)
-      dr.rg_enable.write(0)
-      dr.rg_data.copy_all(reg)
-      jtag.read_dr(dr)
+      # Special read for this register to test sync'ing over a parallel
+      if reg.id == :parallel_read
+        pins = []
+        reg.shift_out_with_index do |bit, i|
+          if bit.is_to_be_stored?
+            pins << dut.pins(:dout)[i]
+          end
+        end
+        tester.store_next_cycle(*pins.reverse)
+        1.cycle
+        dut.pins(:dout).dont_care
+      else
+        jtag.write_ir(0x8, size: 4)
+        dr.rg_enable.write(1)
+        dr.rg_read.write(1)
+        dr.rg_addr.write(reg.address)
+        jtag.write_dr(dr)
+        dr.rg_enable.write(0)
+        dr.rg_data.copy_all(reg)
+        jtag.read_dr(dr)
+      end
     end
   end
 end
