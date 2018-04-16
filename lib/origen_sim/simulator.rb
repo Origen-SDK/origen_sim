@@ -273,6 +273,7 @@ module OrigenSim
       server = UNIXServer.new(socket_id)
       verbose = Origen.debugger_enabled?
       cmd = run_cmd + ' & echo \$!'
+      puts cmd if verbose
 
       launch_simulator = %(
         require 'open3'
@@ -526,6 +527,19 @@ module OrigenSim
           Origen::Value.new('b' + m)
         end
       end
+    end
+
+    def assert(net, value)
+      if peek(net).to_i == value.to_i
+        Origen.log.info "ASSERT PASS: #{net} = #{value}".green if Origen.debugger_enabled?
+      else
+        Origen.log.error "ASSERT FAIL: #{net} != #{value}, actual: #{peek(net).to_i}"
+        increment_error_count
+      end
+    end
+
+    def increment_error_count(inc = 1)
+      poke('origen.debug.errors', (error_count + inc))
     end
 
     # Forces the given value to the given net.
