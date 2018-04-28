@@ -71,9 +71,37 @@ origen
 The driver contains a number of registers which are written to directly by the VPI process, allowing it to drive or expect a given data value (stored in <code>origen.pins.\<pin\>.data</code>) by writing a 1 to <code>origen.pins.\<pin\>.drive</code> or <code>origen.pins.\<pin\>.compare respectively</code>.
 If the value being driven by the pin does match the expect data during a cycle, then an error signal will be asserted by the driver and this will increment an error counter that lives in <code>origen.debug.errors[31:0]</code>.
 
+#### Supported Toolchains
 
+##### Cadence
+
+##### Generic
+
+Generic toolchains allow you to use a tool that is not support out of the box by <code>OrigenSim</code>. For these, it is your responsiblity, using the <code>pre_run_start_block</code> and the
+<code>post_run_start_block</code> to start the VPI process, but this allows for arbitrary commands to be run, with the context of the simulation, and allow end users to still use <code>origen g</code>
+as if with a <code>OrigenSim</code> supported toolchain.
+
+An example of such a setup could be:
+
+~~~ruby
+OrigenSim.generic do |sim|
+  sim.startup_timeout 300
+  sim.post_run_start do |s|
+    # At this point, the socket is attempting to connect to the VPI
+    # The below command will start up the VPI
+    `path/to/custom/sim/script +socket+#{s.socket_id}`
+  end
+end
+~~~
+
+
+#### Configuring The Testbench
+
+The testbench can be instantiated with configuration options.
 
 ### The VPI Extension
+
+#### Configuring The VPI
 
 ### Register Syncing
 
