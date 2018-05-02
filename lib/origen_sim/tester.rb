@@ -15,8 +15,6 @@ module OrigenSim
         opts = options
       end
 
-     puts opts
-
       simulator.configure(opts, &block)
       super()
     end

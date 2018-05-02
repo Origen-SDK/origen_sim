@@ -273,6 +273,19 @@ module OrigenSim
         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
         cmd += " -session #{f}"
         cmd += ' &'
+        
+      when :generic
+        # Since this could be anything, the simulator will need to set this up. But, once it is, we can print it here.
+        if config[:view_waveform_cmd]
+          cmd = config[:view_waveform_cmd] 
+        else
+          Origen.log.warn 'OrigenSim cannot provide a view-waveform command for a :generic vendor.'
+          Origen.log.warn 'Please supply a view-waveform command though the :view_waveform_cmd option during the OrigenSim::Generic instantiation.'
+        end
+      
+      else
+        # Print a warning stating an unknown vendor was reached here
+        Origen.log.warn "OrigenSim does not know the command to view waveforms for vendor :#{config[:vendor]}!"
 
       end
       cmd
