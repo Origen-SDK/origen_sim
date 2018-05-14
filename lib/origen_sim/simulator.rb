@@ -9,8 +9,10 @@ module OrigenSim
 
     VENDORS = [:icarus, :cadence, :synopsys]
 
-    attr_reader :socket, :failed, :configuration, :stderr, :stdout
+    attr_reader :socket, :failed, :configuration, :stderr, :stdout, :heartbeat
     alias_method :config, :configuration
+    # Returns the PID of the simulator process
+    attr_reader :pid
 
     def initialize
       @socket_ids = {}
@@ -125,14 +127,6 @@ module OrigenSim
     def wave_dir
       @wave_dir ||= begin
         d = "#{Origen.root}/waves/#{id}"
-        FileUtils.mkdir_p(d)
-        d
-      end
-    end
-
-    def pid_dir
-      @pid_dir ||= begin
-        d = "#{Origen.root}/tmp/origen_sim/pids"
         FileUtils.mkdir_p(d)
         d
       end
@@ -275,39 +269,79 @@ module OrigenSim
     def start
       fetch_simulation_objects
 
+      # Socket used for Origen -> Verilog commands
       server = UNIXServer.new(socket_id)
+      # Socket used to capture stdout from the simulator
       stdout_socket_id = socket_id(:stdout)
+      # Socket used to capture stderr from the simulator
       stderr_socket_id = socket_id(:stderr)
+      # Socket used to provide a heartbeat to let the Ruby process in charge of the simulator
+      # know that the mast Origen process is still alive. If the Origen process crashes and leaves
+      # the simulator running, the child process will automatically reap it after a couple of missed
+      # heartbeats
+      heartbeat_socket_id = socket_id(:heartbeat)
       server_stdout = UNIXServer.new(stdout_socket_id)
       server_stderr = UNIXServer.new(stderr_socket_id)
+      server_heartbeat = UNIXServer.new(heartbeat_socket_id)
       cmd = run_cmd + ' & echo \$!'
 
       launch_simulator = %(
         require 'open3'
         require 'socket'
+        require 'io/wait'
+
+        pid = nil
 
         stdout_socket = UNIXSocket.new('#{stdout_socket_id}')
         stderr_socket = UNIXSocket.new('#{stderr_socket_id}')
+        heartbeat = UNIXSocket.new('#{heartbeat_socket_id}')
 
-        Dir.chdir '#{run_dir}' do
-          Open3.popen3('#{cmd}') do |stdin, stdout, stderr, thread|
-            pid = stdout.gets.strip
-            File.open '#{pid_dir}/#{socket_number}', 'w' do |f|
-              f.puts pid
-            end
-            threads = []
-            threads << Thread.new do
-              until (line = stdout.gets).nil?
-                stdout_socket.puts line
+        begin
+
+          Dir.chdir '#{run_dir}' do
+            Open3.popen3('#{cmd}') do |stdin, stdout, stderr, thread|
+              pid = stdout.gets.strip.to_i
+              heartbeat.puts(pid.to_s)
+
+              # Listen for a heartbeat from the main Origen process every 5 seconds, kill the
+              # simulator after two missed heartbeats
+              Thread.new do
+                missed_heartbeats = 0
+                loop do
+                  sleep 5
+                  if heartbeat.ready?
+                    while heartbeat.ready? do
+                      heartbeat.gets
+                    end
+                    missed_heartbeats = 0
+                  else
+                    missed_heartbeats += 1
+                  end
+                  if missed_heartbeats > 1
+                    Process.kill('KILL', pid)
+                    exit!(1)
+                  end
+                end
               end
-            end
-            threads << Thread.new do
-              until (line = stderr.gets).nil?
-                stderr_socket.puts line
+
+              threads = []
+              threads << Thread.new do
+                until (line = stdout.gets).nil?
+                  stdout_socket.puts line
+                end
               end
+              threads << Thread.new do
+                until (line = stderr.gets).nil?
+                  stderr_socket.puts line
+                end
+              end
+              threads.each(&:join)
             end
-            threads.each(&:join)
           end
+
+        ensure
+          # Make sure this process never finishes and leaves the simulator running
+          Process.kill('KILL', pid) if pid
         end
       )
 
@@ -315,6 +349,17 @@ module OrigenSim
       Process.detach(simulator_parent_process)
 
       timeout_connection(config[:startup_timeout] || 60) do
+        @heartbeat = server_heartbeat.accept
+        @pid = heartbeat.gets.chomp.to_i
+
+        # Send a heartbeat to the child process running the simulator every 5 seconds
+        Thread.new do
+          loop do
+            heartbeat.write("OK\n")
+            sleep 5
+          end
+        end
+
         @stdout = server_stdout.accept
         @stderr = server_stderr.accept
         @socket = server.accept
@@ -341,22 +386,9 @@ module OrigenSim
       Origen.listeners_for(:simulation_startup).each(&:simulation_startup)
     end
 
-    # Returns the pid of the simulator process
-    def pid
-      return @pid if @pid_set
-      @pid = File.readlines(pid_file).first.strip.to_i if File.exist?(pid_file)
-      @pid ||= 0
-      @pid_set = true
-      @pid
-    end
-
-    def pid_file
-      "#{Origen.root}/tmp/origen_sim/pids/#{socket_number}"
-    end
-
     # Returns true if the simulator process is running
     def running?
-      return false if pid == 0
+      return false unless pid
       begin
         Process.getpgid(pid)
         true
@@ -625,19 +657,16 @@ module OrigenSim
       Origen.listeners_for(:simulation_shutdown).each(&:simulation_shutdown)
       ended = Time.now
       end_simulation
-      # Give the simulator a few seconds to shut down, otherwise kill it
-      sleep 1 while running? && (Time.now - ended) < 10
-      Process.kill(15, pid) if running?
-      sleep 0.1
-      # Leave the pid file around if we couldn't verify the simulator
-      # has stopped
-      FileUtils.rm_f(pid_file) if File.exist?(pid_file) && !running?
+      # Give the simulator time to shut down
+      sleep 0.1 while running?
       socket.close if socket
       stderr.close if stderr
       stdout.close if stdout
+      heartbeat.close if heartbeat
       File.unlink(socket_id) if File.exist?(socket_id)
       File.unlink(socket_id(:stderr)) if File.exist?(socket_id(:stderr))
       File.unlink(socket_id(:stdout)) if File.exist?(socket_id(:stdout))
+      File.unlink(socket_id(:heartbeat)) if File.exist?(socket_id(:heartbeat))
     end
 
     def on_origen_shutdown
@@ -672,8 +701,6 @@ module OrigenSim
           puts
         end
       end
-    ensure
-      Process.kill(15, pid) if @enabled && running?
     end
 
     def socket_id(type = nil)
