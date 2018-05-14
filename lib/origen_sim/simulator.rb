@@ -1,4 +1,5 @@
 require 'socket'
+require 'io/wait'
 module OrigenSim
   # Responsible for managing and communicating with the simulator
   # process, a single instance of this class is instantiated as
@@ -8,8 +9,12 @@ module OrigenSim
 
     VENDORS = [:icarus, :cadence, :synopsys]
 
-    attr_reader :socket, :failed, :configuration
+    attr_reader :socket, :failed, :configuration, :stderr, :stdout
     alias_method :config, :configuration
+
+    def initialize
+      @socket_ids = {}
+    end
 
     # When set to true the simulator will log all messages it receives, note that
     # this must be run in conjunction with -d supplied to the Origen command to actually
@@ -271,11 +276,18 @@ module OrigenSim
       fetch_simulation_objects
 
       server = UNIXServer.new(socket_id)
-      verbose = Origen.debugger_enabled?
+      stdout_socket_id = socket_id(:stdout)
+      stderr_socket_id = socket_id(:stderr)
+      server_stdout = UNIXServer.new(stdout_socket_id)
+      server_stderr = UNIXServer.new(stderr_socket_id)
       cmd = run_cmd + ' & echo \$!'
 
       launch_simulator = %(
         require 'open3'
+        require 'socket'
+
+        stdout_socket = UNIXSocket.new('#{stdout_socket_id}')
+        stderr_socket = UNIXSocket.new('#{stderr_socket_id}')
 
         Dir.chdir '#{run_dir}' do
           Open3.popen3('#{cmd}') do |stdin, stdout, stderr, thread|
@@ -286,12 +298,12 @@ module OrigenSim
             threads = []
             threads << Thread.new do
               until (line = stdout.gets).nil?
-                puts line if #{verbose ? 'true' : 'false'}
+                stdout_socket.puts line
               end
             end
             threads << Thread.new do
               until (line = stderr.gets).nil?
-                puts line
+                stderr_socket.puts line
               end
             end
             threads.each(&:join)
@@ -303,6 +315,8 @@ module OrigenSim
       Process.detach(simulator_parent_process)
 
       timeout_connection(config[:startup_timeout] || 60) do
+        @stdout = server_stdout.accept
+        @stderr = server_stderr.accept
         @socket = server.accept
         @connection_established = true
         if @connection_timed_out
@@ -474,6 +488,7 @@ module OrigenSim
 
     def cycle(number_of_cycles)
       put("3^#{number_of_cycles}")
+      read_sim_output
     end
 
     # Blocks the Origen process until the simulator indicates that it has
@@ -483,6 +498,28 @@ module OrigenSim
       data = get
       unless data.strip == 'OK!'
         fail 'Origen and the simulator are out of sync!'
+      end
+      read_sim_output
+    end
+
+    def read_sim_output
+      while stdout.ready?
+        line = stdout.gets.chomp
+        if OrigenSim.error_strings.any? { |s| line =~ /#{s}/ }
+          @simulator_logged_errors = true
+          Origen.log.error line
+        else
+          if OrigenSim.verbose? ||
+             OrigenSim.log_strings.any? { |s| line =~ /#{s}/ }
+            Origen.log.info line
+          else
+            Origen.log.debug line
+          end
+        end
+      end
+      while stderr.ready?
+        @simulator_logged_errors = true
+        Origen.log.error stderr.gets.chomp
       end
     end
 
@@ -595,8 +632,12 @@ module OrigenSim
       # Leave the pid file around if we couldn't verify the simulator
       # has stopped
       FileUtils.rm_f(pid_file) if File.exist?(pid_file) && !running?
-      @socket.close if @socket
+      socket.close if socket
+      stderr.close if stderr
+      stdout.close if stdout
       File.unlink(socket_id) if File.exist?(socket_id)
+      File.unlink(socket_id(:stderr)) if File.exist?(socket_id(:stderr))
+      File.unlink(socket_id(:stdout)) if File.exist?(socket_id(:stdout))
     end
 
     def on_origen_shutdown
@@ -605,9 +646,10 @@ module OrigenSim
           Origen.log.debug 'Shutting down simulator...'
           unless @failed_to_start
             c = error_count
-            if c > 0
+            if c > 0 || @simulator_logged_errors
               @failed = true
-              Origen.log.error "The simulation failed with #{c} errors!"
+              Origen.log.error "The simulation failed with #{c} errors!" if c > 0
+              Origen.log.error 'The simulation log reported errors!' if @simulator_logged_errors
             elsif !@simulation_completed_cleanly
               @failed = true
               Origen.log.error 'The simulation exited early!'
@@ -634,8 +676,8 @@ module OrigenSim
       Process.kill(15, pid) if @enabled && running?
     end
 
-    def socket_id
-      @socket_id ||= "/tmp/#{socket_number}.sock"
+    def socket_id(type = nil)
+      @socket_ids[type] ||= "/tmp/#{socket_number}#{type}.sock"
     end
 
     def socket_number
@@ -654,7 +696,7 @@ module OrigenSim
         # release our process and then exit
         unless @connection_established
           @connection_timed_out = true
-          UNIXSocket.new(socket_id).puts(message)
+          UNIXSocket.new(socket_id).puts("Time out\n")
         end
       end
       yield

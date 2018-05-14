@@ -23,5 +23,35 @@ module OrigenSim
   def self.simulator
     @simulator
   end
+
+  def self.verbose=(val)
+    @verbose = val
+  end
+
+  def self.verbose?
+    !!@verbose
+  end
+
+  def self.error_strings
+    @error_strings ||= ['ERROR']
+  end
+
+  def self.error_strings=(val)
+    unless val.is_a?(Array)
+      fail 'OrigenSim.error_strings can only be set to an array of string values!'
+    end
+    @error_strings = val
+  end
+
+  def self.log_strings
+    @log_strings ||= []
+  end
+
+  def self.log_strings=(val)
+    unless val.is_a?(Array)
+      fail 'OrigenSim.log_strings can only be set to an array of string values!'
+    end
+    @log_strings = val
+  end
 end
 OrigenSim.__instantiate_simulator__
