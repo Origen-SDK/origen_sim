@@ -537,7 +537,8 @@ module OrigenSim
     def read_sim_output
       while stdout.ready?
         line = stdout.gets.chomp
-        if OrigenSim.error_strings.any? { |s| line =~ /#{s}/ }
+        if OrigenSim.error_strings.any? { |s| line =~ /#{s}/ } &&
+           !OrigenSim.error_string_exceptions.any? { |s| line =~ /#{s}/ }
           @simulator_logged_errors = true
           Origen.log.error line
         else
@@ -550,7 +551,7 @@ module OrigenSim
         end
       end
       while stderr.ready?
-        @simulator_logged_errors = true
+        @simulator_logged_errors = true if OrigenSim.fail_on_stderr
         Origen.log.error stderr.gets.chomp
       end
     end
