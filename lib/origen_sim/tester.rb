@@ -10,7 +10,7 @@ module OrigenSim
       if block_given?
         collector = Origen::Utility::Collector.new
         yield collector
-        opts = options.merge(collector.store)
+        opts = options.merge(collector.to_hash)
       else
         opts = options
       end
