@@ -71,9 +71,60 @@ origen
 The driver contains a number of registers which are written to directly by the VPI process, allowing it to drive or expect a given data value (stored in <code>origen.pins.\<pin\>.data</code>) by writing a 1 to <code>origen.pins.\<pin\>.drive</code> or <code>origen.pins.\<pin\>.compare respectively</code>.
 If the value being driven by the pin does match the expect data during a cycle, then an error signal will be asserted by the driver and this will increment an error counter that lives in <code>origen.debug.errors[31:0]</code>.
 
+### Toolchains
 
+Running the testbench along with the VPI takes place within the toolchain. Different toolchains have different setups
+and different compilation and running procedures. Below is summary of some of the supported toolchains and notes on how
+to use them with OrigenSim.
+
+<anchor>cadence</anchor>
+<anchor>irun</anchor>
+#### Cadence (irun)
+
+#### Synopsis
+
+#### Generic
+
+Generic toolchains allow you to use a tool that is not support out of the box by <code>OrigenSim</code>. For these, it 
+is your responsiblity, using the <code>pre_run_start_block</code> and the
+<code>post_run_start_block</code> to start the VPI process, however, this allows for arbitrary commands to be run, 
+within the context of the simulation, and allow end users to still use <code>origen g</code>
+as if with an <code>OrigenSim</code> supported toolchain.
+
+An example of such a setup could be:
+
+~~~ruby
+OrigenSim.generic do |sim|
+  # Set a 5 minute connection timeout
+  sim.startup_timeout 300
+
+  sim.post_run_start do |s|
+    # At this point, the socket is attempting to connect to the VPI
+    # The below command will start up the VPI
+    `path/to/custom/sim/script +socket+#{s.socket_id}`
+  end
+end
+~~~
+
+### Configuring The Toolchain (Vendor)
+
+When you define a toolchain, you can pass in additional arguments to customize the toolchain and how OrigenSim interacts
+with the toolchain.
+
+A non-exhaustive list (to be updated in the future) is below:
+
+* testbench_top: Defines the testbench name if different from <code>origen</code>.
+* view_waveform_cmd: Required for generic toolchains - prints out this statement following a simulation instructing the
+user on how to open the waveforms for viewing. For supported toolchains, this is already provided, but can be overwritten.
+* startup_timeout: Defines how long (in seconds) OrigenSim will wait for VPI interaction on the socket before it terminates
+and returns an error.
+* pre_run_start_block: Block that is run <b>before</b> OrigenSim begins connecting to the testbench VPI.
+* post_run_start_block: Block it that is run <b>after</b> OrigenSim begins connecting to the testbench VPI. This is
+required for the generic toolchain.
 
 ### The VPI Extension
+
+#### Configuring The VPI
 
 ### Register Syncing
 

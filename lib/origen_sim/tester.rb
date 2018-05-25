@@ -5,8 +5,15 @@ module OrigenSim
 
     TEST_PROGRAM_GENERATOR = OrigenSim::Generator
 
-    def initialize(options = {})
-      simulator.configure(options)
+    def initialize(options = {}, &block)
+      # Use Origen's collector to allow options to be set either from the options hash, or from the block
+      if block_given?
+        opts = Origen::Utility.collector(hash: options, merge_method: :keep_hash, &block).to_hash
+      else
+        opts = options
+      end
+
+      simulator.configure(opts, &block)
       super()
     end
 

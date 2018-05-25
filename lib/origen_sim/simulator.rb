@@ -6,7 +6,7 @@ module OrigenSim
   class Simulator
     include Origen::PersistentCallbacks
 
-    VENDORS = [:icarus, :cadence, :synopsys]
+    VENDORS = [:icarus, :cadence, :synopsys, :generic]
 
     attr_reader :socket, :failed, :configuration
     alias_method :config, :configuration
@@ -20,6 +20,22 @@ module OrigenSim
       else
         put('d^0')
       end
+    end
+
+    def testbench_top
+      config[:testbench_top] || 'origen'
+    end
+
+    def rtl_top
+      config[:rtl_top] || 'dut'
+    end
+
+    def pre_run_start_block
+      config[:pre_run_start_block]
+    end
+
+    def post_run_start_block
+      config[:post_run_start_block]
     end
 
     def fetch_simulation_objects(options = {})
@@ -83,7 +99,7 @@ module OrigenSim
       FileUtils.rm_rf tmp_dir if File.exist?(tmp_dir)
     end
 
-    def configure(options)
+    def configure(options, &block)
       fail 'A vendor must be supplied, e.g. OrigenSim::Tester.new(vendor: :icarus)' unless options[:vendor]
       unless VENDORS.include?(options[:vendor])
         fail "Unknown vendor #{options[:vendor]}, valid values are: #{VENDORS.map { |v| ':' + v.to_s }.join(', ')}"
@@ -215,6 +231,10 @@ module OrigenSim
       when :synopsys
         cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file origen.vpd"
 
+      when :generic
+        # cmd = "echo #{socket_id}"
+        cmd = ':' # nop command. don't do anything here for generic tester. should be setup using pre/post run blocks
+
       else
         fail "Run cmd not defined yet for simulator #{config[:vendor]}"
 
@@ -253,6 +273,19 @@ module OrigenSim
         cmd += " -session #{f}"
         cmd += ' &'
 
+      when :generic
+        # Since this could be anything, the simulator will need to set this up. But, once it is, we can print it here.
+        if config[:view_waveform_cmd]
+          cmd = config[:view_waveform_cmd]
+        else
+          Origen.log.warn 'OrigenSim cannot provide a view-waveform command for a :generic vendor.'
+          Origen.log.warn 'Please supply a view-waveform command though the :view_waveform_cmd option during the OrigenSim::Generic instantiation.'
+        end
+
+      else
+        # Print a warning stating an unknown vendor was reached here
+        Origen.log.warn "OrigenSim does not know the command to view waveforms for vendor :#{config[:vendor]}!"
+
       end
       cmd
     end
@@ -273,6 +306,13 @@ module OrigenSim
       server = UNIXServer.new(socket_id)
       verbose = Origen.debugger_enabled?
       cmd = run_cmd + ' & echo \$!'
+
+      # If the user supplied additional setup to be run, prior to the run call occuring, do this now.
+      if pre_run_start_block
+        Origen.log.info 'Calling User-Specified pre_run_start Block...'
+        pre_run_start_block.call(self) if pre_run_start_block
+        Origen.log.info 'Setup Block Finished!'
+      end
 
       launch_simulator = %(
         require 'open3'
@@ -301,6 +341,15 @@ module OrigenSim
 
       simulator_parent_process = spawn("ruby -e \"#{launch_simulator}\"")
       Process.detach(simulator_parent_process)
+
+      # At this point, the simulator is trying to run, i.e., 'run has started'.
+      # If we have a block to run before we wait for the simulator, run that, then wait on it.
+      # If the user supplied additional setup to be run, do that now.
+      if post_run_start_block
+        Origen.log.info 'Calling User-Specified post_run_start Block...'
+        post_run_start_block.call(self) if post_run_start_block
+        Origen.log.info 'Setup Block Finished!'
+      end
 
       timeout_connection(config[:startup_timeout] || 60) do
         @socket = server.accept
@@ -488,7 +537,7 @@ module OrigenSim
 
     # Returns the current simulation error count
     def error_count
-      peek('origen.debug.errors').to_i
+      peek("#{testbench_top}.debug.errors").to_i
     end
 
     # Returns the current value of the given net, or nil if the given path does not
@@ -546,7 +595,6 @@ module OrigenSim
 
         v = peek(path)
         return nil unless v
-
         # Setting a range of bits
         if lsb
           upper = v >> (msb + 1)

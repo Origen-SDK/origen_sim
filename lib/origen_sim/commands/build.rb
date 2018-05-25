@@ -3,7 +3,7 @@ require 'origen_sim'
 require_relative '../../../config/version'
 require 'origen_verilog'
 
-options = { source_dirs: [] }
+options = { source_dirs: [], testbench_name: 'origen' }
 
 # App options are options that the application can supply to extend this command
 app_options = @application_options || []
@@ -18,6 +18,7 @@ Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
   EOT
   opts.on('-o', '--output DIR', String, 'Override the default output directory') { |t| options[:output] = t }
   opts.on('-t', '--top NAME', String, 'Specify the top-level Verilog module name if OrigenSim can\'t work it out') { |t| options[:top_level_name] = t }
+  opts.on('--testbench NAME', String, 'Specify the testbench name if different from \'origen\'') { |t| options[:testbench_name] = t }
   opts.on('-s', '--source_dir PATH', 'Directories to look for include files in (the directory containing the top-level is already considered)') do |path|
     options[:source_dirs] << path
   end
@@ -86,7 +87,8 @@ Origen.app.runner.launch action:            :compile,
                          files:             "#{Origen.root!}/ext",
                          output:            output_directory,
                          check_for_changes: false,
-                         quiet:             true
+                         quiet:             true,
+                         options:           options
 
 dut.export(rtl_top_module, dir: "#{output_directory}", namespace: nil)
 

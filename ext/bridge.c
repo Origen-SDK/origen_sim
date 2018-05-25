@@ -83,7 +83,7 @@ static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, 
   (*pin).capture_en = false;
 
   char * driver = (char *) malloc(strlen(name) + 16);
-  strcpy(driver, "origen.pins.");
+  strcpy(driver, ORIGEN_SIM_TESTBENCH_CAT("pins."));
   strcat(driver, name);
 
   char * data = (char *) malloc(strlen(driver) + 16);
@@ -661,7 +661,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       // Set Pattern Name
       //   a^atd_ramp_25mhz
       case 'a' :
-        handle = vpi_handle_by_name("origen.debug.pattern", NULL);
+        handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.pattern"), NULL);
         arg1 = strtok(NULL, "^");
 
         v.format = vpiStringVal;
@@ -686,7 +686,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       // Set Comment
       //   c^Some comment about the pattern
       case 'c' :
-        handle = vpi_handle_by_name("origen.debug.comments", NULL);
+        handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.comments"), NULL);
         arg1 = strtok(NULL, "^");
 
         v.format = vpiStringVal;
@@ -710,14 +710,14 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         break;
       // Sync enable
       case 'f' :
-        handle = vpi_handle_by_name("origen.pins.sync", NULL);
+        handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("pins.sync"), NULL);
         v.format = vpiDecStrVal;
         v.value.str = "1";
         vpi_put_value(handle, &v, NULL, vpiNoDelay);
         break;
       // Sync disable
       case 'g' :
-        handle = vpi_handle_by_name("origen.pins.sync", NULL);
+        handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("pins.sync"), NULL);
         v.format = vpiDecStrVal;
         v.value.str = "0";
         vpi_put_value(handle, &v, NULL, vpiNoDelay);
@@ -751,7 +751,7 @@ static void end_simulation() {
   s_vpi_value v;
 
   // Setting this node will cause the testbench to call $finish
-  handle = vpi_handle_by_name("origen.finish", NULL);
+  handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("finish"), NULL);
   v.format = vpiDecStrVal;
   v.value.str = "1";
   vpi_put_value(handle, &v, NULL, vpiNoDelay);
