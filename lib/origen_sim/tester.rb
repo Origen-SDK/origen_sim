@@ -8,9 +8,7 @@ module OrigenSim
     def initialize(options = {}, &block)
       # Use Origen's collector to allow options to be set either from the options hash, or from the block
       if block_given?
-        collector = Origen::Utility::Collector.new
-        yield collector
-        opts = options.merge(collector.to_hash)
+        opts = Origen::Utility.collector(hash: options, merge_method: :keep_hash, &block).to_hash
       else
         opts = options
       end

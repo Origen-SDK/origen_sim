@@ -25,20 +25,20 @@ module OrigenSim
   end
 
   # Provide some shortcut methods to set the vendor
-  def self.generic(options={}, &block)
-    Tester.new(options.merge({vendor: :generic}), &block)
+  def self.generic(options = {}, &block)
+    Tester.new(options.merge(vendor: :generic), &block)
   end
 
-  def self.cadence(options={}, &block)
-    Tester.new(options.merge({vendor: :cadence}), &block)
+  def self.cadence(options = {}, &block)
+    Tester.new(options.merge(vendor: :cadence), &block)
   end
 
-  def self.synopsys(optoins={}, &block)
-    Tester.new(options.merge({vendor: :synopsys}), &block)
+  def self.synopsys(optoins = {}, &block)
+    Tester.new(options.merge(vendor: :synopsys), &block)
   end
 
-  def self.icarus(options={}, &block)
-    Tester.new(options.merge({vendor: :icarus}), &block)
+  def self.icarus(options = {}, &block)
+    Tester.new(options.merge(vendor: :icarus), &block)
   end
 end
 OrigenSim.__instantiate_simulator__

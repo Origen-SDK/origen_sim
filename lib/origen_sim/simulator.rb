@@ -69,7 +69,7 @@ module OrigenSim
         if !File.exist?(compiled_dir) ||
            (File.exist?(compiled_dir) && Dir.entries(compiled_dir).size <= 2)
           puts "There is no previously compiled simulation object in: #{compiled_dir}"
-          #exit 1
+          exit 1
         end
       end
     ensure
@@ -105,7 +105,6 @@ module OrigenSim
         fail "Unknown vendor #{options[:vendor]}, valid values are: #{VENDORS.map { |v| ':' + v.to_s }.join(', ')}"
       end
       @configuration = options
-      @setup_block = block
       @tmp_dir = nil
     end
 
@@ -231,11 +230,11 @@ module OrigenSim
 
       when :synopsys
         cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file origen.vpd"
-      
+
       when :generic
-        #cmd = "echo #{socket_id}"
+        # cmd = "echo #{socket_id}"
         cmd = ':' # nop command. don't do anything here for generic tester. should be setup using pre/post run blocks
-      
+
       else
         fail "Run cmd not defined yet for simulator #{config[:vendor]}"
 
@@ -273,16 +272,16 @@ module OrigenSim
         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
         cmd += " -session #{f}"
         cmd += ' &'
-        
+
       when :generic
         # Since this could be anything, the simulator will need to set this up. But, once it is, we can print it here.
         if config[:view_waveform_cmd]
-          cmd = config[:view_waveform_cmd] 
+          cmd = config[:view_waveform_cmd]
         else
           Origen.log.warn 'OrigenSim cannot provide a view-waveform command for a :generic vendor.'
           Origen.log.warn 'Please supply a view-waveform command though the :view_waveform_cmd option during the OrigenSim::Generic instantiation.'
         end
-      
+
       else
         # Print a warning stating an unknown vendor was reached here
         Origen.log.warn "OrigenSim does not know the command to view waveforms for vendor :#{config[:vendor]}!"
@@ -310,9 +309,9 @@ module OrigenSim
 
       # If the user supplied additional setup to be run, prior to the run call occuring, do this now.
       if pre_run_start_block
-        Origen.log.info "Calling User-Specified pre_run_start Block..."
+        Origen.log.info 'Calling User-Specified pre_run_start Block...'
         pre_run_start_block.call(self) if pre_run_start_block
-        Origen.log.info "Setup Block Finished!"
+        Origen.log.info 'Setup Block Finished!'
       end
 
       launch_simulator = %(
@@ -347,9 +346,9 @@ module OrigenSim
       # If we have a block to run before we wait for the simulator, run that, then wait on it.
       # If the user supplied additional setup to be run, do that now.
       if post_run_start_block
-        Origen.log.info "Calling User-Specified post_run_start Block..."
+        Origen.log.info 'Calling User-Specified post_run_start Block...'
         post_run_start_block.call(self) if post_run_start_block
-        Origen.log.info "Setup Block Finished!"
+        Origen.log.info 'Setup Block Finished!'
       end
 
       timeout_connection(config[:startup_timeout] || 60) do
@@ -625,7 +624,6 @@ module OrigenSim
       end
 
       sync_up
-      puts "Net: #{net}: Value #{value}"
       put("b^#{clean(net)}^#{value}")
     end
 

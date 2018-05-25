@@ -26,10 +26,10 @@ when "sim:unpack"
   OrigenSim::Commands::Pack.unpack
   exit 0
 
-when "sim:list"
-  require "#{Origen.root!}/lib/origen_sim/commands/pack"
-  OrigenSim::Commands::Pack.list
-  exit 0
+#when "sim:list"
+#  require "#{Origen.root!}/lib/origen_sim/commands/pack"
+#  OrigenSim::Commands::Pack.list
+#  exit 0
 
 else
   @plugin_commands << <<-EOT
