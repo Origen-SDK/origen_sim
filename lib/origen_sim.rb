@@ -29,7 +29,8 @@ module OrigenSim
   end
 
   def self.verbose?
-    !!@verbose
+    # Want to see everything for diagnosing LSF failures
+    Origen.running_remotely? || !!@verbose
   end
 
   def self.error_strings

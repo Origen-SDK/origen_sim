@@ -182,17 +182,17 @@ module OrigenSim
         cmd += " -M#{compiled_dir} -morigen #{compiled_dir}/origen.vvp +socket+#{socket_id}"
 
       when :cadence
-        input_file = "#{tmp_dir}/#{id}.tcl"
+        input_file = "#{tmp_dir}/#{wave_file_basename}.tcl"
         if !File.exist?(input_file) || config_changed?
           Origen.app.runner.launch action:            :compile,
                                    files:             "#{Origen.root!}/templates/probe.tcl.erb",
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir: wave_dir, force: config[:force], setup: config[:setup], depth: :all },
-                                   output_file_name:  "#{id}.tcl"
+                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: :all },
+                                   output_file_name:  "#{wave_file_basename}.tcl"
         end
-        input_file_fast = "#{tmp_dir}/#{id}_fast.tcl"
+        input_file_fast = "#{tmp_dir}/#{wave_file_basename}_fast.tcl"
         if !File.exist?(input_file_fast) || config_changed?
           fast_probe_depth = config[:fast_probe_depth] || 1
           Origen.app.runner.launch action:            :compile,
@@ -200,8 +200,8 @@ module OrigenSim
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir: wave_dir, force: config[:force], setup: config[:setup], depth: fast_probe_depth },
-                                   output_file_name:  "#{id}_fast.tcl"
+                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: fast_probe_depth },
+                                   output_file_name:  "#{wave_file_basename}_fast.tcl"
         end
         save_config_signature
         wave_dir  # Ensure this exists since it won't be referenced above if the input file is already generated
@@ -212,13 +212,21 @@ module OrigenSim
         cmd += " -nclibdirpath #{compiled_dir}"
 
       when :synopsys
-        cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file origen.vpd"
+        cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
 
       else
         fail "Run cmd not defined yet for simulator #{config[:vendor]}"
 
       end
       cmd
+    end
+
+    def wave_file_basename
+      if Origen.app.current_job
+        @last_wafe_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
+      else
+        @last_wafe_file_basename
+      end
     end
 
     def view_wave_command
@@ -229,7 +237,7 @@ module OrigenSim
         cmd = "cd #{edir} && "
         cmd += configuration[:gtkwave] || 'gtkwave'
         dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-        cmd += " #{dir}/origen.vcd "
+        cmd += " #{dir}/#{wave_file_basename}.vcd "
         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
         cmd += " --save #{f} &"
 
@@ -238,7 +246,7 @@ module OrigenSim
         cmd = "cd #{edir} && "
         cmd += configuration[:simvision] || 'simvision'
         dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-        cmd += " #{dir}/#{id}.dsn #{dir}/#{id}.trn"
+        cmd += " #{dir}/#{wave_file_basename}/#{wave_file_basename}.dsn #{dir}/#{wave_file_basename}/#{wave_file_basename}.trn"
         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
         cmd += " -input #{f} &"
 
@@ -247,7 +255,7 @@ module OrigenSim
         cmd = "cd #{edir} && "
         cmd += configuration[:dve] || 'dve'
         dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-        cmd += " -vpd #{dir}/origen.vpd"
+        cmd += " -vpd #{dir}/#{wave_file_basename}.vpd"
         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
         cmd += " -session #{f}"
         cmd += ' &'
@@ -341,7 +349,14 @@ module OrigenSim
 
         ensure
           # Make sure this process never finishes and leaves the simulator running
-          Process.kill('KILL', pid) if pid
+          if pid
+            begin
+              Process.getpgid(pid)       # Is process running?
+              Process.kill('KILL', pid)  # Kill if so
+            rescue Errno::ESRCH
+              # Already killed
+            end
+          end
         end
       )
 
@@ -700,6 +715,9 @@ module OrigenSim
           puts
           puts "  #{view_wave_command}"
           puts
+        end
+        unless @interactive_mode
+          failed ? exit(1) : exit(0)
         end
       end
     end
