@@ -634,7 +634,7 @@ module OrigenSim
         if OrigenSim.error_strings.any? { |s| line =~ /#{s}/ } &&
            !OrigenSim.error_string_exceptions.any? { |s| line =~ /#{s}/ }
           @simulator_logged_errors = true
-          Origen.log.error line
+          Origen.log.error "(STDOUT): #{line}"
         else
           if OrigenSim.verbose? ||
              OrigenSim.log_strings.any? { |s| line =~ /#{s}/ }
@@ -649,7 +649,7 @@ module OrigenSim
         if OrigenSim.fail_on_stderr && !OrigenSim.stderr_string_exceptions.any? { |s| line =~ /#{s}/ }
           # We're failing on stderr, so print its results and log as errors if its not an exception.
           @stderr_logged_errors = true
-          Origen.log.error line
+          Origen.log.error "(STDERR): #{line}"
         elsif OrigenSim.verbose?
           # We're not failing on stderr, or the string in stderr is an exception.
           # Print the string as regular output if verbose is set, otherwise just ignore.

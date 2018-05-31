@@ -133,7 +133,7 @@ and returns an error.
 * generic_run_cmd: Either a string, array to be joined by ' && ', or a block returning either of the aforementioned that
 the generic toolchain (vendor) will use to begin the testbench toolchain process.
 * post_process_run_cmd: Block object to post-process the cmd OrigenSim will start the testbench with. This can be used
-to post-process the command for any supported vendor. This block should return the command to return, as a string.
+to post-process the command for any supported vendor. This block should return the command to run, as a string.
 
 An example of the <code>post_process_run_cmd</code> usage is:
 
@@ -163,45 +163,48 @@ end
 While OrigenSim is running, it will be monitoring the output of the testbench process that it starts. This is to ensure
 that the process doesn't fail unexpectedly or become orphaned, and to check the results of the simulation itself.
 
-The pattern will report a <code>pass/fail</code> result, checking all <code>read!</code> operations performed in the
+The pattern will report a <code>pass/fail</code> result, checking all <code>read!</code> or <code>asser!</code>
+operations performed in the
 pattern. In the event of failures, the error count will be reported and the Ruby process will "fail", meaning the
 simulation failed, or did not complete as expected.
 
 OrigenSim will also monitor the log from <code>stdout</code> and <code>stderr</code>. If anything is written to
-<code>stderr</code>, the simulation will fail. However, this is not always the case. Verilog process can write to
-<code>stderr</code> themselves, for any reason. Sometimes, these reasons are non-valid, or non-concerning. One workaround
-is to disable the OrigenSim module-level instance variable:
+<code>stderr</code>, the simulation will fail. However, this is not always the desired behavior. Verilog process can write to
+<code>stderr</code> themselves. Sometimes, these <code>stderr</code> writes are non-valid, or non-concerning. One workaround
+is to tell OrigenSim to ignore any <code>stderr</code> output:
 
 ~~~ruby
 OrigenSim.fail_on_stderr += false
 ~~~
 
 However, this will blanket-ignore all <code>stderr</code>. A safer, but more involved, solution is to instead dictate
-which strings are accepted from <code>stderr</code> to not fail the simulation. For example, in an early testbench
+which strings are acceptable from <code>stderr</code>. 
+
+For example, in an early testbench
 release, the ADC is not configured correctly. However, we are aware of this, and it does not affect us, and we do
 not wish to fail the simulation due to these errors. We can include substrings which, if included in the
-<code>stderr</code> lines, which will not logged as errors (note that these are case-sensitive):
+<code>stderr</code> lines, are not logged as errors (note that these are case-sensitive):
 
 ~~~ruby
 OrigenSim.stderr_string_exceptions += ['invalid adc config', 'invalid ADC config']
 ~~~
 
 A similar situation arises with the log. OrigenSim will parse the logged output on <code>stdout</code> and if a line
-matches anything in <code>OrigenSim.error_strings</code>, the simulation will fail. Be default, this will include
+matches anything in <code>OrigenSim.error_strings</code>, the simulation will fail. By default, this will include
 just a single string: <code>'ERROR'</code>, but others can be added.
 
-However, <code>'ERROR'</code> is pretty broad. An example of an error we may see here, but do not actually want to fail
-the simulation for, is uninitialized memory if a verilog process hits it. This is common with ROMs in testbenchs before
+However, <code>'ERROR'</code> is quite broad. An example of an error we may see here, but do not actually want to fail
+the simulation for, is uninitialized memory. This is common with ROMs in early testbench revisions, before
 the ROM is actually complete. This can be remedied similar to <code>stderror</code> using:
 
 ~~~ruby
-OrigenSim.error_string_exceptions << 'unititialized value in ROM at'
+OrigenSim.error_string_exceptions << 'uninitialized value in ROM at'
 ~~~
 
-This mean a log line resembling <code>ERROR unititialized value in ROM at 0x1000</code> will not fail the simulation.
-Neither will the line <code>ERROR unititialized value in ROM at 0x1004</code> or
-<code>ERROR unititialized value in ROM at 0x1008</code>, but the line 
-<code>ERROR unititialized value in RAM at 0x2000</code> will fail. This can be used to catch unexpected Verilog errors, 
+This means a log line resembling <code>ERROR uninitialized value in ROM at 0x1000</code> will not fail the simulation.
+Neither will the line <code>ERROR uninitialized value in ROM at 0x1004</code> or
+<code>ERROR uninitialized value in ROM at 0x1008</code>, but the line 
+<code>ERROR uninitialized value in RAM at 0x2000</code> will fail. This can be used to catch unexpected Verilog errors, 
 while ignoring known ones that you've consciously decided do not affect your simulations.
 
 ### The VPI Extension
