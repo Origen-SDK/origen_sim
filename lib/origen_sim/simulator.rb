@@ -44,11 +44,11 @@ module OrigenSim
     def post_run_start_block
       config[:post_run_start_block]
     end
-    
+
     def generic_run_cmd
       config[:generic_run_cmd]
     end
-    
+
     def post_process_run_cmd
       config[:post_process_run_cmd]
     end
@@ -247,7 +247,7 @@ module OrigenSim
           if cmd.is_a?(Proc)
             cmd = cmd.call(self)
           end
-          
+
           if cmd.is_a?(Array)
             # We'll join this together with the '; ' string. This means that each array element will be run
             # sequentially.
@@ -266,14 +266,14 @@ module OrigenSim
         fail "Run cmd not defined yet for simulator #{config[:vendor]}"
 
       end
-      
+
       # Allow the user to post-process the command. This should be a block which will be given two parameters:
       # 1. the command, and 2. the simulation object (self).
       # In the event of a generic tester, this *could* replace the launch command, but that's not the real intention,
       # since a simulator could be made that inherits from a generic simulator setup and still post process the command.
       cmd = post_process_run_cmd.call(cmd, self) if post_process_run_cmd
       fail "OrigenSim: :post_process_run_cmd returned object of class #{cmd.class}. Must return a String." unless cmd.is_a?(String)
-      
+
       cmd
     end
 

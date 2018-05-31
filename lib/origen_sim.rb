@@ -40,7 +40,7 @@ module OrigenSim
   def self.icarus(options = {}, &block)
     Tester.new(options.merge(vendor: :icarus), &block)
   end
-  
+
   def self.verbose=(val)
     @verbose = val
   end
