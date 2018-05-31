@@ -1,5 +1,4 @@
-require 'socket'
-require 'io/wait'
+require 'origen_sim/simulation'
 module OrigenSim
   # Responsible for managing and communicating with the simulator
   # process, a single instance of this class is instantiated as
@@ -9,13 +8,16 @@ module OrigenSim
 
     VENDORS = [:icarus, :cadence, :synopsys]
 
-    attr_reader :socket, :failed, :configuration, :stderr, :stdout, :heartbeat
+    attr_reader :configuration
     alias_method :config, :configuration
-    # Returns the PID of the simulator process
-    attr_reader :pid
+    # The instance of OrigenSim::Simulation for the current simulation
+    attr_reader :simulation
+    # Returns an array containing all instances of OrigenSim::Simulation that were created
+    # in the order that they were created
+    attr_reader :simulations
 
     def initialize
-      @socket_ids = {}
+      @simulations = []
     end
 
     # When set to true the simulator will log all messages it receives, note that
@@ -275,22 +277,11 @@ module OrigenSim
 
     # Starts up the simulator process
     def start
+      @simulation = Simulation.new(wave_file_basename, view_wave_command)
+      simulations << @simulation
+
       fetch_simulation_objects
 
-      # Socket used for Origen -> Verilog commands
-      server = UNIXServer.new(socket_id)
-      # Socket used to capture stdout from the simulator
-      stdout_socket_id = socket_id(:stdout)
-      # Socket used to capture stderr from the simulator
-      stderr_socket_id = socket_id(:stderr)
-      # Socket used to provide a heartbeat to let the Ruby process in charge of the simulator
-      # know that the mast Origen process is still alive. If the Origen process crashes and leaves
-      # the simulator running, the child process will automatically reap it after a couple of missed
-      # heartbeats
-      heartbeat_socket_id = socket_id(:heartbeat)
-      server_stdout = UNIXServer.new(stdout_socket_id)
-      server_stderr = UNIXServer.new(stderr_socket_id)
-      server_heartbeat = UNIXServer.new(heartbeat_socket_id)
       cmd = run_cmd + ' & echo \$!'
 
       launch_simulator = %(
@@ -300,9 +291,19 @@ module OrigenSim
 
         pid = nil
 
-        stdout_socket = UNIXSocket.new('#{stdout_socket_id}')
-        stderr_socket = UNIXSocket.new('#{stderr_socket_id}')
-        heartbeat = UNIXSocket.new('#{heartbeat_socket_id}')
+        def kill_simulation(pid)
+          begin
+            # If the process already finished, then we will see an Errno exception.
+            # It does not harm anything, but looks ugly, so catch it here and ignore.
+            Process.kill('KILL', pid)
+          rescue Errno::ESRCH => e
+          end
+          exit!
+        end
+
+        stdout_socket = UNIXSocket.new('#{simulation.socket_id(:stdout)}')
+        stderr_socket = UNIXSocket.new('#{simulation.socket_id(:stderr)}')
+        heartbeat = UNIXSocket.new('#{simulation.socket_id(:heartbeat)}')
 
         begin
 
@@ -317,6 +318,14 @@ module OrigenSim
                 missed_heartbeats = 0
                 loop do
                   sleep 5
+
+                  # If the socket read hangs, count that as a reason to shutdown
+                  socket_read = false
+                  Thread.new do
+                    sleep 1
+                    kill_simulation(pid) unless socket_read
+                  end
+
                   if heartbeat.ready?
                     while heartbeat.ready? do
                       heartbeat.gets
@@ -325,9 +334,9 @@ module OrigenSim
                   else
                     missed_heartbeats += 1
                   end
+                  socket_read = true
                   if missed_heartbeats > 1
-                    Process.kill('KILL', pid)
-                    exit!(1)
+                    kill_simulation(pid)
                   end
                 end
               end
@@ -349,14 +358,7 @@ module OrigenSim
 
         ensure
           # Make sure this process never finishes and leaves the simulator running
-          if pid
-            begin
-              Process.getpgid(pid)       # Is process running?
-              Process.kill('KILL', pid)  # Kill if so
-            rescue Errno::ESRCH
-              # Already killed
-            end
-          end
+          kill_simulation(pid) if pid
         end
       )
 
@@ -364,34 +366,19 @@ module OrigenSim
       Process.detach(simulator_parent_process)
 
       timeout_connection(config[:startup_timeout] || 60) do
-        @heartbeat = server_heartbeat.accept
-        @pid = heartbeat.gets.chomp.to_i
+        simulation.open # This will block until the simulation process responds
 
-        # Send a heartbeat to the child process running the simulator every 5 seconds
-        Thread.new do
-          loop do
-            heartbeat.write("OK\n")
-            sleep 5
-          end
-        end
-
-        @stdout = server_stdout.accept
-        @stderr = server_stderr.accept
-        @socket = server.accept
-        @connection_established = true
+        @connection_established = true # Cancels timeout_connection
         if @connection_timed_out
-          @failed_to_start = true
-          Origen.log.error 'Simulator failed to respond'
-          @failed = true
-          exit
+          simulation.failed_to_start = true
+          exit  # Assume it is not worth trying another pattern in this case, some kind of environment/config issue
         end
       end
       data = get
       unless data.strip == 'READY!'
-        @failed_to_start = true
-        fail "The simulator didn't start properly!"
+        simulation.failed_to_start = true
+        exit  # Assume it is not worth trying another pattern in this case, some kind of environment/config issue
       end
-      @enabled = true
       # Tick the simulation on, this seems to be required since any VPI puts operations before
       # the simulation has started are not applied.
       # Note that this is not setting a tester timeset, so the application will still have to
@@ -401,26 +388,15 @@ module OrigenSim
       Origen.listeners_for(:simulation_startup).each(&:simulation_startup)
     end
 
-    # Returns true if the simulator process is running
-    def running?
-      return false unless pid
-      begin
-        Process.getpgid(pid)
-        true
-      rescue Errno::ESRCH
-        false
-      end
-    end
-
     # Send the given message string to the simulator
     def put(msg)
-      socket.write(msg + "\n") if socket
+      simulation.socket.write(msg + "\n")
     end
 
     # Get a message from the simulator, will block until one
     # is received
     def get
-      socket.readline
+      simulation.socket.readline
     end
 
     # This will be called at the end of every pattern, make
@@ -428,26 +404,29 @@ module OrigenSim
     # moving onto another pattern
     def pattern_generated(path)
       sync_up if simulation_tester?
-      @simulation_completed_cleanly = true
+      simulation.completed_cleanly = true
     end
 
     # Called before every pattern is generated, but we only use it the
     # first time it is called to kick off the simulator process if the
     # current tester is an OrigenSim::Tester
     def before_pattern(name)
-      @simulation_completed_cleanly = false
       if simulation_tester?
-        unless @enabled
+        if OrigenSim.flow || !simulation
           # When running pattern back-to-back, only want to launch the simulator the
           # first time
-          unless socket
-            start
-          end
+          start unless simulation
+        else
+          stop
+          simulation.log_results
+          start
         end
         # Set the current pattern name in the simulation
         put("a^#{name.sub(/\..*/, '')}")
         @pattern_count ||= 0
-        if @pattern_count > 0
+        # If running a flow, give the user some feedback about pass/fail status after
+        # each individual pattern has completed
+        if @pattern_count > 0 && OrigenSim.flow
           c = error_count
           if c > 0
             Origen.log.error "The simulation currently has #{c} error(s)!"
@@ -535,7 +514,7 @@ module OrigenSim
 
     def cycle(number_of_cycles)
       put("3^#{number_of_cycles}")
-      read_sim_output
+      simulation.read_sim_output
     end
 
     # Blocks the Origen process until the simulator indicates that it has
@@ -546,29 +525,12 @@ module OrigenSim
       unless data.strip == 'OK!'
         fail 'Origen and the simulator are out of sync!'
       end
-      read_sim_output
+      simulation.read_sim_output
     end
 
-    def read_sim_output
-      while stdout.ready?
-        line = stdout.gets.chomp
-        if OrigenSim.error_strings.any? { |s| line =~ /#{s}/ } &&
-           !OrigenSim.error_string_exceptions.any? { |s| line =~ /#{s}/ }
-          @simulator_logged_errors = true
-          Origen.log.error line
-        else
-          if OrigenSim.verbose? ||
-             OrigenSim.log_strings.any? { |s| line =~ /#{s}/ }
-            Origen.log.info line
-          else
-            Origen.log.debug line
-          end
-        end
-      end
-      while stderr.ready?
-        @simulator_logged_errors = true if OrigenSim.fail_on_stderr
-        Origen.log.error stderr.gets.chomp
-      end
+    def error(message)
+      simulation.logged_errors = true
+      Origen.log.error message
     end
 
     # Returns the current simulation error count
@@ -670,64 +632,68 @@ module OrigenSim
 
     # Stop the simulator
     def stop
+      simulation.error_count = error_count
       Origen.listeners_for(:simulation_shutdown).each(&:simulation_shutdown)
       ended = Time.now
       end_simulation
       # Give the simulator time to shut down
-      sleep 0.1 while running?
-      socket.close if socket
-      stderr.close if stderr
-      stdout.close if stdout
-      heartbeat.close if heartbeat
-      File.unlink(socket_id) if File.exist?(socket_id)
-      File.unlink(socket_id(:stderr)) if File.exist?(socket_id(:stderr))
-      File.unlink(socket_id(:stdout)) if File.exist?(socket_id(:stdout))
-      File.unlink(socket_id(:heartbeat)) if File.exist?(socket_id(:heartbeat))
+      sleep 0.1 while simulation.running?
+      simulation.close
     end
 
     def on_origen_shutdown
-      if @enabled
+      unless simulations.empty?
+        failed = false
+        # Stop the current simulation, this is done with the rescue wrapper so that the rest
+        # of the shutdown continues if we got in here via a CTRL-C, in which case the simulator
+        # is probably already dead
+        begin
+          stop
+        rescue
+          failed = true
+        end
         unless @interactive_mode
-          Origen.log.debug 'Shutting down simulator...'
-          unless @failed_to_start
-            c = error_count
-            if c > 0 || @simulator_logged_errors
-              @failed = true
-              Origen.log.error "The simulation failed with #{c} errors!" if c > 0
-              Origen.log.error 'The simulation log reported errors!' if @simulator_logged_errors
-            elsif !@simulation_completed_cleanly
-              @failed = true
-              Origen.log.error 'The simulation exited early!'
+          simulation.log_results
+          if simulations.size == 1
+            failed = simulation.failed?
+          else
+            failed_simulation_count = simulations.count(&:failed?)
+            if failed_simulation_count > 0
+              Origen.log.error "#{failed_simulation_count} of #{simulations.size} simulations failed!"
+              failed = true
             end
           end
-        end
-        stop
-        unless @interactive_mode
           if failed
             Origen.app.stats.report_fail
           else
             Origen.app.stats.report_pass
           end
         end
-        if view_wave_command
-          puts
+        puts
+        if simulations.size == 1
           puts 'To view the simulation run the following command:'
           puts
-          puts "  #{view_wave_command}"
+          puts "  #{simulation.view_wave_command}"
+        else
+          puts 'To view the simulations run the following commands:'
           puts
+          simulations.each do |simulation|
+            if simulation.failed?
+              puts "  #{simulation.view_wave_command}".red
+            else
+              puts "  #{simulation.view_wave_command}"
+            end
+          end
         end
+        puts
         unless @interactive_mode
           failed ? exit(1) : exit(0)
         end
       end
     end
 
-    def socket_id(type = nil)
-      @socket_ids[type] ||= "/tmp/#{socket_number}#{type}.sock"
-    end
-
-    def socket_number
-      @socket_number ||= (Process.pid.to_s + Time.now.to_f.to_s).sub('.', '')
+    def socket_id
+      simulation.socket_id
     end
 
     def simulation_tester?
@@ -736,6 +702,7 @@ module OrigenSim
 
     def timeout_connection(wait_in_s)
       @connection_timed_out = false
+      @connection_established = false
       t = Thread.new do
         sleep wait_in_s
         # If the Verilog process has not established a connection yet, then make one to

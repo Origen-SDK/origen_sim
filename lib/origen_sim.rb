@@ -33,6 +33,14 @@ module OrigenSim
     Origen.running_remotely? || !!@verbose
   end
 
+  def self.flow=(val)
+    @flow
+  end
+
+  def self.flow
+    @flow
+  end
+
   def self.error_strings
     @error_strings ||= ['ERROR']
   end
@@ -72,6 +80,10 @@ module OrigenSim
 
   def self.fail_on_stderr
     defined?(@fail_on_stderr) ? @fail_on_stderr : true
+  end
+
+  def self.error(message)
+    simulator.error(message)
   end
 end
 OrigenSim.__instantiate_simulator__
