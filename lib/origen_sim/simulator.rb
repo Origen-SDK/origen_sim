@@ -6,7 +6,7 @@ module OrigenSim
   class Simulator
     include Origen::PersistentCallbacks
 
-    VENDORS = [:icarus, :cadence, :synopsys]
+    VENDORS = [:icarus, :cadence, :synopsys, :generic]
 
     attr_reader :configuration
     alias_method :config, :configuration
@@ -30,6 +30,22 @@ module OrigenSim
       else
         put('d^0')
       end
+    end
+
+    def testbench_top
+      config[:testbench_top] || 'origen'
+    end
+
+    def rtl_top
+      config[:rtl_top] || 'dut'
+    end
+
+    def generic_run_cmd
+      config[:generic_run_cmd]
+    end
+
+    def post_process_run_cmd
+      config[:post_process_run_cmd]
     end
 
     def fetch_simulation_objects(options = {})
@@ -93,7 +109,7 @@ module OrigenSim
       FileUtils.rm_rf tmp_dir if File.exist?(tmp_dir)
     end
 
-    def configure(options)
+    def configure(options, &block)
       fail 'A vendor must be supplied, e.g. OrigenSim::Tester.new(vendor: :icarus)' unless options[:vendor]
       unless VENDORS.include?(options[:vendor])
         fail "Unknown vendor #{options[:vendor]}, valid values are: #{VENDORS.map { |v| ':' + v.to_s }.join(', ')}"
@@ -217,10 +233,42 @@ module OrigenSim
       when :synopsys
         cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
 
+      when :generic
+        # Generic tester requires that a generic_run_command option/block be provided.
+        # This should either be a string, an array (which will be joined here), or a block that needs to return either
+        # a string or array. In the event of a block, the block will be given the simulator.
+        if generic_run_cmd
+          cmd = generic_run_cmd
+          if cmd.is_a?(Proc)
+            cmd = cmd.call(self)
+          end
+
+          if cmd.is_a?(Array)
+            # We'll join this together with the '; ' string. This means that each array element will be run
+            # sequentially.
+            cmd = cmd.join(' && ')
+          elsif !cmd.is_a?(String)
+            # If its Proc, it was already run, and if its a Array if would have gone into the other case.
+            # So, this is either another proc, not an array and not a string, so not sure what to do with this.
+            # Complain about the cmd.
+            fail "OrigenSim :generic_run_cmd is of class #{generic_run_cmd.class}. It must be either an Array, String, or a Proc that returns an Array or String."
+          end
+        else
+          fail 'OrigenSim Generic Toolchain/Vendor requires a :generic_run_cmd option/block to be provided. No options/block provided!'
+        end
+
       else
         fail "Run cmd not defined yet for simulator #{config[:vendor]}"
 
       end
+
+      # Allow the user to post-process the command. This should be a block which will be given two parameters:
+      # 1. the command, and 2. the simulation object (self).
+      # In the event of a generic tester, this *could* replace the launch command, but that's not the real intention,
+      # since a simulator could be made that inherits from a generic simulator setup and still post process the command.
+      cmd = post_process_run_cmd.call(cmd, self) if post_process_run_cmd
+      fail "OrigenSim: :post_process_run_cmd returned object of class #{cmd.class}. Must return a String." unless cmd.is_a?(String)
+
       cmd
     end
 
@@ -267,6 +315,20 @@ module OrigenSim
         cmd += " -session #{f}"
         cmd += ' &'
 
+      when :generic
+        # Since this could be anything, the simulator will need to set this up. But, once it is, we can print it here.
+        if config[:view_waveform_cmd]
+          cmd = config[:view_waveform_cmd]
+        else
+          Origen.log.warn 'OrigenSim cannot provide a view-waveform command for a :generic vendor.'
+          Origen.log.warn 'Please supply a view-waveform command though the :view_waveform_cmd option during the OrigenSim::Generic instantiation.'
+        end
+
+      else
+        # Print a warning stating an unknown vendor was reached here.
+        # This shouldn't happen, but just in case.
+        Origen.log.warn "OrigenSim does not know the command to view waveforms for vendor :#{config[:vendor]}!"
+
       end
       cmd
     end
@@ -298,6 +360,7 @@ module OrigenSim
         require 'open3'
         require 'socket'
         require 'io/wait'
+        require 'origen'
 
         pid = nil
 
@@ -554,7 +617,7 @@ module OrigenSim
 
     # Returns the current simulation error count
     def error_count
-      peek('origen.debug.errors').to_i
+      peek("#{testbench_top}.debug.errors").to_i
     end
 
     # Returns the current value of the given net, or nil if the given path does not
@@ -612,7 +675,6 @@ module OrigenSim
 
         v = peek(path)
         return nil unless v
-
         # Setting a range of bits
         if lsb
           upper = v >> (msb + 1)

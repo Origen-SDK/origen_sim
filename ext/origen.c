@@ -85,6 +85,14 @@ PLI_INT32 origen_shutdown(p_cb_data data) {
   return 0;
 }
 
+/// Function to call the init PLI's init function
+/// Some toolchains will call this automatically, some will not
+/// Available here for those which do not automatically call init() for each PLI 
+PLI_INT32 bootstrap(p_cb_data data) {
+  vpi_printf("Origen Bootstrap Called!\n");
+  init();
+  return 0;
+}
 
 ///
 /// Registers a very basic VPI callback with reason and handler.

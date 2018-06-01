@@ -12,7 +12,7 @@ module OrigenSim
     attr_reader :view_wave_command, :id
 
     attr_accessor :logged_errors, :error_count, :failed_to_start, :completed_cleanly
-    attr_accessor :pid
+    attr_accessor :pid, :stderr_logged_errors
     # Returns the communication socket used for sending commands to the Origen VPI running
     # in the simulation process
     attr_reader :socket
@@ -23,6 +23,7 @@ module OrigenSim
       @completed_cleanly = false
       @failed_to_start = false
       @logged_errors = false
+      @stderr_logged_errors = false
       @error_count = 0
       @socket_ids = {}
 
@@ -33,7 +34,7 @@ module OrigenSim
     end
 
     def failed?
-      logged_errors || failed_to_start || !completed_cleanly || error_count > 0
+      stderr_logged_errors || logged_errors || failed_to_start || !completed_cleanly || error_count > 0
     end
 
     def log_results(current_status = false)
@@ -49,6 +50,7 @@ module OrigenSim
                 Origen.log.error "The simulation failed with #{error_count} errors!" if error_count > 0
               end
               Origen.log.error 'The simulation log reported errors!' if logged_errors
+              Origen.log.error 'The simulation stderr reported errors!' if stderr_logged_errors
             end
           else
             Origen.log.error 'The simulation exited early!'
@@ -106,7 +108,7 @@ module OrigenSim
         if OrigenSim.error_strings.any? { |s| line =~ /#{s}/ } &&
            !OrigenSim.error_string_exceptions.any? { |s| line =~ /#{s}/ }
           @logged_errors = true
-          Origen.log.error line
+          Origen.log.error "(STDOUT): #{line}"
         else
           if OrigenSim.verbose? ||
              OrigenSim.log_strings.any? { |s| line =~ /#{s}/ }
@@ -117,8 +119,17 @@ module OrigenSim
         end
       end
       while @stderr.ready?
-        @logged_errors = true if OrigenSim.fail_on_stderr
-        Origen.log.error @stderr.gets.chomp
+        line = @stderr.gets.chomp
+        if OrigenSim.fail_on_stderr && !line.empty? &&
+           !OrigenSim.stderr_string_exceptions.any? { |s| line =~ /#{s}/ }
+          # We're failing on stderr, so print its results and log as errors if its not an exception.
+          @stderr_logged_errors = true
+          Origen.log.error "(STDERR): #{line}"
+        elsif OrigenSim.verbose?
+          # We're not failing on stderr, or the string in stderr is an exception.
+          # Print the string as regular output if verbose is set, otherwise just ignore.
+          Origen.log.info line
+        end
       end
     end
 
