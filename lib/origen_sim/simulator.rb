@@ -37,14 +37,6 @@ module OrigenSim
       config[:rtl_top] || 'dut'
     end
 
-    def pre_run_start_block
-      config[:pre_run_start_block]
-    end
-
-    def post_run_start_block
-      config[:post_run_start_block]
-    end
-
     def generic_run_cmd
       config[:generic_run_cmd]
     end
@@ -355,13 +347,6 @@ module OrigenSim
       server_heartbeat = UNIXServer.new(heartbeat_socket_id)
       cmd = run_cmd + ' & echo \$!'
 
-      # If the user supplied additional setup to be run, prior to the run call occuring, do this now.
-      if pre_run_start_block
-        Origen.log.info 'Calling User-Specified pre_run_start Block...'
-        pre_run_start_block.call(self) if pre_run_start_block
-        Origen.log.info 'Setup Block Finished!'
-      end
-
       launch_simulator = %(
         require 'open3'
         require 'socket'
@@ -432,15 +417,6 @@ module OrigenSim
 
       simulator_parent_process = spawn("ruby -e \"#{launch_simulator}\"")
       Process.detach(simulator_parent_process)
-
-      # At this point, the simulator is trying to run, i.e., 'run has started'.
-      # If we have a block to run before we wait for the simulator, run that, then wait on it.
-      # If the user supplied additional setup to be run, do that now.
-      if post_run_start_block
-        Origen.log.info 'Calling User-Specified post_run_start Block...'
-        post_run_start_block.call(self) if post_run_start_block
-        Origen.log.info 'Setup Block Finished!'
-      end
 
       timeout_connection(config[:startup_timeout] || 60) do
         @heartbeat = server_heartbeat.accept

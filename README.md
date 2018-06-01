@@ -86,10 +86,8 @@ to use them with OrigenSim.
 #### Generic
 
 Generic toolchains allow you to use a tool that is not support out of the box by <code>OrigenSim</code>. For these, it 
-is your responsiblity, using the <code>pre_run_start_block</code> and the
-<code>post_run_start_block</code> to start the VPI process, however, this allows for arbitrary commands to be run, 
-within the context of the simulation, and allow end users to still use <code>origen g</code>
-as if with an <code>OrigenSim</code> supported toolchain.
+is your responsiblity to provide the command to start the VPI process, however, this allows for arbitrary commands to
+start the process and allows end users to still use <code>origen g</code> as if with an <code>OrigenSim</code> supported toolchain.
 
 An example of such a setup could be:
 
@@ -105,7 +103,7 @@ OrigenSim.generic do |sim|
 end
 ~~~
 
-An example using the predecessor of the support Cadence tool <code>irun</code>, <code>ncsim</code> is shown below.
+An example using the predecessor of the supported Cadence tool <code>irun</code>, <code>ncsim</code> is shown below.
 
 ~~~ruby
 OrigenSim.generic(startup_timeout: 900) do |sim|
@@ -128,8 +126,6 @@ A non-exhaustive list (to be updated in the future) is below:
 user on how to open the waveforms for viewing. For supported toolchains, this is already provided, but can be overwritten.
 * startup_timeout: Defines how long (in seconds) OrigenSim will wait for VPI interaction on the socket before it terminates
 and returns an error.
-* pre_run_start_block: Block that is run <b>before</b> OrigenSim begins connecting to the testbench VPI.
-* post_run_start_block: Block it that is run <b>after</b> OrigenSim begins connecting to the testbench VPI.
 * generic_run_cmd: Either a string, array to be joined by ' && ', or a block returning either of the aforementioned that
 the generic toolchain (vendor) will use to begin the testbench toolchain process.
 * post_process_run_cmd: Block object to post-process the cmd OrigenSim will start the testbench with. This can be used
@@ -174,7 +170,7 @@ OrigenSim will also monitor the log from <code>stdout</code> and <code>stderr</c
 is to tell OrigenSim to ignore any <code>stderr</code> output:
 
 ~~~ruby
-OrigenSim.fail_on_stderr += false
+OrigenSim.fail_on_stderr = false
 ~~~
 
 However, this will blanket-ignore all <code>stderr</code>. A safer, but more involved, solution is to instead dictate
