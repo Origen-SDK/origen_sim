@@ -143,7 +143,7 @@ module OrigenSim
       end
     end
 
-    def wave_dir
+    def wave_dir(subdir = nil)
       @wave_dir ||= begin
         d = "#{Origen.root}/waves/#{id}"
         FileUtils.mkdir_p(d)
@@ -274,7 +274,7 @@ module OrigenSim
 
     def wave_file_basename
       if OrigenSim.flow
-        OrigenSim.flow
+        OrigenSim.flow.to_s
       else
         if Origen.app.current_job
           @last_wafe_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
@@ -292,7 +292,7 @@ module OrigenSim
         cmd = "cd #{edir} && "
         cmd += configuration[:gtkwave] || 'gtkwave'
         dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-        cmd += " #{dir}/#{wave_file_basename}.vcd "
+        cmd += " #{dir}/#{wave_file_basename}/dump.vcd "
         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
         cmd += " --save #{f} &"
 
@@ -335,7 +335,11 @@ module OrigenSim
 
     def run_dir
       case config[:vendor]
-      when :icarus, :synopsys
+      when :icarus
+        d = File.join(wave_dir, wave_file_basename)
+        FileUtils.mkdir_p(d)
+        d
+      when :synopsys
         wave_dir
       else
         tmp_dir
@@ -713,6 +717,7 @@ module OrigenSim
     # Stop the simulator
     def stop
       @simulation_open = false
+      simulation.read_sim_output
       simulation.error_count = error_count
       Origen.listeners_for(:simulation_shutdown).each(&:simulation_shutdown)
       ended = Time.now
@@ -733,7 +738,7 @@ module OrigenSim
         begin
           stop if simulation_open?
         rescue
-          failed = true
+          simulation.completed_cleanly = false
         end
         unless @interactive_mode
           if simulations.size == 1

@@ -167,7 +167,7 @@ puts '  -DORIGEN_VCD'
 puts
 puts 'Here is an example which may work for the file you just parsed (add additional source dirs with more -I options at the end if required):'
 puts
-puts "  #{ENV['ORIGEN_SIM_IVERILOG'] || 'iverilog'} #{rtl_top} #{output_directory}/origen.v -o origen.vvp -DICARUS -I #{Pathname.new(rtl_top).dirname}"
+puts "  #{ENV['ORIGEN_SIM_IVERILOG'] || 'iverilog'} #{rtl_top} #{output_directory}/origen.v -o origen.vvp -DORIGEN_VCD -I #{Pathname.new(rtl_top).dirname}"
 puts
 puts 'Copy the following files (produced by iverilog) to simulation/<target>/icarus/. within your Origen application:'
 puts
