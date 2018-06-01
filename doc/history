@@ -1,3 +1,66 @@
+<a class="anchor release_tag" name="v0_9_0"></a>
+<h1><a href="#v0_9_0">Tag: v0.9.0</a></h1>
+
+##### Branch: 'master'
+
+##### by Corey Engelken on 01-Jun-2018 09:55AM
+
+
+Improved testbench multi-process handling. Decrease chance of orphaned/stale processes. (Ginty)
+
+Improved logging, and added failing the simulation due to errors within the log. (Ginty)
+
+Improvded logging will fail the simulation is any <code>error\_strings</code> are found while running the simulation.
+The default error strings are simply <code>'ERROR'</code>, but other can be added using
+<code>OrigenSim.error\_strings << "STRING TO FAIL!"</code>. This can be disabled completely by clearing the array or
+setting it to an empty array: <code>OrigenSim.error\_strings = []</code>.
+
+Exception strings can be added using <code>OrigenSim.error\_string\_exceptions << "string to skip"</code>. This means
+that the simulation that would normally fail on <code>"ERROR: uninitialized ROM"</code> can add
+<code>OrigenSim.error\_string\_exceptions << "uninitialized ROM"</code> to still pass even with that error.
+
+Similar behavior exists with stderr, except all output to stderr will result is failures.
+<code>OrigenSim.stderr\_string\_exceptions</code> can be used to negate stderr strings and
+<code>OrigenSim.fail\_on\_stderr = false</code> can be used to disable failing due to stderr logs.
+
+Some shortcut methods were added to start OrigenSim with a specific vendor. The two below are equivalent:
+
+~~~ruby
+OrigenSim.cadence(startup\_timeout: 100)
+
+OrigenSim::Tester.new(vendor: :cadence, startup\_timeout: 100)
+~~~
+
+OrigenSim now support [the collector](http://origen-sdk.org/origen/guides/misc/utilities/#Collector), allowing for
+options to be given as either block arguments or as a hash. The two OrigenSim setups below are equivalent. In the case
+of a hash option and a block argument being supplied, the hash option will be kept.
+
+~~~ruby
+OrigenSim.cadence(startup\_timeout: 900)
+
+OrigenSim.cadence do |sim|
+  sim.startup\_timeout 900
+end
+~~~
+
+OrigenSim can now accept generic/arbitrary toolchains using the <code>OrigenSim.generic(...)</code> vendor. For this,
+an option <code>generic\_run\_cmd</code> must be supplied. An example using <code>ncsim</code>:
+
+~~~ruby
+OrigenSim.generic(startup\_timeout: 900) do |sim|
+  sim.testbench\_top 'na\_origen'
+  sim.generic\_run\_cmd do |s|
+    "ncsim na\_origen -loadpli origen.so:bootstrap +socket+#{s.socket\_id}"
+  end
+end
+~~~
+
+The testbench name can be changed. From the Ruby side, use the option <code>testbench\_top</code>. When generating the
+VPI, use the commad line option <code>--testbench NAME</code>.
+
+Updated README and updated gemspec to latest Origen version.
+
+
 <a class="anchor release_tag" name="v0_8_0"></a>
 <h1><a href="#v0_8_0">Tag: v0.8.0</a></h1>
 
