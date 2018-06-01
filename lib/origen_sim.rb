@@ -24,12 +24,29 @@ module OrigenSim
     @simulator
   end
 
+  # Provide some shortcut methods to set the vendor
+  def self.generic(options = {}, &block)
+    Tester.new(options.merge(vendor: :generic), &block)
+  end
+
+  def self.cadence(options = {}, &block)
+    Tester.new(options.merge(vendor: :cadence), &block)
+  end
+
+  def self.synopsys(optoins = {}, &block)
+    Tester.new(options.merge(vendor: :synopsys), &block)
+  end
+
+  def self.icarus(options = {}, &block)
+    Tester.new(options.merge(vendor: :icarus), &block)
+  end
+
   def self.verbose=(val)
     @verbose = val
   end
 
   def self.verbose?
-    !!@verbose
+    !!(@verbose || Origen.debugger_enabled?)
   end
 
   def self.error_strings
@@ -52,6 +69,17 @@ module OrigenSim
       fail 'OrigenSim.error_string_exceptions can only be set to an array of string values!'
     end
     @error_string_exceptions = val
+  end
+
+  def self.stderr_string_exceptions
+    @stderr_string_exceptions ||= []
+  end
+
+  def self.stderr_string_exceptions=(val)
+    unless val.is_a?(Array)
+      fail 'OrigenSim.error_string_exceptions can only be set to an array of string values!'
+    end
+    @stderr_string_exceptions = val
   end
 
   def self.log_strings

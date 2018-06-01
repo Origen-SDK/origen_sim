@@ -71,9 +71,141 @@ origen
 The driver contains a number of registers which are written to directly by the VPI process, allowing it to drive or expect a given data value (stored in <code>origen.pins.\<pin\>.data</code>) by writing a 1 to <code>origen.pins.\<pin\>.drive</code> or <code>origen.pins.\<pin\>.compare respectively</code>.
 If the value being driven by the pin does match the expect data during a cycle, then an error signal will be asserted by the driver and this will increment an error counter that lives in <code>origen.debug.errors[31:0]</code>.
 
+### Toolchains
 
+Running the testbench along with the VPI takes place within the toolchain. Different toolchains have different setups
+and different compilation and running procedures. Below is summary of some of the supported toolchains and notes on how
+to use them with OrigenSim.
+
+<anchor>cadence</anchor>
+<anchor>irun</anchor>
+#### Cadence (irun)
+
+#### Synopsis
+
+#### Generic
+
+Generic toolchains allow you to use a tool that is not support out of the box by <code>OrigenSim</code>. For these, it 
+is your responsiblity to provide the command to start the VPI process, however, this allows for arbitrary commands to
+start the process and allows end users to still use <code>origen g</code> as if with an <code>OrigenSim</code> supported toolchain.
+
+An example of such a setup could be:
+
+~~~ruby
+OrigenSim.generic do |sim|
+  # Set a 5 minute connection timeout
+  sim.startup_timeout 300
+
+  sim.generic_run_cmd do |s|
+    # Return the command to start the testbench.
+    "path/to/custom/sim/script +socket+#{s.socket_id}"
+  end
+end
+~~~
+
+An example using the predecessor of the supported Cadence tool <code>irun</code>, <code>ncsim</code> is shown below.
+
+~~~ruby
+OrigenSim.generic(startup_timeout: 900) do |sim|
+  sim.testbench_top 'na_origen'
+  sim.generic_run_cmd do |s|
+    "ncsim na_origen -loadpli origen.so:bootstrap +socket+#{s.socket_id}"
+  end
+end
+~~~
+
+### Configuring The Toolchain (Vendor)
+
+When you define a toolchain, you can pass in additional arguments to customize the toolchain and how OrigenSim interacts
+with the toolchain.
+
+A non-exhaustive list (to be updated in the future) is below:
+
+* testbench_top: Defines the testbench name if different from <code>origen</code>.
+* view_waveform_cmd: Required for generic toolchains - prints out this statement following a simulation instructing the
+user on how to open the waveforms for viewing. For supported toolchains, this is already provided, but can be overwritten.
+* startup_timeout: Defines how long (in seconds) OrigenSim will wait for VPI interaction on the socket before it terminates
+and returns an error.
+* generic_run_cmd: Either a string, array to be joined by ' && ', or a block returning either of the aforementioned that
+the generic toolchain (vendor) will use to begin the testbench toolchain process.
+* post_process_run_cmd: Block object to post-process the cmd OrigenSim will start the testbench with. This can be used
+to post-process the command for any supported vendor. This block should return the command to run, as a string.
+
+An example of the <code>post_process_run_cmd</code> usage is:
+
+~~~ruby
+OrigenSim.cadence do |sim|
+  sim.post_process_run_cmd do |cmd, s|
+    # cmd is the current command that will be run. s is the simulator object, same as sim in this case.
+    # this should return either a string or an array to be joined by ' && ' (chain commands)
+    # note that we must RETURN the string. We cannot just edit it.
+    
+    # add an environment variable and run setup script as an example
+    return "export PROJECT=my_rtl && source #{Origen.app.root.join('settings.sh')} && #{cmd}"
+    
+    # or, we could return
+    return [
+      'export PROJECT=my_rtl',
+      "source #{Origen.app.root.join('settings.sh')}",
+      cmd
+    ]
+    #=> "export PROJECT=my_rtl && source #{Origen.app.root.join('settings.sh')} && #{cmd}"
+  end
+end
+~~~
+
+### Running and Configuring OrigenSim
+
+While OrigenSim is running, it will be monitoring the output of the testbench process that it starts. This is to ensure
+that the process doesn't fail unexpectedly or become orphaned, and to check the results of the simulation itself.
+
+The pattern will report a <code>pass/fail</code> result, checking all <code>read!</code> or <code>asser!</code>
+operations performed in the
+pattern. In the event of failures, the error count will be reported and the Ruby process will "fail", meaning the
+simulation failed, or did not complete as expected.
+
+OrigenSim will also monitor the log from <code>stdout</code> and <code>stderr</code>. If anything is written to
+<code>stderr</code>, the simulation will fail. However, this is not always the desired behavior. Verilog process can write to
+<code>stderr</code> themselves. Sometimes, these <code>stderr</code> writes are non-valid, or non-concerning. One workaround
+is to tell OrigenSim to ignore any <code>stderr</code> output:
+
+~~~ruby
+OrigenSim.fail_on_stderr = false
+~~~
+
+However, this will blanket-ignore all <code>stderr</code>. A safer, but more involved, solution is to instead dictate
+which strings are acceptable from <code>stderr</code>. 
+
+For example, in an early testbench
+release, the ADC is not configured correctly. However, we are aware of this, and it does not affect us, and we do
+not wish to fail the simulation due to these errors. We can include substrings which, if included in the
+<code>stderr</code> lines, are not logged as errors (note that these are case-sensitive):
+
+~~~ruby
+OrigenSim.stderr_string_exceptions += ['invalid adc config', 'invalid ADC config']
+~~~
+
+A similar situation arises with the log. OrigenSim will parse the logged output on <code>stdout</code> and if a line
+matches anything in <code>OrigenSim.error_strings</code>, the simulation will fail. By default, this will include
+just a single string: <code>'ERROR'</code>, but others can be added.
+
+However, <code>'ERROR'</code> is quite broad. An example of an error we may see here, but do not actually want to fail
+the simulation for, is uninitialized memory. This is common with ROMs in early testbench revisions, before
+the ROM is actually complete. This can be remedied similar to <code>stderror</code> using:
+
+~~~ruby
+OrigenSim.error_string_exceptions << 'uninitialized value in ROM at'
+~~~
+
+This means a log line resembling <code>ERROR uninitialized value in ROM at 0x1000</code> will not fail the simulation.
+Neither will the line <code>ERROR uninitialized value in ROM at 0x1004</code> or
+<code>ERROR uninitialized value in ROM at 0x1008</code>, but the line 
+<code>ERROR uninitialized value in RAM at 0x2000</code> will fail. This can be used to catch unexpected Verilog errors, 
+while ignoring known ones that you've consciously decided do not affect your simulations.
 
 ### The VPI Extension
+
+#### Configuring The VPI
 
 ### Register Syncing
 
