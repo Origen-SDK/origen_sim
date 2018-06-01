@@ -472,14 +472,6 @@ module OrigenSim
       simulation.socket.readline
     end
 
-    # This will be called at the end of every pattern, make
-    # sure the simulator is not running behind before potentially
-    # moving onto another pattern
-    def pattern_generated(path)
-      sync_up if simulation_tester?
-      simulation.completed_cleanly = true
-    end
-
     # At the start of a test program flow generation/simulation
     def on_flow_start(options)
       if simulation_tester? && options[:top_level]
@@ -518,6 +510,13 @@ module OrigenSim
         end
         @pattern_count += 1
       end
+    end
+
+    # This will be called at the end of every pattern, make
+    # sure the simulator is not running behind before potentially
+    # moving onto another pattern
+    def pattern_generated(path)
+      sync_up if simulation_tester?
     end
 
     def write_comment(comment)
@@ -721,6 +720,7 @@ module OrigenSim
       # Give the simulator time to shut down
       sleep 0.1 while simulation.running?
       simulation.close
+      simulation.completed_cleanly = true
       simulation.log_results unless Origen.current_command == 'interactive'
     end
 

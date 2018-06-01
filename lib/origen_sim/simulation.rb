@@ -33,31 +33,31 @@ module OrigenSim
       @server_heartbeat = UNIXServer.new(socket_id(:heartbeat))
     end
 
-    def failed?
-      stderr_logged_errors || logged_errors || failed_to_start || !completed_cleanly || error_count > 0
+    def failed?(in_progress = false)
+      failed = stderr_logged_errors || logged_errors || failed_to_start || error_count > 0
+      if in_progress
+        failed
+      else
+        failed || !completed_cleanly
+      end
     end
 
-    def log_results(current_status = false)
-      if failed?
+    def log_results(in_progress = false)
+      if failed?(in_progress)
         if failed_to_start
           Origen.log.error 'The simulation failed to start!'
         else
-          if completed_cleanly
-            if failed?
-              if current_status
-                Origen.log.error "The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!" if error_count > 0
-              else
-                Origen.log.error "The simulation failed with #{error_count} errors!" if error_count > 0
-              end
-              Origen.log.error 'The simulation log reported errors!' if logged_errors
-              Origen.log.error 'The simulation stderr reported errors!' if stderr_logged_errors
-            end
+          if in_progress
+            Origen.log.error "The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!" if error_count > 0
           else
-            Origen.log.error 'The simulation exited early!'
+            Origen.log.error "The simulation failed with #{error_count} errors!" if error_count > 0
           end
+          Origen.log.error 'The simulation log reported errors!' if logged_errors
+          Origen.log.error 'The simulation stderr reported errors!' if stderr_logged_errors
+          Origen.log.error 'The simulation exited early!' unless completed_cleanly || in_progress
         end
       else
-        if current_status
+        if in_progress
           Origen.log.success 'The simulation is passing!'
         else
           Origen.log.success 'The simulation passed!'
