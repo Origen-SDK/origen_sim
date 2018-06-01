@@ -18,6 +18,7 @@ module OrigenSim
 
     def initialize
       @simulations = []
+      @simulation_open = false
     end
 
     # When set to true the simulator will log all messages it receives, note that
@@ -224,10 +225,14 @@ module OrigenSim
     end
 
     def wave_file_basename
-      if Origen.app.current_job
-        @last_wafe_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
+      if OrigenSim.flow
+        OrigenSim.flow
       else
-        @last_wafe_file_basename
+        if Origen.app.current_job
+          @last_wafe_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
+        else
+          @last_wafe_file_basename
+        end
       end
     end
 
@@ -275,8 +280,13 @@ module OrigenSim
       end
     end
 
+    def simulation_open?
+      @simulation_open
+    end
+
     # Starts up the simulator process
     def start
+      @simulation_open = true
       @simulation = Simulation.new(wave_file_basename, view_wave_command)
       simulations << @simulation
 
@@ -407,18 +417,32 @@ module OrigenSim
       simulation.completed_cleanly = true
     end
 
+    # At the start of a test program flow generation/simulation
+    def on_flow_start(options)
+      if simulation_tester? && options[:top_level]
+        OrigenSim.flow = Origen.interface.flow.name
+        start
+        @pattern_count = 0
+      end
+    end
+
+    # At the end of a test program flow generation/simulation
+    def on_flow_end(options)
+      if simulation_tester? && options[:top_level]
+        stop
+      end
+    end
+
     # Called before every pattern is generated, but we only use it the
     # first time it is called to kick off the simulator process if the
     # current tester is an OrigenSim::Tester
     def before_pattern(name)
       if simulation_tester?
         if OrigenSim.flow || !simulation
-          # When running pattern back-to-back, only want to launch the simulator the
-          # first time
+          # When running patterns back-to-back, only want to launch the simulator the first time
           start unless simulation
         else
           stop
-          simulation.log_results
           start
         end
         # Set the current pattern name in the simulation
@@ -427,12 +451,7 @@ module OrigenSim
         # If running a flow, give the user some feedback about pass/fail status after
         # each individual pattern has completed
         if @pattern_count > 0 && OrigenSim.flow
-          c = error_count
-          if c > 0
-            Origen.log.error "The simulation currently has #{c} error(s)!"
-          else
-            Origen.log.success 'There are no simulation errors yet!'
-          end
+          simulation.log_results(true)
         end
         @pattern_count += 1
       end
@@ -632,6 +651,7 @@ module OrigenSim
 
     # Stop the simulator
     def stop
+      @simulation_open = false
       simulation.error_count = error_count
       Origen.listeners_for(:simulation_shutdown).each(&:simulation_shutdown)
       ended = Time.now
@@ -639,6 +659,7 @@ module OrigenSim
       # Give the simulator time to shut down
       sleep 0.1 while simulation.running?
       simulation.close
+      simulation.log_results unless Origen.current_command == 'interactive'
     end
 
     def on_origen_shutdown
@@ -648,12 +669,11 @@ module OrigenSim
         # of the shutdown continues if we got in here via a CTRL-C, in which case the simulator
         # is probably already dead
         begin
-          stop
+          stop if simulation_open?
         rescue
           failed = true
         end
         unless @interactive_mode
-          simulation.log_results
           if simulations.size == 1
             failed = simulation.failed?
           else

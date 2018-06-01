@@ -45,7 +45,7 @@ Pattern.create do
 
   if tester.sim?
     sim = tester.simulator
-    capture_value = sim.peek("origen.pins.tdo.memory").to_i
+    capture_value = sim.peek("origen.pins.tdo.memory").to_i[31..0]
     unless capture_value == 0x11662244 # 0x2244_6688 reversed
       if capture_value
         OrigenSim.error "Captured #{capture_value.to_hex} instead of 0x11662244!"

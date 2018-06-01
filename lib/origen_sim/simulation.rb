@@ -36,14 +36,18 @@ module OrigenSim
       logged_errors || failed_to_start || !completed_cleanly || error_count > 0
     end
 
-    def log_results
+    def log_results(current_status = false)
       if failed?
         if failed_to_start
           Origen.log.error 'The simulation failed to start!'
         else
           if completed_cleanly
             if failed?
-              Origen.log.error "The simulation failed with #{error_count} errors!" if error_count > 0
+              if current_status
+                Origen.log.error "The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!" if error_count > 0
+              else
+                Origen.log.error "The simulation failed with #{error_count} errors!" if error_count > 0
+              end
               Origen.log.error 'The simulation log reported errors!' if logged_errors
             end
           else
@@ -51,7 +55,11 @@ module OrigenSim
           end
         end
       else
-        Origen.log.success 'The simulation passed!'
+        if current_status
+          Origen.log.success 'The simulation is passing!'
+        else
+          Origen.log.success 'The simulation passed!'
+        end
       end
     end
 

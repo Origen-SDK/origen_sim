@@ -34,7 +34,7 @@ module OrigenSim
   end
 
   def self.flow=(val)
-    @flow
+    @flow = val
   end
 
   def self.flow
