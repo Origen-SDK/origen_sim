@@ -45,12 +45,12 @@ Pattern.create do
 
   if tester.sim?
     sim = tester.simulator
-    capture_value = sim.peek("origen.pins.tdo.memory").to_i
+    capture_value = sim.peek("origen.pins.tdo.memory").to_i[31..0]
     unless capture_value == 0x11662244 # 0x2244_6688 reversed
       if capture_value
-        fail "Captured #{capture_value.to_hex} instead of 0x11662244!"
+        OrigenSim.error "Captured #{capture_value.to_hex} instead of 0x11662244!"
       else
-        fail "Nothing captured instead of 0x11662244!"
+        OrigenSim.error "Nothing captured instead of 0x11662244!"
       end
     end
 
@@ -58,7 +58,7 @@ Pattern.create do
     dut.cmd.write(0) # Make Origen forget the actual value
     dut.cmd.sync
     unless dut.cmd.data == 0x2244_6688
-      fail "CMD register did not sync from simulation"
+      OrigenSim.error "CMD register did not sync from simulation"
     end
 
     ss "Test sync of a register via a parallel interface"
@@ -68,7 +68,7 @@ Pattern.create do
     dut.pins(:dout).dont_care
     dut.parallel_read.sync
     unless dut.parallel_read.data == 0x7707_7077
-      fail "PARALLEL_READ register did not sync from simulation"
+      OrigenSim.error "PARALLEL_READ register did not sync from simulation"
     end
   end
 

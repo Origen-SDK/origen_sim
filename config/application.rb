@@ -57,7 +57,9 @@ class OrigenSimApplication < Origen::Application
 
   # An example of how to set application specific LSF parameters
   #config.lsf.project = "msg.te"
-  
+  config.lsf.queue = ENV["ORIGEN_LSF_QUEUE"] if ENV["ORIGEN_LSF_QUEUE"]
+  config.lsf.resource = ENV["ORIGEN_LSF_RESOURCE"] if ENV["ORIGEN_LSF_RESOURCE"]
+
   # An example of how to specify a prefix to add to all generated patterns
   #config.pattern_prefix = "nvm"
 

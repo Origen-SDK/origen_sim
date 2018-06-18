@@ -4,6 +4,7 @@ require 'origen_testers'
 require 'origen_sim/origen_testers/api'
 require 'origen_sim/origen/pins/pin'
 require 'origen_sim/origen/top_level'
+require 'origen_sim/origen/application/runner'
 module OrigenSim
   # THIS FILE SHOULD ONLY BE USED TO LOAD RUNTIME DEPENDENCIES
   # If this plugin has any development dependencies (e.g. dummy DUT or other models that are only used
@@ -46,7 +47,15 @@ module OrigenSim
   end
 
   def self.verbose?
-    !!(@verbose || Origen.debugger_enabled?)
+    !!(@verbose || Origen.debugger_enabled? || Origen.running_remotely?)
+  end
+
+  def self.flow=(val)
+    @flow = val
+  end
+
+  def self.flow
+    @flow
   end
 
   def self.error_strings
@@ -99,6 +108,10 @@ module OrigenSim
 
   def self.fail_on_stderr
     defined?(@fail_on_stderr) ? @fail_on_stderr : true
+  end
+
+  def self.error(message)
+    simulator.error(message)
   end
 end
 OrigenSim.__instantiate_simulator__
