@@ -1,3 +1,17 @@
+<a class="anchor release_tag" name="v0_11_0"></a>
+<h1><a href="#v0_11_0">Tag: v0.11.0</a></h1>
+
+##### Branch: 'master'
+
+##### by Stephen McGinty on 20-Jun-2018 05:39AM
+
+
+Fixed bug with time factor.
+
+
+Made log output reading from the simulator asyncronous so that it appears in the console
+and log when the main Origen thread is in a long running wait state.
+
 <a class="anchor release_tag" name="v0_10_0"></a>
 <h1><a href="#v0_10_0">Tag: v0.10.0</a></h1>
 
