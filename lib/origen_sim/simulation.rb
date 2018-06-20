@@ -1,6 +1,8 @@
 require 'socket'
 require 'io/wait'
 require 'origen_sim/heartbeat'
+require 'origen_sim/stdout_reader'
+require 'origen_sim/stderr_reader'
 module OrigenSim
   # Responsible for managing each individual simulation that is run in an
   # Origen thread e.g. If multiple patterns are run in separate simulations, then one
@@ -12,7 +14,7 @@ module OrigenSim
     attr_reader :view_wave_command, :id
 
     attr_accessor :logged_errors, :error_count, :failed_to_start, :completed_cleanly
-    attr_accessor :pid, :stderr_logged_errors
+    attr_accessor :pid
     # Returns the communication socket used for sending commands to the Origen VPI running
     # in the simulation process
     attr_reader :socket
@@ -23,7 +25,6 @@ module OrigenSim
       @completed_cleanly = false
       @failed_to_start = false
       @logged_errors = false
-      @stderr_logged_errors = false
       @error_count = 0
       @socket_ids = {}
 
@@ -40,6 +41,14 @@ module OrigenSim
       else
         failed || !completed_cleanly
       end
+    end
+
+    def logged_errors
+      @logged_errors || @stdout_reader.logged_errors
+    end
+
+    def stderr_logged_errors
+      @stderr_reader.logged_errors
     end
 
     def log_results(in_progress = false)
@@ -85,6 +94,8 @@ module OrigenSim
       @stdout = @server_stdout.accept
       @stderr = @server_stderr.accept
       @socket = @server.accept
+      @stdout_reader = StdoutReader.new(@stdout)
+      @stderr_reader = StderrReader.new(@stderr)
       @opened = true
     end
 
@@ -92,6 +103,8 @@ module OrigenSim
     def close
       return unless @opened
       stop_heartbeat
+      @stdout_reader.stop
+      @stderr_reader.stop
       @heartbeat.close
       @socket.close
       @stderr.close
@@ -100,37 +113,6 @@ module OrigenSim
       File.unlink(socket_id) if File.exist?(socket_id)
       File.unlink(socket_id(:stderr)) if File.exist?(socket_id(:stderr))
       File.unlink(socket_id(:stdout)) if File.exist?(socket_id(:stdout))
-    end
-
-    def read_sim_output
-      while @stdout.ready?
-        line = @stdout.gets.chomp
-        if OrigenSim.error_strings.any? { |s| line =~ /#{s}/ } &&
-           !OrigenSim.error_string_exceptions.any? { |s| line =~ /#{s}/ }
-          @logged_errors = true
-          Origen.log.error "(STDOUT): #{line}"
-        else
-          if OrigenSim.verbose? ||
-             OrigenSim.log_strings.any? { |s| line =~ /#{s}/ }
-            Origen.log.info line
-          else
-            Origen.log.debug line
-          end
-        end
-      end
-      while @stderr.ready?
-        line = @stderr.gets.chomp
-        if OrigenSim.fail_on_stderr && !line.empty? &&
-           !OrigenSim.stderr_string_exceptions.any? { |s| line =~ /#{s}/ }
-          # We're failing on stderr, so print its results and log as errors if its not an exception.
-          @stderr_logged_errors = true
-          Origen.log.error "(STDERR): #{line}"
-        elsif OrigenSim.verbose?
-          # We're not failing on stderr, or the string in stderr is an exception.
-          # Print the string as regular output if verbose is set, otherwise just ignore.
-          Origen.log.info line
-        end
-      end
     end
 
     # Returns true if the simulation is running

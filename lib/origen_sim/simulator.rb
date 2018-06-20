@@ -599,7 +599,6 @@ module OrigenSim
 
     def cycle(number_of_cycles)
       put("3^#{number_of_cycles}")
-      simulation.read_sim_output
     end
 
     # Blocks the Origen process until the simulator indicates that it has
@@ -610,7 +609,6 @@ module OrigenSim
       unless data.strip == 'OK!'
         fail 'Origen and the simulator are out of sync!'
       end
-      simulation.read_sim_output
     end
 
     def error(message)
@@ -717,7 +715,6 @@ module OrigenSim
     # Stop the simulator
     def stop
       @simulation_open = false
-      simulation.read_sim_output
       simulation.error_count = error_count
       Origen.listeners_for(:simulation_shutdown).each(&:simulation_shutdown)
       ended = Time.now
