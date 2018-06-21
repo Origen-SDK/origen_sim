@@ -47,12 +47,8 @@ unless ARGV.size > 0
   puts 'You must supply a path to the top-level RTL file'
   _exit_fail_
 end
-files = ARGV.first
+files = ARGV.join(' ')
 rtl_top = files.split(/\s+/).last
-unless File.exist?(rtl_top)
-  puts "File does not exist: #{rtl_top}"
-  _exit_fail_
-end
 
 ast = OrigenVerilog.parse_file(files, options)
 
