@@ -482,6 +482,7 @@ module OrigenSim
     # At the start of a test program flow generation/simulation
     def on_flow_start(options)
       if simulation_tester? && options[:top_level]
+        @flow_running = true
         OrigenSim.flow = Origen.interface.flow.name
         start
         @pattern_count = 0
@@ -491,6 +492,8 @@ module OrigenSim
     # At the end of a test program flow generation/simulation
     def on_flow_end(options)
       if simulation_tester? && options[:top_level]
+        @flow_running = false
+        simulation.completed_cleanly = true
         stop
       end
     end
@@ -504,6 +507,7 @@ module OrigenSim
           # When running patterns back-to-back, only want to launch the simulator the first time
           start unless simulation
         else
+          simulation.completed_cleanly = true
           stop
           start
         end
@@ -514,6 +518,8 @@ module OrigenSim
         # each individual pattern has completed
         if @pattern_count > 0 && OrigenSim.flow
           simulation.log_results(true)
+          # Require each pattern to set this upon successful completion
+          simulation.completed_cleanly = false unless @flow_running
         end
         @pattern_count += 1
       end
@@ -523,7 +529,10 @@ module OrigenSim
     # sure the simulator is not running behind before potentially
     # moving onto another pattern
     def pattern_generated(path)
-      sync_up if simulation_tester?
+      if simulation_tester?
+        sync_up
+        simulation.completed_cleanly = true unless @flow_running
+      end
     end
 
     def write_comment(comment)
@@ -720,26 +729,19 @@ module OrigenSim
       @simulation_open = false
       simulation.error_count = error_count
       Origen.listeners_for(:simulation_shutdown).each(&:simulation_shutdown)
-      ended = Time.now
       end_simulation
       # Give the simulator time to shut down
       sleep 0.1 while simulation.running?
       simulation.close
-      simulation.completed_cleanly = true
       simulation.log_results unless Origen.current_command == 'interactive'
+    rescue
+      simulation.completed_cleanly = false
     end
 
     def on_origen_shutdown
       unless simulations.empty?
         failed = false
-        # Stop the current simulation, this is done with the rescue wrapper so that the rest
-        # of the shutdown continues if we got in here via a CTRL-C, in which case the simulator
-        # is probably already dead
-        begin
-          stop if simulation_open?
-        rescue
-          simulation.completed_cleanly = false
-        end
+        stop if simulation_open?
         unless @interactive_mode
           if simulations.size == 1
             failed = simulation.failed?

@@ -110,7 +110,7 @@ module OrigenSim
 
         Origen.log.debug 'The simulation monitor has started'
         Origen.log.debug @status.gets.chomp  # Starting simulator
-        Origen.log.info @status.gets.chomp  # Simulator has started
+        Origen.log.debug @status.gets.chomp  # Simulator has started
         response = @status.gets.chomp
         if response =~ /finished/
           abort_connection
@@ -120,7 +120,7 @@ module OrigenSim
         # That's all status info done until the simulation process ends, start a thread
         # to wait for that in case it ends before the VPI starts
         Thread.new do
-          Origen.log.info @status.gets.chomp  # This will block until something is received
+          Origen.log.debug @status.gets.chomp  # This will block until something is received
           abort_connection
         end
         Origen.log.debug 'Waiting for Origen VPI to start...'
@@ -134,7 +134,7 @@ module OrigenSim
           log_results
           exit  # Assume it is not worth trying another pattern in this case, some kind of environment/config issue
         end
-        Origen.log.info 'Origen VPI has started'
+        Origen.log.debug 'Origen VPI has started'
       end
 
       @opened = true
