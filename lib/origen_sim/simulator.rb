@@ -352,6 +352,7 @@ module OrigenSim
 
     # Starts up the simulator process
     def start
+      Origen.log.level = :verbose if Origen.debugger_enabled?
       @simulation_open = true
       @simulation = Simulation.new(wave_file_basename, view_wave_command)
       simulations << @simulation
