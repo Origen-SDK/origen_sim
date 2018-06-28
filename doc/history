@@ -1,3 +1,17 @@
+<a class="anchor release_tag" name="v0_12_0"></a>
+<h1><a href="#v0_12_0">Tag: v0.12.0</a></h1>
+
+##### Branch: 'master'
+
+##### by Stephen McGinty on 28-Jun-2018 15:09PM
+
+
+* Now ignores operations on pins not present in the testbench
+* Made the simulation fail if the Ruby pattern/flow source crashes (issue #13)
+* Increased the maximum number of wave events to 50 (issue #14)
+* Logged WARNING lines with similar control to capture/ignore as ERROR lines
+* Added more debug status logging during simulator startup
+
 <a class="anchor release_tag" name="v0_11_1"></a>
 <h1><a href="#v0_11_1">Tag: v0.11.1</a></h1>
 
