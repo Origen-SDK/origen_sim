@@ -378,16 +378,20 @@ module OrigenSim
           exit!
         end
 
+        status = UNIXSocket.new('#{simulation.socket_id(:status)}')
         stdout_socket = UNIXSocket.new('#{simulation.socket_id(:stdout)}')
         stderr_socket = UNIXSocket.new('#{simulation.socket_id(:stderr)}')
         heartbeat = UNIXSocket.new('#{simulation.socket_id(:heartbeat)}')
 
         begin
 
+          status.puts('Starting the simulator...')
+
           Dir.chdir '#{run_dir}' do
             Open3.popen3('#{cmd}') do |stdin, stdout, stderr, thread|
+              status.puts('The simulator has started')
               pid = stdout.gets.strip.to_i
-              heartbeat.puts(pid.to_s)
+              status.puts(pid.to_s)
 
               # Listen for a heartbeat from the main Origen process every 5 seconds, kill the
               # simulator after two missed heartbeats
@@ -433,27 +437,26 @@ module OrigenSim
             end
           end
 
+          status.puts 'The simulator has finished'
+
         ensure
           # Make sure this process never finishes and leaves the simulator running
           kill_simulation(pid) if pid
         end
       )
 
+      Origen.log.debug 'Starting the simulation monitor...'
+
       simulator_parent_process = spawn("ruby -e \"#{launch_simulator}\"")
       Process.detach(simulator_parent_process)
 
-      timeout_connection(config[:startup_timeout] || 60) do
-        simulation.open # This will block until the simulation process responds
+      simulation.open(config[:startup_timeout] || 60) # This will block until the simulation process has started
 
-        @connection_established = true # Cancels timeout_connection
-        if @connection_timed_out
-          simulation.failed_to_start = true
-          exit  # Assume it is not worth trying another pattern in this case, some kind of environment/config issue
-        end
-      end
+      # The VPI extension will send 'READY!' when it starts, make sure we get it before proceeding
       data = get
       unless data.strip == 'READY!'
         simulation.failed_to_start = true
+        simulation.log_results
         exit  # Assume it is not worth trying another pattern in this case, some kind of environment/config issue
       end
       # Tick the simulation on, this seems to be required since any VPI puts operations before
@@ -782,21 +785,6 @@ module OrigenSim
 
     def simulation_tester?
       (tester && tester.is_a?(OrigenSim::Tester))
-    end
-
-    def timeout_connection(wait_in_s)
-      @connection_timed_out = false
-      @connection_established = false
-      t = Thread.new do
-        sleep wait_in_s
-        # If the Verilog process has not established a connection yet, then make one to
-        # release our process and then exit
-        unless @connection_established
-          @connection_timed_out = true
-          UNIXSocket.new(socket_id).puts("Time out\n")
-        end
-      end
-      yield
     end
 
     def sync

@@ -28,10 +28,17 @@ module OrigenSim
       @error_count = 0
       @socket_ids = {}
 
-      @server = UNIXServer.new(socket_id) # Socket used to send Origen -> Verilog commands
+      # Socket used to send Origen -> Verilog commands
+      @server = UNIXServer.new(socket_id)
+
+      # Socket used to capture STDOUT from the simulator
       @server_stdout = UNIXServer.new(socket_id(:stdout))
+      # Socket used to capture STDERR from the simulator
       @server_stderr = UNIXServer.new(socket_id(:stderr))
+      # Socket used to send a heartbeat pulse from Origen to process running the simulator
       @server_heartbeat = UNIXServer.new(socket_id(:heartbeat))
+      # Socket used to receive status updates from the process running the simulator
+      @server_status = UNIXServer.new(socket_id(:status))
     end
 
     def failed?(in_progress = false)
@@ -54,7 +61,11 @@ module OrigenSim
     def log_results(in_progress = false)
       if failed?(in_progress)
         if failed_to_start
-          Origen.log.error 'The simulation failed to start!'
+          if Origen.debugger_enabled?
+            Origen.log.error 'The simulation failed to get underway!'
+          else
+            Origen.log.error 'The simulation failed to get underway! (run again with -d to see why)'
+          end
         else
           if in_progress
             Origen.log.error "The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!" if error_count > 0
@@ -80,7 +91,6 @@ module OrigenSim
     # heartbeats.
     def start_heartbeat
       @heartbeat = @server_heartbeat.accept
-      @pid = @heartbeat.gets.chomp.to_i
       @heartbeat_thread = Heartbeat.new(@heartbeat)
     end
 
@@ -89,14 +99,64 @@ module OrigenSim
     end
 
     # Open the communication channels with the simulator
-    def open
-      start_heartbeat
-      @stdout = @server_stdout.accept
-      @stderr = @server_stderr.accept
-      @socket = @server.accept
-      @stdout_reader = StdoutReader.new(@stdout)
-      @stderr_reader = StderrReader.new(@stderr)
+    def open(timeout)
+      timeout_connection(timeout) do
+        start_heartbeat
+        @stdout = @server_stdout.accept
+        @stderr = @server_stderr.accept
+        @status = @server_status.accept
+        @stdout_reader = StdoutReader.new(@stdout)
+        @stderr_reader = StderrReader.new(@stderr)
+
+        Origen.log.debug 'The simulation monitor has started'
+        Origen.log.debug @status.gets.chomp  # Starting simulator
+        Origen.log.info @status.gets.chomp  # Simulator has started
+        response = @status.gets.chomp
+        if response =~ /finished/
+          abort_connection
+        else
+          @pid = response.to_i
+        end
+        # That's all status info done until the simulation process ends, start a thread
+        # to wait for that in case it ends before the VPI starts
+        Thread.new do
+          Origen.log.info @status.gets.chomp  # This will block until something is received
+          abort_connection
+        end
+        Origen.log.debug 'Waiting for Origen VPI to start...'
+
+        # This will block until the VPI extension is invoked and connects to the socket
+        @socket = @server.accept
+
+        @connection_established = true # Cancels timeout_connection
+        if @connection_aborted
+          self.failed_to_start = true
+          log_results
+          exit  # Assume it is not worth trying another pattern in this case, some kind of environment/config issue
+        end
+        Origen.log.info 'Origen VPI has started'
+      end
+
       @opened = true
+    end
+
+    def timeout_connection(wait_in_s)
+      @connection_aborted = false
+      @connection_established = false
+      Thread.new do
+        sleep wait_in_s
+        abort_connection # Will do nothing if a successful connection has been made while we were waiting
+      end
+      yield
+    end
+
+    def abort_connection
+      # If the Verilog process has not established a connection yet, then make one to
+      # release our process and then exit
+      unless @connection_established
+        @connection_aborted = true
+        UNIXSocket.new(socket_id).puts("Time out\n")
+      end
     end
 
     # Close all communication channels with the simulator
