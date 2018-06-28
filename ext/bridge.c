@@ -12,9 +12,10 @@
 #include <string.h>
 
 #define MAX_NUMBER_PINS 2000
-#define MAX_WAVE_EVENTS 10
+#define MAX_WAVE_EVENTS 50
 
 typedef struct Pin {
+  char *name;
   vpiHandle data;        // A handle to the driver data register
   vpiHandle drive;       // A handle to the driver drive enable register
   vpiHandle force_data;  // A handle to the driver force_data register
@@ -27,6 +28,7 @@ typedef struct Pin {
   int index;             // The pin's index in the pins array
   int previous_state;    // Used to keep track of whether the pin was previously driving or comparing
   bool capture_en;       // Used to indicated when compare data should be captured instead of compared
+  bool present;          // Set to true if the pin is present in the testbench
 } Pin;
 
 typedef struct Event {
@@ -76,11 +78,14 @@ static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, 
   Pin *pin = &pins[index];
   number_of_pins += 1;
 
+  (*pin).name = malloc(strlen(name) + 1);
+  strcpy((*pin).name, name);
   (*pin).index = index;
   (*pin).drive_wave = atoi(drive_wave_ix);
   (*pin).compare_wave = atoi(compare_wave_ix);
   (*pin).previous_state = 0;
   (*pin).capture_en = false;
+
 
   char * driver = (char *) malloc(strlen(name) + 16);
   strcpy(driver, ORIGEN_SIM_TESTBENCH_CAT("pins."));
@@ -91,6 +96,13 @@ static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, 
   strcat(data, ".data");
   (*pin).data = vpi_handle_by_name(data, NULL);
   free(data);
+
+  if (!(*pin).data) {
+    vpi_printf("WARNING: Your DUT defines pin '%s', however it is not present in the testbench and will be ignored\n", (*pin).name);
+    (*pin).present = false;
+  } else {
+    (*pin).present = true;
+  }
 
   char * drive = (char *) malloc(strlen(driver) + 16);
   strcpy(drive, driver);
@@ -254,6 +266,10 @@ static void bridge_disable_compare_wave(Pin * pin) {
 
 
 static void bridge_clear_waves_and_pins() {
+  for (int i = 0; i < number_of_pins; i++) {
+    Pin *pin = &pins[i];
+    free((*pin).name);
+  }
   number_of_pins = 0;
   number_of_drive_waves = 0;
   number_of_compare_waves = 0;
@@ -286,30 +302,32 @@ static void bridge_drive_pin(char * index, char * val) {
   Pin *pin = &pins[atoi(index)];
   s_vpi_value v = {vpiIntVal, {0}};
 
-  // Apply the data value to the pin's driver
-  v.value.integer = (val[0] - '0');
-  vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
-  // Make sure not comparing
-  v.value.integer = 0;
-  vpi_put_value((*pin).compare, &v, NULL, vpiNoDelay);
+  if ((*pin).present) {
+    // Apply the data value to the pin's driver
+    v.value.integer = (val[0] - '0');
+    vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
+    // Make sure not comparing
+    v.value.integer = 0;
+    vpi_put_value((*pin).compare, &v, NULL, vpiNoDelay);
 
-  // Register it as actively driving with it's wave
-  
-  // If it is already driving the wave will already be setup
-  if ((*pin).previous_state != 1) {
-    // If the drive is for the whole cycle, then we can enable it here
-    // and don't need a callback
-    if (bridge_is_drive_whole_cycle(pin)) {
-      v.value.integer = 1;
-      vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
-    } else {
-      bridge_enable_drive_wave(pin);
-    }
+    // Register it as actively driving with it's wave
+    
+    // If it is already driving the wave will already be setup
+    if ((*pin).previous_state != 1) {
+      // If the drive is for the whole cycle, then we can enable it here
+      // and don't need a callback
+      if (bridge_is_drive_whole_cycle(pin)) {
+        v.value.integer = 1;
+        vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
+      } else {
+        bridge_enable_drive_wave(pin);
+      }
 
-    if ((*pin).previous_state == 2) {
-      bridge_disable_compare_wave(pin);
+      if ((*pin).previous_state == 2) {
+        bridge_disable_compare_wave(pin);
+      }
+      (*pin).previous_state = 1;
     }
-    (*pin).previous_state = 1;
   }
 }
 
@@ -319,23 +337,25 @@ static void bridge_compare_pin(char * index, char * val) {
   Pin *pin = &pins[atoi(index)];
   s_vpi_value v = {vpiIntVal, {0}};
 
-  // Apply the data value to the pin's driver, don't enable compare yet,
-  // the wave will do that later
-  v.value.integer = (val[0] - '0');
-  vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
-  // Make sure not driving
-  v.value.integer = 0;
-  vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
+  if ((*pin).present) {
+    // Apply the data value to the pin's driver, don't enable compare yet,
+    // the wave will do that later
+    v.value.integer = (val[0] - '0');
+    vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
+    // Make sure not driving
+    v.value.integer = 0;
+    vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
 
-  // Register it as actively comparing with it's wave
-  
-  // If it is already comparing the wave will already be setup
-  if ((*pin).previous_state != 2) {
-    bridge_enable_compare_wave(pin);
-    if ((*pin).previous_state == 1) {
-      bridge_disable_drive_wave(pin);
+    // Register it as actively comparing with it's wave
+    
+    // If it is already comparing the wave will already be setup
+    if ((*pin).previous_state != 2) {
+      bridge_enable_compare_wave(pin);
+      if ((*pin).previous_state == 1) {
+        bridge_disable_drive_wave(pin);
+      }
+      (*pin).previous_state = 2;
     }
-    (*pin).previous_state = 2;
   }
 }
 
@@ -361,21 +381,23 @@ static void bridge_dont_care_pin(char * index) {
   Pin *pin = &pins[atoi(index)];
   s_vpi_value v = {vpiIntVal, {0}};
 
-  // Disable drive and compare on the pin's driver
-  v.value.integer = 0;
-  vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
-  vpi_put_value((*pin).compare, &v, NULL, vpiNoDelay);
+  if ((*pin).present) {
+    // Disable drive and compare on the pin's driver
+    v.value.integer = 0;
+    vpi_put_value((*pin).drive, &v, NULL, vpiNoDelay);
+    vpi_put_value((*pin).compare, &v, NULL, vpiNoDelay);
 
-  if ((*pin).previous_state != 0) {
-    if ((*pin).previous_state == 1) {
-      if (!bridge_is_drive_whole_cycle(pin)) {
-        bridge_disable_drive_wave(pin);
+    if ((*pin).previous_state != 0) {
+      if ((*pin).previous_state == 1) {
+        if (!bridge_is_drive_whole_cycle(pin)) {
+          bridge_disable_drive_wave(pin);
+        }
       }
+      if ((*pin).previous_state == 2) {
+        bridge_disable_compare_wave(pin);
+      }
+      (*pin).previous_state = 0;
     }
-    if ((*pin).previous_state == 2) {
-      bridge_disable_compare_wave(pin);
-    }
-    (*pin).previous_state = 0;
   }
 }
 

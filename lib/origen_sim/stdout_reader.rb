@@ -16,6 +16,9 @@ module OrigenSim
                !OrigenSim.error_string_exceptions.any? { |s| line =~ /#{s}/ }
               @logged_errors = true
               Origen.log.error "(STDOUT): #{line}"
+            elsif OrigenSim.warning_strings.any? { |s| line =~ /#{s}/ } &&
+                  !OrigenSim.warning_string_exceptions.any? { |s| line =~ /#{s}/ }
+              Origen.log.warn line
             else
               if OrigenSim.verbose? ||
                  OrigenSim.log_strings.any? { |s| line =~ /#{s}/ }

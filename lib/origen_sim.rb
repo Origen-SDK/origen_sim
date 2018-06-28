@@ -91,6 +91,28 @@ module OrigenSim
     @stderr_string_exceptions = val
   end
 
+  def self.warning_strings
+    @warning_strings ||= ['WARNING']
+  end
+
+  def self.warning_strings=(val)
+    unless val.is_a?(Array)
+      fail 'OrigenSim.warning_strings can only be set to an array of string values!'
+    end
+    @warning_strings = val
+  end
+
+  def self.warning_string_exceptions
+    @warning_string_exceptions ||= []
+  end
+
+  def self.warning_string_exceptions=(val)
+    unless val.is_a?(Array)
+      fail 'OrigenSim.warning_string_exceptions can only be set to an array of string values!'
+    end
+    @warning_string_exceptions = val
+  end
+
   def self.log_strings
     @log_strings ||= []
   end
