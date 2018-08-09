@@ -48,18 +48,7 @@ curSTATUS ByChange
 
 
 addGroup "APB"
-activeDirFile "" "/proj/pet/nxa19128/temp/c40msf_nvm_tester/waves/c40msf_512k_1a/nvm_bin55.fsdb"
-addSignal -h 15 /origen/dut/msf_apb_clk_en
-addSignal -h 15 -UNSIGNED -HEX -holdScope msf_apb_rdata1[31:0]
-addSignal -h 15 -holdScope msf_apb_ready1
-addSignal -h 15 -holdScope msf_apb_slverr1
-addSignal -h 15 -UNSIGNED -HEX -holdScope soc_apb_addr[11:2]
-addSignal -h 15 -holdScope soc_apb_clk
-addSignal -h 15 -holdScope soc_apb_enable
-addSignal -h 15 -holdScope soc_apb_sel1
-addSignal -h 15 -UNSIGNED -HEX -holdScope soc_apb_wdata[31:0]
-addSignal -h 15 -holdScope soc_apb_write
-addSignal -h 15 -holdScope soc_gated_apb_clk
+activeDirFile "" ""
 addGroup "SOC"
 addGroup "Errors"
 addGroup "Firmware"
@@ -68,7 +57,7 @@ addGroup "G6"
 
 ; getSignalForm Scope Hierarchy Status
 ; active file of getSignalForm
-activeDirFile "" "/proj/pet/nxa19128/temp/c40msf_nvm_tester/waves/c40msf_512k_1a/nvm_bin55.fsdb"
+activeDirFile "" ""
 
 GETSIGNALFORM_SCOPE_HIERARCHY_BEGIN
 getSignalForm close
