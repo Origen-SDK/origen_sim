@@ -6,7 +6,7 @@ module OrigenSim
   class Simulator
     include Origen::PersistentCallbacks
 
-    VENDORS = [:icarus, :cadence, :synopsys, :generic]
+    VENDORS = [:icarus, :cadence, :synopsys, :verdi, :generic]
 
     attr_reader :configuration
     alias_method :config, :configuration
@@ -191,6 +191,8 @@ module OrigenSim
         'svcf'
       when :synopsys
         'tcl'
+      when :verdi
+        'rc'
       end
     end
 
@@ -232,6 +234,9 @@ module OrigenSim
 
       when :synopsys
         cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
+
+      when :verdi
+        cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{Origen.target.name}/#{wave_file_basename}.fsdb +memcbk +vcsd"
 
       when :generic
         # Generic tester requires that a generic_run_command option/block be provided.
@@ -315,6 +320,16 @@ module OrigenSim
         cmd += " -session #{f}"
         cmd += ' &'
 
+     when :verdi
+       edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
+       cmd = "cd #{edir} && "
+       cmd += configuration[:verdi] || 'verdi'
+       dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+       cmd += " -ssf #{dir}/#{wave_file_basename}.fsdb"
+       f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+       cmd += " -sswr #{f}"
+       cmd += ' &'
+
       when :generic
         # Since this could be anything, the simulator will need to set this up. But, once it is, we can print it here.
         if config[:view_waveform_cmd]
@@ -340,6 +355,8 @@ module OrigenSim
         FileUtils.mkdir_p(d)
         d
       when :synopsys
+        wave_dir
+      when :veridi
         wave_dir
       else
         tmp_dir
