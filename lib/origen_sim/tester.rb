@@ -128,34 +128,70 @@ module OrigenSim
 
     def match(pin, state, timeout_in_cycles, options = {})
       expected_val = state == :high ? 1 : 0
+      if options[:pin2]
+        expected_val2 = options[:state2] == :high ? 1 : 0
+      end
+      timed_out = true
       10.times do
+        (timeout_in_cycles / 10).cycles
         current_val = simulator.peek("dut.#{pin.rtl_name}").to_i
-        if current_val == expected_val
-          break
+        if options[:pin2]
+          current_val2 = simulator.peek("dut.#{options[:pin2].rtl_name}").to_i
+          if current_val == expected_val || current_val2 == expected_val2
+            timed_out = false
+            break
+          end
         else
-          (timeout_in_cycles / 10).cycles
+          if current_val == expected_val
+            timed_out = false
+            break
+          end
         end
       end
       # Final assertion to make the pattern fail if the loop timed out
-      pin.restore_state do
-        pin.assert!(expected_val)
+      if timed_out
+        pin.restore_state do
+          pin.assert!(expected_val)
+        end
+        if options[:pin2]
+          options[:pin2].restore_state do
+            options[:pin2].assert!(expected_val2)
+          end
+        end
       end
     end
 
     def match_block(timeout_in_cycles, options = {}, &block)
+      match_conditions = Origen::Utility::BlockArgs.new
+      fail_conditions = Origen::Utility::BlockArgs.new
+      if block.arity > 0
+        block.call(match_conditions, fail_conditions)
+      else
+        match_conditions.add(&block)
+      end
+      timed_out = true
       simulator.match_loop do
         10.times do
-          e = simulator.match_errors
-          block.call
-          if e == simulator.match_errors
+          (timeout_in_cycles / 10).cycles
+          # Consider the match resolved if any condition can execute without generating errors
+          if match_conditions.any? do |condition|
+            e = simulator.match_errors
+            condition.call
+            e == simulator.match_errors
+          end
+            timed_out = false
             break
-          else
-            (timeout_in_cycles / 10).cycles
           end
         end
       end
       # Final execution to make the pattern fail if the loop timed out
-      block.call
+      if timed_out
+        if fail_conditions.instance_variable_get(:@block_args).empty?
+          match_conditions.each(&:call)
+        else
+          fail_conditions.each(&:call)
+        end
+      end
     end
 
     private

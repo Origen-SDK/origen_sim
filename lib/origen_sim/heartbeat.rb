@@ -9,7 +9,7 @@ module OrigenSim
       super do
         while @continue
           socket.write("OK\n")
-          sleep 5
+          sleep 0.5
         end
       end
     end
