@@ -8,9 +8,50 @@ module OrigenTesters
     end
     alias_method :simulator?, :sim?
 
+    def sim_delay(id, options = {}, &block)
+      id = "delay_#{id}".to_sym  # Just to make sure it is unique from the sim_capture IDs
+      if @sim_capture || @sim_delay
+        fail 'Nesting of sim_capture and/or sim_delay blocks is not yet supported!'
+      end
+      Origen::OrgFile.open(id) do |org_file|
+        orig_id = id
+        @org_file = org_file
+        if update_capture?
+          @sim_delay = true
+          # This enables errors to be captured in a separate variable so that they don't affect
+          # the overall simulation result
+          start_cycle = cycle_count
+          delay = 0
+          simulator.match_loop do
+            e = -1
+            until e == simulator.match_errors
+              delay = cycle_count - start_cycle
+              e = simulator.match_errors
+              pre_block_cycle = cycle_count
+              block.call
+              # Make sure time is advancing, the block does not necessarily have to advance time
+              1.cycle if pre_block_cycle == cycle_count
+            end
+          end
+          Origen.log.debug "sim_delay #{orig_id} resolved after #{delay} cycles"
+          # We now know how long it took before the block could pass, now record that information
+          # to the org file for next time
+          org_file.record('tester', 'cycle')
+          org_file.file  # Need to call this since we are bypassing the regular capture API here
+          Origen::OrgFile.cycle(delay)
+        else
+          org_file.read_line do |operations, cycles|
+            cycles.cycles
+          end
+        end
+      end
+      # Finally execute the block after waiting
+      block.call
+    end
+
     def sim_capture(id, *pins)
-      if @sim_capture
-        fail 'Nesting of sim_capture blocks is not yet supported!'
+      if @sim_capture || @sim_delay
+        fail 'Nesting of sim_capture and/or sim_delay blocks is not yet supported!'
       end
       options = pins.last.is_a?(Hash) ? pins.pop : {}
       pins = pins.map { |p| p.is_a?(String) || p.is_a?(Symbol) ? dut.pin(p) : p }
@@ -70,8 +111,7 @@ module OrigenTesters
     end
 
     def update_capture?
-      return @update_capture if defined? @update_capture
-      @update_capture = sim? && (!@org_file.exist? || Origen.app!.update_sim_captures)
+      sim? && (!@org_file.exist? || Origen.app!.update_sim_captures)
     end
   end
 end

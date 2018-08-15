@@ -17,6 +17,11 @@ module OrigenSim
       super()
     end
 
+    # Returns the current cycle count
+    def cycle_count
+      @cycle_count || 0
+    end
+
     def simulator
       OrigenSim.simulator
     end
@@ -69,6 +74,8 @@ module OrigenSim
         exit 1
       end
       simulator.cycle(options[:repeat] || 1)
+      @cycle_count ||= 0
+      @cycle_count += options[:repeat] || 1
       if @after_next_vector
         @after_next_vector.call(@after_next_vector_args)
         @after_next_vector = nil

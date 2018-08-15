@@ -172,4 +172,17 @@ Pattern.create do
 #  end
 #  dut.pin(:done).assert!(0)
 #  dut.pin(:done).dont_care
+
+  ss "Test sim_delay"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.sim_delay :delay1 do
+    dut.pin(:done).assert!(1)
+  end
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
 end
