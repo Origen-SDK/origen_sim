@@ -6,7 +6,7 @@ viewPort 0 28 1858 545 288 65
 
 ; File list:
 ; openDirFile [-d delimiter] [-s time_offset] [-rf auto_bus_rule_file] path_name file_name
-openDirFile -d / "" "/proj/pet/nxa19128/temp/c40msf_nvm_tester/waves/c40msf_512k_1a/nvm_bin55.fsdb"
+openDirFile -d / "" ""
 
 ; file time scale:
 ; fileTimeScale ### s|ms|us|ns|ps
