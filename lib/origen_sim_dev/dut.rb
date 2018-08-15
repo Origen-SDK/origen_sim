@@ -24,6 +24,7 @@ module OrigenSimDev
       add_pin :p4, size: 4, force: 0xA
       add_pin :v1, rtl_name: 'nc'
       add_pin :v2, rtl_name: :nc
+      add_pin :done
       add_pin :not_present
 
       timeset :func do |t|
@@ -84,6 +85,10 @@ module OrigenSimDev
       # tester.simulator.log_messages = true
       tester.set_timeset('func', 100)
 
+      dut.pin(:rstn).drive!(1)
+      10.cycles
+      dut.pin(:rstn).drive!(0)
+      10.cycles
       dut.pin(:rstn).drive!(1)
       10.cycles
       dut.pin(:tck).drive!(1)

@@ -103,4 +103,30 @@ Pattern.create do
     dut.cmd.write!(0x55)
     60.cycles
   end
+
+  ss "Test the command works with static vectors"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  500.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  500.cycles
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
+  ss "Test the command works with a match loop"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.wait match: true, time_in_cycles: 2000, pin: dut.pin(:done), state: :high
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
 end

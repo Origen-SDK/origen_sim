@@ -126,6 +126,22 @@ module OrigenSim
       end
     end
 
+    def match(pin, state, timeout_in_cycles, options = {})
+      expected_val = state == :high ? 1 : 0
+      10.times do
+        current_val = simulator.peek("dut.#{pin.rtl_name}").to_i
+        if current_val == expected_val
+          break
+        else
+          (timeout_in_cycles / 10).cycles
+        end
+      end
+      # Final assertion to make the pattern fail if the loop timed out
+      pin.restore_state do
+        pin.assert!(expected_val)
+      end
+    end
+
     private
 
     def after_next_vector(*args, &block)
