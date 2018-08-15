@@ -821,6 +821,20 @@ module OrigenSim
       end
     end
 
+    # Any vectors executed within the given block will increment the match_errors counter
+    # rather than the errors counter.
+    # The match_errors counter will be returned to 0 at the end.
+    def match_loop
+      poke("#{testbench_top}.pins.match_loop", 1)
+      yield
+      poke("#{testbench_top}.pins.match_loop", 0)
+      poke("#{testbench_top}.pins.match_errors", 0)
+    end
+
+    def match_errors
+      peek("#{testbench_top}.pins.match_errors").to_i
+    end
+
     private
 
     # Pre 0.8.0 the simulator represented the time in ns instead of ps
@@ -830,7 +844,7 @@ module OrigenSim
 
     def clean(net)
       if net =~ /^dut\./
-        "origen.#{net}"
+        "#{testbench_top}.#{net}"
       else
         net
       end

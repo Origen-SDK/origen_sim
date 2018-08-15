@@ -142,6 +142,22 @@ module OrigenSim
       end
     end
 
+    def match_block(timeout_in_cycles, options = {}, &block)
+      simulator.match_loop do
+        10.times do
+          e = simulator.match_errors
+          block.call
+          if e == simulator.match_errors
+            break
+          else
+            (timeout_in_cycles / 10).cycles
+          end
+        end
+      end
+      # Final execution to make the pattern fail if the loop timed out
+      block.call
+    end
+
     private
 
     def after_next_vector(*args, &block)

@@ -118,7 +118,7 @@ Pattern.create do
   dut.pin(:done).assert!(1)
   dut.pin(:done).dont_care
 
-  ss "Test the command works with a match loop"
+  ss "Test basic match loop"
   dut.pin(:done).assert!(1)
   dut.pin(:done).dont_care
   dut.cmd.write!(0x75)
@@ -129,4 +129,13 @@ Pattern.create do
   dut.pin(:done).assert!(1)
   dut.pin(:done).dont_care
 
+  ss "Test a block match loop"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  dut.cmd.write!(0x75)
+  tester.wait match: true, time_in_cycles: 2000 do
+    dut.pin(:done).assert!(1)
+  end
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
 end
