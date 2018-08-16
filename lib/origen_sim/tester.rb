@@ -26,6 +26,10 @@ module OrigenSim
       OrigenSim.simulator
     end
 
+    def dut_version
+      simulator.dut_version
+    end
+
     def handshake(options = {})
     end
 
@@ -134,6 +138,9 @@ module OrigenSim
     end
 
     def match(pin, state, timeout_in_cycles, options = {})
+      if dut_version <= '0.12.0'
+        OrigenSim.error "Use of match loops requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
+      end
       expected_val = state == :high ? 1 : 0
       if options[:pin2]
         expected_val2 = options[:state2] == :high ? 1 : 0
@@ -169,6 +176,9 @@ module OrigenSim
     end
 
     def match_block(timeout_in_cycles, options = {}, &block)
+      if dut_version <= '0.12.0'
+        OrigenSim.error "Use of match loops requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
+      end
       match_conditions = Origen::Utility::BlockArgs.new
       fail_conditions = Origen::Utility::BlockArgs.new
       if block.arity > 0

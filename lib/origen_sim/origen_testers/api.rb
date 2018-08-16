@@ -9,6 +9,9 @@ module OrigenTesters
     alias_method :simulator?, :sim?
 
     def sim_delay(id, options = {}, &block)
+      if dut_version <= '0.12.0'
+        OrigenSim.error "Use of sim_delay requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
+      end
       orig_id = id
       id = "delay_#{id}".to_sym  # Just to make sure it is unique from the sim_capture IDs
       if @sim_capture || @sim_delay
