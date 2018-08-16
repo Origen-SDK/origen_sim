@@ -9,12 +9,12 @@ module OrigenTesters
     alias_method :simulator?, :sim?
 
     def sim_delay(id, options = {}, &block)
+      orig_id = id
       id = "delay_#{id}".to_sym  # Just to make sure it is unique from the sim_capture IDs
       if @sim_capture || @sim_delay
         fail 'Nesting of sim_capture and/or sim_delay blocks is not yet supported!'
       end
       Origen::OrgFile.open(id) do |org_file|
-        orig_id = id
         @org_file = org_file
         if update_capture?
           @sim_delay = true
@@ -23,14 +23,25 @@ module OrigenTesters
           start_cycle = cycle_count
           delay = 0
           simulator.match_loop do
-            e = -1
-            until e == simulator.match_errors
-              delay = cycle_count - start_cycle
-              e = simulator.match_errors
-              pre_block_cycle = cycle_count
-              block.call
-              # Make sure time is advancing, the block does not necessarily have to advance time
-              1.cycle if pre_block_cycle == cycle_count
+            timeout_in_cycles = time_to_cycles(options)
+            if timeout_in_cycles > 0
+              10.times do
+                (timeout_in_cycles / 10).cycles
+                delay = cycle_count - start_cycle
+                e = simulator.match_errors
+                block.call
+                break if e == simulator.match_errors
+              end
+            else
+              e = -1
+              until e == simulator.match_errors
+                delay = cycle_count - start_cycle
+                e = simulator.match_errors
+                pre_block_cycle = cycle_count
+                block.call
+                # Make sure time is advancing, the block does not necessarily have to advance time
+                1.cycle if pre_block_cycle == cycle_count
+              end
             end
           end
           Origen.log.debug "sim_delay #{orig_id} resolved after #{delay} cycles"
@@ -46,7 +57,11 @@ module OrigenTesters
         end
       end
       # Finally execute the block after waiting
+      if options[:padding]
+        time_to_cycles(options[:padding]).cycles
+      end
       block.call
+      @sim_delay = nil
     end
 
     def sim_capture(id, *pins)
@@ -112,6 +127,24 @@ module OrigenTesters
 
     def update_capture?
       sim? && (!@org_file.exist? || Origen.app!.update_sim_captures)
+    end
+
+    def time_to_cycles(options)
+      options = {
+        cycles:         0,
+        time_in_cycles: 0,
+        time_in_us:     0,
+        time_in_ns:     0,
+        time_in_ms:     0,
+        time_in_s:      0
+      }.merge(options)
+      cycles = 0
+      cycles += options[:cycles] + options[:time_in_cycles]
+      cycles += s_to_cycles(options[:time_in_s])
+      cycles += ms_to_cycles(options[:time_in_ms])
+      cycles += us_to_cycles(options[:time_in_us])
+      cycles += ns_to_cycles(options[:time_in_ns])
+      cycles
     end
   end
 end
