@@ -279,7 +279,11 @@ module OrigenSim
         if Origen.app.current_job
           @last_wafe_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
         else
-          @last_wafe_file_basename
+          if Origen.interactive?
+            'interactive'
+          else
+            @last_wafe_file_basename
+          end
         end
       end
     end
