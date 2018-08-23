@@ -68,7 +68,7 @@ GEM
     net-ldap (0.16.1)
     nokogiri (1.8.4)
       mini_portile2 (~> 2.3.0)
-    origen (0.34.2)
+    origen (0.34.3)
       activesupport (~> 4.1)
       bundler (~> 1.7)
       coderay (~> 1.1)

@@ -464,6 +464,8 @@ module OrigenSim
         simulation.log_results
         exit  # Assume it is not worth trying another pattern in this case, some kind of environment/config issue
       end
+      Origen.log.info "OrigenSim version #{Origen.app!.version}"
+      Origen.log.info "OrigenSim DUT version #{dut_version}"
       # Tick the simulation on, this seems to be required since any VPI puts operations before
       # the simulation has started are not applied.
       # Note that this is not setting a tester timeset, so the application will still have to
