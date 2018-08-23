@@ -9,7 +9,7 @@ module OrigenTesters
     alias_method :simulator?, :sim?
 
     def sim_delay(id, options = {}, &block)
-      if dut_version <= '0.12.0'
+      if sim? && dut_version <= '0.12.0'
         OrigenSim.error "Use of sim_delay requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
       end
       orig_id = id
@@ -54,6 +54,9 @@ module OrigenTesters
           org_file.file  # Need to call this since we are bypassing the regular capture API here
           Origen::OrgFile.cycle(delay)
         else
+          unless org_file.exist?
+            fail "The simulation delay \"#{orig_id}\" has not been simulated yet, re-run this pattern with a simulation target first!"
+          end
           org_file.read_line do |operations, cycles|
             cycles.cycles
           end
@@ -71,13 +74,15 @@ module OrigenTesters
       if @sim_capture || @sim_delay
         fail 'Nesting of sim_capture and/or sim_delay blocks is not yet supported!'
       end
+      @sim_capture_id = id
       options = pins.last.is_a?(Hash) ? pins.pop : {}
       pins = pins.map { |p| p.is_a?(String) || p.is_a?(Symbol) ? dut.pin(p) : p }
       pins.each(&:save)
       @sim_capture = pins.map { |p| [p, "origen.dut.#{p.rtl_name}"] }
       Origen::OrgFile.open(id) do |org_file|
         @org_file = org_file
-        if update_capture?
+        @update_capture = update_capture?
+        if @update_capture
           @sim_capture.each { |pin, net| pin.record_to_org_file(only: :assert) }
         end
         yield
@@ -93,7 +98,7 @@ module OrigenTesters
         # really assume that it will be constant for all cycles covered by the repeat
         cycles = options.delete(:repeat) || 1
         cycles.times do
-          if update_capture?
+          if @update_capture
             _origen_testers_cycle(options)
             @sim_capture.each do |pin, net|
               pin.assert(simulator.peek(net))
@@ -104,7 +109,7 @@ module OrigenTesters
             Origen::OrgFile.cycle
           else
             unless @org_file.exist?
-              fail "The simulation capture \"#{id}\" has not been made yet, re-run this pattern with a simulation target first!"
+              fail "The simulation capture \"#{@sim_capture_id}\" has not been simulated yet, re-run this pattern with a simulation target first!"
             end
             apply_captured_data
             _origen_testers_cycle(options)
