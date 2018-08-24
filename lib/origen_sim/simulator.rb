@@ -323,7 +323,6 @@ module OrigenSim
      when :verdi
       unless ENV["VCS_HOME"] && ENV["LD_LIBRARY_PATH"]
        puts "Please make sure the VCS_HOME and LD_LIBRARY PATH are setup correctly before using Verdi"
-       fail
       end
        edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
        cmd = "cd #{edir} && "
