@@ -1,10 +1,13 @@
 require 'origen_sim/simulation'
+require 'origen_sim/artifacts'
+
 module OrigenSim
   # Responsible for managing and communicating with the simulator
   # process, a single instance of this class is instantiated as
   # OrigenSim.simulator
   class Simulator
     include Origen::PersistentCallbacks
+    include Artifacts
 
     VENDORS = [:icarus, :cadence, :synopsys, :generic]
 
@@ -116,6 +119,37 @@ module OrigenSim
       end
       @configuration = options
       @tmp_dir = nil
+
+      # Temporary workaround for bug in componentable, which is making the container a class object, instead of an
+      # instance object.
+      clear_artifacts
+
+      # Add any artifacts in the given artifact path
+      artifact_dir.children.each { |a| artifact(a.to_s, target: a) }
+      self
+    end
+
+    def artifact_dir
+      Pathname(@configuration[:artifact_dir] || "#{Origen.app.root}/simulation/_artifacts_")
+    end
+
+    def artifact_run_dir
+      p = Pathname(@configuration[:artifact_run_dir] || './_artifacts_')
+      if p.absolute?
+        p
+      else
+        Pathname(run_dir).join(p)
+      end
+    end
+
+    def artifact_populate_method
+      @configuration[:artifact_populate_method] || begin
+        if Origen.running_on_windows?
+          :copy
+        else
+          :symlink
+        end
+      end
     end
 
     # The ID assigned to the current simulation target, falls back to to the
@@ -160,7 +194,7 @@ module OrigenSim
     end
 
     def wave_config_file
-      @wave_config_file ||= begin
+      @wave_config_file ||= configuration[:wave_config_file] || begin
         f = "#{wave_config_dir}/#{User.current.id}.#{wave_config_ext}"
         unless File.exist?(f)
           # Take a default wave if one has been set up
@@ -269,6 +303,10 @@ module OrigenSim
       cmd = post_process_run_cmd.call(cmd, self) if post_process_run_cmd
       fail "OrigenSim: :post_process_run_cmd returned object of class #{cmd.class}. Must return a String." unless cmd.is_a?(String)
 
+      # Print the command if debug is enabled
+      Origen.log.debug 'OrigenSim Run Command:'
+      Origen.log.debug cmd
+
       cmd
     end
 
@@ -358,6 +396,9 @@ module OrigenSim
       simulations << @simulation
 
       fetch_simulation_objects
+
+      artifact.clean
+      artifact.populate
 
       cmd = run_cmd + ' & echo \$!'
 
