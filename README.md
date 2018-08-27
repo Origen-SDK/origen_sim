@@ -215,7 +215,7 @@ For example, when the Cadence vendor is used:
 
 ~~~ruby
 Origen.tester.simulator.run_dir
-	#=> "/path/to/the/current/app/tmp/origen_sim/default/cadence"
+  #=> "/path/to/the/current/app/tmp/origen_sim/default/cadence"
 ~~~
 
 #### Artifacts
@@ -235,12 +235,12 @@ simulation process starts. You can customize these directories when instantiatin
 
 ~~~ruby
 OrigenSim::cadence do |sim|
-	# Change the default artifact directory
+  # Change the default artifact directory
   sim.artifact_dir "#{Origen.app.root}/simulation/_testbench_"
 
-	# Change the artifact target location, within the context of the run directory.
+  # Change the artifact target location, within the context of the run directory.
   # NOTE: this is relative to the run_dir. This expands to /path/to/run/dir/_testbench_
-  sim.artifact_run_dir "./_testbench_"
+   sim.artifact_run_dir "./_testbench_"
 end
 ~~~
 
@@ -255,11 +255,11 @@ may take longer. This behavior can be changed however:
 
 ~~~ruby
 OrigenSim::cadence do |sim|
-	# Force all artifacts to be copied
-	artifact_populate_method :copy
+  # Force all artifacts to be copied
+  artifact_populate_method :copy
 	
-	# Force all artifacts to be symlinked
-	artifact_populate_method :symlink
+  # Force all artifacts to be symlinked
+  artifact_populate_method :symlink
 end
 ~~~
 
@@ -292,25 +292,25 @@ Additional artifacts can be added, in addition to any that the default <code>art
 ~~~ruby
 # in environment/sim.rb
 
-tester = 	OrigenSim::cadence do |sim|
-	# Force all artifacts to be copied
-	artifact_populate_method :copy
-	
-	# Force all artifacts to be symlinked
-	artifact_populate_method :symlink
+tester = OrigenSim::cadence do |sim|
+  # Force all artifacts to be copied
+  artifact_populate_method :copy
+
+  # Force all artifacts to be symlinked
+  artifact_populate_method :symlink
 end
 
 tester.simulator.artifact(:my_artifact) do |a|
-	# Point to a custom target
-	a.target "/path/to/my/artifact.mine"
+  # Point to a custom target
+  a.target "/path/to/my/artifact.mine"
 
-	# Point to a custom run target
-	# Recall this will expand to /path/to/run/dir/custom_artifacts
-	# This ultimately places the artifact at /path/to/run/dir/custom_artifacts/artifact.mine
-	a.run_target "./custom_artifacts"
-	
-	# Indicate this artifact should be copied, regardlesss of global/OS settings.
-	a.populate_method :copy
+  # Point to a custom run target
+  # Recall this will expand to /path/to/run/dir/custom_artifacts
+  # This ultimately places the artifact at /path/to/run/dir/custom_artifacts/artifact.mine
+  a.run_target "./custom_artifacts"
+
+  # Indicate this artifact should be copied, regardlesss of global/OS settings.
+  a.populate_method :copy
 end
 ~~~
 
