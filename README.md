@@ -225,12 +225,12 @@ same directory that the compiled snapshot resides in and will most likely break 
 snapshot.
 
 OrigenSim provides an <code>artifacts</code> API to handle this problem. <code>Artifacts</code> are just files or
-directories that need to be available in the <code>run_dir</cdoe> prior to the simulation start. This can be used to
-reconstruct the run directory regardless of vendor or target configurations, and without needing to build in the
-logic to the application itself.
+directories that need to be available in the <code>run_dir</code> prior to the simulation start. This can be used to
+reconstruct the run directory regardless of vendor or target configurations, and without requiring you to build in the
+logic into the application itself.
 
 OrigenSim will automatically look for artifacts in the directory <code>#{Origen.app.root}/simulation/_artifacts_</code>.
-Anything in the this folder will be moved to the run directory and place in <code>_artifacts_</code> just before the
+Anything in the this folder will be moved to the run directory and placed in <code>_artifacts_</code> just before the
 simulation process starts. You can customize these directories when instantiating the environment. For example:
 
 ~~~ruby
@@ -244,12 +244,12 @@ OrigenSim::cadence do |sim|
 end
 ~~~
 
-Note here is that the <code>artifact_run_dir</code> is <u>implicitly relative</u> to the
-<code>run_dir</code>. Relative paths are expanded in the context of the <code>run_dir</code>, <u>not</u> relative to
+Note here that the <code>artifact_run_dir</code> is <b>implicitly relative</b> to the
+<code>run_dir</code>. Relative paths are expanded in the context of the <code>run_dir</code>, <b>not</b> relative to
 the current script location.
 
 Artifacts can be populated either by symlinks or by copying the contents directly. By default, Linux will symlink the
-contents and unlink to clean them. However, due to the elevated priveledges required by Windows to symlink objects,
+contents and unlink to clean them. However, due to the elevated priveledges required by later Windows systems to symlink objects,
 the default behavior for Windows is to just copy files. This does mean that larger, and/or a large number, of artifacts
 may take longer. This behavior can be changed however:
 
@@ -264,9 +264,15 @@ end
 ~~~
 
 OrigemSim's artifacts can be queried, populated, or cleaned, directly by accessing the <code>OrigenSim.artifact</code>
-object (note: the exclusion of the <i>s</i>):
+object (note: the exclusion of the <i>s</i>). Some methods also exist to retrieve and list the current artifacts:
 
 ~~~ruby
+# Populate all the artifacts
+tester.simulator.artifact.populate
+
+# Clean the currently populated artifacts
+tester.simulator.artifact.clean
+
 # List the current artifact names
 tester.simulator.list_artifacts
 
@@ -276,18 +282,13 @@ tester.simulator.artifacts
 # Retrieve a single artifact
 tester.simulator.artifacts[my_artifact]
 tester.simulator.artifact[my_artifact]
-
-# Populate all the artifacts
-tester.simulator.artifact.populate
-
-# Clean the currently populated artifacts
-tester.simulator.artifact.clean
 ~~~
 
-The <code>OrigenSim::Artifacts</code> class inherits from [Origen::Componentable](),
+The <code>OrigenSim::Artifacts</code> class inherits from
+[Origen::Componentable](http://origen-sdk.org/origen/guides/models/componentable/#The_Parent_Class),
 so any of the <i>componentable</i> methods are available.
 
-Additional artifacts can be added, in addition to any that the default <code>artifact_dir</code> picks up, by:
+Additional artifacts can be added to any that the default <code>artifact_dir</code> picks up:
 
 ~~~ruby
 # in environment/sim.rb
@@ -314,7 +315,7 @@ tester.simulator.artifact(:my_artifact) do |a|
 end
 ~~~
 
-Note that this takes place <u>outside</u> of the initial tester instantiation, but can still occur in the environment
+Note that this takes place <b>outside</b> of the initial tester instantiation, but can still occur in the environment
 file.
 
 ### The VPI Extension

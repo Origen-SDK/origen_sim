@@ -79,7 +79,7 @@ module OrigenSim
         elsif populate_method == :copy
           FileUtils.cp(target, run_target)
         else
-          Origen.app.fail! "Cannot populate artifact :#{name} with populate method #{pop_method}!"
+          Origen.app.fail! "Cannot populate artifact :#{name} with populate method #{populate_method}!"
         end
       end
 
