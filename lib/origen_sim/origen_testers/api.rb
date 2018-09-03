@@ -26,22 +26,24 @@ module OrigenTesters
           start_cycle = cycle_count
           delay = 0
           simulator.match_loop do
-            timeout_in_cycles = time_to_cycles(options)
-            if timeout_in_cycles > 0
-              10.times do
-                (timeout_in_cycles / 10).cycles
-                delay = cycle_count - start_cycle
-                e = simulator.match_errors
-                block.call
-                break if e == simulator.match_errors
+            if options[:resolution]
+              if options[:resolution].is_a?(Hash)
+                resolution_in_cycles = time_to_cycles(options[:resolution])
+              else
+                resolution_in_cycles = options[:resolution]
               end
-            else
-              e = -1
-              until e == simulator.match_errors
-                delay = cycle_count - start_cycle
-                e = simulator.match_errors
-                pre_block_cycle = cycle_count
-                block.call
+            end
+            timeout_in_cycles = time_to_cycles(options)
+            e = -1
+            until (e == simulator.match_errors) || (timeout_in_cycles > 0 ? delay > timeout_in_cycles : false)
+              delay = cycle_count - start_cycle
+              e = simulator.match_errors
+              pre_block_cycle = cycle_count
+              block.call
+              if resolution_in_cycles
+                remaining = resolution_in_cycles - (cycle_count - pre_block_cycle)
+                remaining.cycles if remaining > 0
+              else
                 # Make sure time is advancing, the block does not necessarily have to advance time
                 1.cycle if pre_block_cycle == cycle_count
               end

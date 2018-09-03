@@ -199,6 +199,34 @@ Pattern.create do
   dut.pin(:done).assert!(1)
   dut.pin(:done).dont_care
 
+  ss "Test sim delay with resolution"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  e = tester.cycle_count
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.sim_delay :delay1, resolution: 10 do
+    dut.pin(:done).assert!(1)
+  end
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
+  ss "Test sim delay with resolution and timeout"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  e = tester.cycle_count
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.sim_delay :delay1, time_in_cycles: 2000, resolution: { time_in_cycles: 10 } do
+    dut.pin(:done).assert!(1)
+  end
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
   ss "Test sim delay with padding"
   dut.pin(:done).assert!(1)
   dut.pin(:done).dont_care
