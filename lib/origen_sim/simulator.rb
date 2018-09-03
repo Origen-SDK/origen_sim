@@ -630,6 +630,16 @@ module OrigenSim
       end
     end
 
+    # Flush any buffered simulation output, this should cause live waveviewers to
+    # reflect the latest state
+    def flush
+      if dut_version <= '0.12.0'
+        OrigenSim.error "Use of flush requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
+      end
+      put('j^')
+      sync_up
+    end
+
     def error(message)
       simulation.logged_errors = true
       Origen.log.error message

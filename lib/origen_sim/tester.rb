@@ -59,6 +59,12 @@ module OrigenSim
       simulator.sync_up
     end
 
+    # Flush any buffered simulation output, this should cause live waveviewers to
+    # reflect the latest state
+    def flush
+      simulator.flush
+    end
+
     def set_timeset(name, period_in_ns)
       super
       # Need to remove this once OrigenTesters does it
@@ -209,6 +215,11 @@ module OrigenSim
           fail_conditions.each(&:call)
         end
       end
+    end
+
+    def wait(*args)
+      super
+      flush if Origen.running_interactively?
     end
 
     private
