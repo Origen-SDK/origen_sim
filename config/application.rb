@@ -28,8 +28,14 @@ class OrigenSimApplication < Origen::Application
     #:patterns => "pattern",
     #:templates => "templates",
     #:programs => "program",
-    :command_launcher => "config/shared_commands.rb",
-    :global_launcher => "config/global_commands.rb"
+    command_launcher: "config/shared_commands.rb",
+    global_launcher: "config/global_commands.rb",
+    origen_guides: "templates/origen_guides",
+    origen_guides_index: -> (index) do
+      index.section :simulation, heading: "Simulation", after: :program do |section|
+        section.page :introduction, heading: "Introduction"
+      end
+    end
   }
 
   config.remotes = [

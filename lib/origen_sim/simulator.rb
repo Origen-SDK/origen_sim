@@ -317,7 +317,11 @@ module OrigenSim
         if Origen.app.current_job
           @last_wafe_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
         else
-          @last_wafe_file_basename
+          if Origen.interactive?
+            'interactive'
+          else
+            @last_wafe_file_basename
+          end
         end
       end
     end
@@ -501,6 +505,8 @@ module OrigenSim
         simulation.log_results
         exit  # Assume it is not worth trying another pattern in this case, some kind of environment/config issue
       end
+      Origen.log.info "OrigenSim version #{Origen.app!.version}"
+      Origen.log.info "OrigenSim DUT version #{dut_version}"
       # Tick the simulation on, this seems to be required since any VPI puts operations before
       # the simulation has started are not applied.
       # Note that this is not setting a tester timeset, so the application will still have to
@@ -662,6 +668,17 @@ module OrigenSim
       data = get
       unless data.strip == 'OK!'
         fail 'Origen and the simulator are out of sync!'
+      end
+    end
+
+    # Flush any buffered simulation output, this should cause live wave viewers to
+    # reflect the latest state
+    def flush
+      if dut_version > '0.12.1'
+        put('j^')
+        sync_up
+      else
+        OrigenSim.error "Use of flush requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
       end
     end
 
@@ -862,6 +879,20 @@ module OrigenSim
       end
     end
 
+    # Any vectors executed within the given block will increment the match_errors counter
+    # rather than the errors counter.
+    # The match_errors counter will be returned to 0 at the end.
+    def match_loop
+      poke("#{testbench_top}.pins.match_loop", 1)
+      yield
+      poke("#{testbench_top}.pins.match_loop", 0)
+      poke("#{testbench_top}.pins.match_errors", 0)
+    end
+
+    def match_errors
+      peek("#{testbench_top}.pins.match_errors").to_i
+    end
+
     private
 
     # Pre 0.8.0 the simulator represented the time in ns instead of ps
@@ -871,7 +902,7 @@ module OrigenSim
 
     def clean(net)
       if net =~ /^dut\./
-        "origen.#{net}"
+        "#{testbench_top}.#{net}"
       else
         net
       end
