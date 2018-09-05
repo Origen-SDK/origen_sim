@@ -125,16 +125,30 @@ module OrigenSim
       clear_artifacts
 
       # Add any artifacts in the given artifact path
-      artifact_dir.children.each { |a| artifact(a.to_s, target: a) }
+      artifact_dir.children.each { |a| artifact(a.basename.to_s, target: a) }
+      
+      # Add any artifacts from the target-specific path (simulation/<target>/artifacts). Files of the same name
+      # will override artifacts residing in the default directory.
+      if Dir.exists?(target_artifact_dir)
+        target_artifact_dir.children.each do |a|
+          remove_artifact(a.basename.to_s) if has_artifact?(a.basename.to_s)
+          add_artifact(a.basename.to_s, target: a)
+        end
+      end
+      
       self
     end
 
     def artifact_dir
-      Pathname(@configuration[:artifact_dir] || "#{Origen.app.root}/simulation/_artifacts_")
+      Pathname(@configuration[:artifact_dir] || "#{Origen.app.root}/simulation/application/artifacts")
+    end
+    
+    def target_artifact_dir
+      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/#{Origen.target.name}/artifacts")
     end
 
     def artifact_run_dir
-      p = Pathname(@configuration[:artifact_run_dir] || './_artifacts_')
+      p = Pathname(@configuration[:artifact_run_dir] || './application/artifacts')
       if p.absolute?
         p
       else

@@ -229,18 +229,31 @@ directories that need to be available in the <code>run_dir</code> prior to the s
 reconstruct the run directory regardless of vendor or target configurations, and without requiring you to build in the
 logic into the application itself.
 
-OrigenSim will automatically look for artifacts in the directory <code>#{Origen.app.root}/simulation/_artifacts_</code>.
-Anything in the this folder will be moved to the run directory and placed in <code>_artifacts_</code> just before the
-simulation process starts. You can customize these directories when instantiating the environment. For example:
+OrigenSim will automatically look for artifacts in the directory <code>#{Origen.app.root}/simulation/application/artifacts</code>.
+Anything in the this folder will be moved to the run directory and placed in <code>application/artifacts</code> just before the
+simulation process starts. These artifacts will be populated across targets. You can override an artifact with one
+specific to your target by placing an artifact with the same name in <code>simulation/\<target\>/artifacts</code>. 
+
+For example, if I have an artifact <code>simulation/application/artifacts/startup.sv</code> that I need for 
+three targets, <code>rtl</code>, <code>part_analog</code>, and <code>all_analog</code>, this same artifact will be used
+whenever any of those targets are used. Then, consider I have a new target <code>gate</code>, which has a different
+<code>startup.sv</code> to run. By placing this at <code>simulation/gate/artifacts/startup.sv</code>, OrigenSim
+will replace the artifact in <code>simulation/application/artifacts</code> with this one, in the same <code>run_dir</code>.
+
+Warning: Default artifacts only go a single level deep. Directories placed at <code>simulation/\<target\>/artifacts</code>
+will override an entire directory at <code>application/artifacts</code>. If you need more
+control over the artifacts, you can see further down in this guide for manually adding artifacts.
+
+You can customize these directories when instantiating the environment. For example:
 
 ~~~ruby
 OrigenSim::cadence do |sim|
   # Change the default artifact directory
-  sim.artifact_dir "#{Origen.app.root}/simulation/_testbench_"
+  sim.artifact_dir "#{Origen.app.root}/simulation/testbench"
 
   # Change the artifact target location, within the context of the run directory.
-  # NOTE: this is relative to the run_dir. This expands to /path/to/run/dir/_testbench_
-   sim.artifact_run_dir "./_testbench_"
+  # NOTE: this is relative to the run_dir. This expands to /path/to/run/dir/testbench
+   sim.artifact_run_dir "./testbench"
 end
 ~~~
 
