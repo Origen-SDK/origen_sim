@@ -219,7 +219,7 @@ module OrigenSim
 
     def wait(*args)
       super
-      flush if Origen.running_interactively?
+      flush if Origen.running_interactively? && dut_version > '0.12.1'
     end
 
     private
