@@ -103,4 +103,144 @@ Pattern.create do
     dut.cmd.write!(0x55)
     60.cycles
   end
+
+  ss "Test the command works with static vectors"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  500.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  500.cycles
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
+  ss "Test basic match loop"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.wait match: true, time_in_cycles: 2000, pin: dut.pin(:done), state: :high
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
+  ss "Test basic 2-pin match loop"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.wait match: true, time_in_cycles: 2000, pin: dut.pin(:tdo), state: :low,
+                                                 pin2: dut.pin(:done), state2: :high
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
+  ss "Test a block match loop"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.wait match: true, time_in_cycles: 2000 do
+    dut.pin(:done).assert!(1)
+  end
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
+#  ss "Test a multi-block match loop"
+#  dut.pin(:done).assert!(1)
+#  dut.pin(:done).dont_care
+#  dut.cmd.write!(0x75)
+#  dut.pin(:done).assert!(0)
+#  dut.pin(:done).dont_care
+#  tester.wait match: true, time_in_cycles: 2000 do |conditions, fail|
+#    # Just do two conditions that do the same thing here, the content
+#    # is not important for testing this feature
+#    conditions.add do
+#      dut.pin(:done).assert!(1)
+#    end
+#    conditions.add do
+#      dut.pin(:done).assert!(1)
+#    end
+#  end
+#  dut.pin(:done).assert!(0)
+#  dut.pin(:done).dont_care
+
+  ss "Test sim_delay"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.sim_delay :delay1 do
+    dut.pin(:done).assert!(1)
+  end
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
+  ss "Test sim delay with timeout"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.sim_delay :delay1, time_in_cycles: 2000 do
+    dut.pin(:done).assert!(1)
+  end
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
+  ss "Test sim delay with resolution"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  e = tester.cycle_count
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.sim_delay :delay1, resolution: 10 do
+    dut.pin(:done).assert!(1)
+  end
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
+  ss "Test sim delay with resolution and timeout"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  e = tester.cycle_count
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.sim_delay :delay1, time_in_cycles: 2000, resolution: { time_in_cycles: 10 } do
+    dut.pin(:done).assert!(1)
+  end
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+
+  ss "Test sim delay with padding"
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  e = tester.cycle_count
+  dut.cmd.write!(0x75)
+  5.cycles
+  dut.pin(:done).assert!(0)
+  dut.pin(:done).dont_care
+  tester.sim_delay :delay1, time_in_cycles: 2000, padding: { time_in_cycles: 500 } do
+    dut.pin(:done).assert!(1)
+  end
+  dut.pin(:done).assert!(1)
+  dut.pin(:done).dont_care
+  if (tester.cycle_count - e) < 1400
+    OrigenSim.error "sim_delay padding was not applied!"
+  end
 end

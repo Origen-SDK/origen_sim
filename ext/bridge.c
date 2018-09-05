@@ -757,6 +757,10 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       case 'i' :
         client_put(ORIGEN_SIM_VERSION"\n");
         break;
+      // Flush
+      case 'j' :
+        vpi_flush();
+        break;
       default :
         vpi_printf("ERROR: Illegal message received from Origen: %s\n", orig_msg);
         runtime_errors += 1;

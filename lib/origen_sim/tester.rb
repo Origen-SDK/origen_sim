@@ -17,8 +17,17 @@ module OrigenSim
       super()
     end
 
+    # Returns the current cycle count
+    def cycle_count
+      @cycle_count || 0
+    end
+
     def simulator
       OrigenSim.simulator
+    end
+
+    def dut_version
+      simulator.dut_version
     end
 
     def handshake(options = {})
@@ -50,6 +59,12 @@ module OrigenSim
       simulator.sync_up
     end
 
+    # Flush any buffered simulation output, this should cause live waveviewers to
+    # reflect the latest state
+    def flush
+      simulator.flush
+    end
+
     def set_timeset(name, period_in_ns)
       super
       # Need to remove this once OrigenTesters does it
@@ -69,6 +84,8 @@ module OrigenSim
         exit 1
       end
       simulator.cycle(options[:repeat] || 1)
+      @cycle_count ||= 0
+      @cycle_count += options[:repeat] || 1
       if @after_next_vector
         @after_next_vector.call(@after_next_vector_args)
         @after_next_vector = nil
@@ -124,6 +141,85 @@ module OrigenSim
       after_next_vector do
         pins.each { |pin| simulator.put("h^#{pin.simulation_index}") }
       end
+    end
+
+    def match(pin, state, timeout_in_cycles, options = {})
+      if dut_version <= '0.12.0'
+        OrigenSim.error "Use of match loops requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
+      end
+      expected_val = state == :high ? 1 : 0
+      if options[:pin2]
+        expected_val2 = options[:state2] == :high ? 1 : 0
+      end
+      timed_out = true
+      10.times do
+        (timeout_in_cycles / 10).cycles
+        current_val = simulator.peek("dut.#{pin.rtl_name}").to_i
+        if options[:pin2]
+          current_val2 = simulator.peek("dut.#{options[:pin2].rtl_name}").to_i
+          if current_val == expected_val || current_val2 == expected_val2
+            timed_out = false
+            break
+          end
+        else
+          if current_val == expected_val
+            timed_out = false
+            break
+          end
+        end
+      end
+      # Final assertion to make the pattern fail if the loop timed out
+      if timed_out
+        pin.restore_state do
+          pin.assert!(expected_val)
+        end
+        if options[:pin2]
+          options[:pin2].restore_state do
+            options[:pin2].assert!(expected_val2)
+          end
+        end
+      end
+    end
+
+    def match_block(timeout_in_cycles, options = {}, &block)
+      if dut_version <= '0.12.0'
+        OrigenSim.error "Use of match loops requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
+      end
+      match_conditions = Origen::Utility::BlockArgs.new
+      fail_conditions = Origen::Utility::BlockArgs.new
+      if block.arity > 0
+        block.call(match_conditions, fail_conditions)
+      else
+        match_conditions.add(&block)
+      end
+      timed_out = true
+      simulator.match_loop do
+        10.times do
+          (timeout_in_cycles / 10).cycles
+          # Consider the match resolved if any condition can execute without generating errors
+          if match_conditions.any? do |condition|
+            e = simulator.match_errors
+            condition.call
+            e == simulator.match_errors
+          end
+            timed_out = false
+            break
+          end
+        end
+      end
+      # Final execution to make the pattern fail if the loop timed out
+      if timed_out
+        if fail_conditions.instance_variable_get(:@block_args).empty?
+          match_conditions.each(&:call)
+        else
+          fail_conditions.each(&:call)
+        end
+      end
+    end
+
+    def wait(*args)
+      super
+      flush if Origen.running_interactively? && dut_version > '0.12.1'
     end
 
     private
