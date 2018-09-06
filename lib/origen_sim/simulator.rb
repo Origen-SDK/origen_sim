@@ -149,7 +149,7 @@ module OrigenSim
               add_artifact(a.basename.to_s, target: a)
             end
           else
-            Origen.app.fail! "Simulator configuration specified a user artifact dir at #{d} but this directory could not be found!"
+            Origen.app.fail! message: "Simulator configuration specified a user artifact dir at #{d} but this directory could not be found!"
           end
         end
       end
