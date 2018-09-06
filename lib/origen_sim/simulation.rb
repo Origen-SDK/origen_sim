@@ -108,7 +108,7 @@ module OrigenSim
         @heartbeat_thread.stop
       else
         Process.kill('SIGHUP', @heartbeat_pid)
-        
+
         # Ensure that the process has stopped before closing the IO pipes
         begin
           Process.waitpid(@heartbeat_pid)

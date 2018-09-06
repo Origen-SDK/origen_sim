@@ -10,6 +10,7 @@ module OrigenSim
     include Artifacts
 
     VENDORS = [:icarus, :cadence, :synopsys, :generic]
+    DEFAULT_ARTIFACT_DIR = Pathname("#{Origen.app.root}/simulation/application/artifacts")
 
     attr_reader :configuration
     alias_method :config, :configuration
@@ -125,24 +126,49 @@ module OrigenSim
       clear_artifacts
 
       # Add any artifacts in the given artifact path
-      artifact_dir.children.each { |a| artifact(a.basename.to_s, target: a) }
-      
+      if Dir.exist?(default_artifact_dir)
+        default_artifact_dir.children.each { |a| artifact(a.basename.to_s, target: a) }
+      end
+
       # Add any artifacts from the target-specific path (simulation/<target>/artifacts). Files of the same name
       # will override artifacts residing in the default directory.
-      if Dir.exists?(target_artifact_dir)
+      if Dir.exist?(target_artifact_dir)
         target_artifact_dir.children.each do |a|
           remove_artifact(a.basename.to_s) if has_artifact?(a.basename.to_s)
           add_artifact(a.basename.to_s, target: a)
         end
       end
-      
+
+      # If a user artifact path was given, add those artifacts as well, overriding any of the default and target artifacts
+      if user_artifact_dirs?
+        user_artifact_dirs.each do |d|
+          if Dir.exist?(d)
+            # Add any artifacts from any user-given paths. Files of the same name will override artifacts residing in the default directory.
+            d.children.each do |a|
+              remove_artifact(a.basename.to_s) if has_artifact?(a.basename.to_s)
+              add_artifact(a.basename.to_s, target: a)
+            end
+          else
+            Origen.app.fail! "Simulator configuration specified a user artifact dir at #{d} but this directory could not be found!"
+          end
+        end
+      end
+
       self
     end
 
-    def artifact_dir
-      Pathname(@configuration[:artifact_dir] || "#{Origen.app.root}/simulation/application/artifacts")
+    def default_artifact_dir
+      DEFAULT_ARTIFACT_DIR
     end
-    
+
+    def user_artifact_dirs?
+      @configuration.key?(:user_artifact_dirs)
+    end
+
+    def user_artifact_dirs
+      @configuration.key?(:user_artifact_dirs) ? @configuration[:user_artifact_dirs].map { |d| Pathname(d) } : nil
+    end
+
     def target_artifact_dir
       Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/#{Origen.target.name}/artifacts")
     end

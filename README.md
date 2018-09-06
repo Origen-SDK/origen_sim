@@ -244,12 +244,18 @@ Warning: Default artifacts only go a single level deep. Directories placed at <c
 will override an entire directory at <code>application/artifacts</code>. If you need more
 control over the artifacts, you can see further down in this guide for manually adding artifacts.
 
-You can customize these directories when instantiating the environment. For example:
+OrigenSim provides two further customizations to the default setup. Like the target directory, you can pass additional
+<code>user_artifact_dirs</code>, which will override any artifacts found at either the default or target artifact levels.
+These artifacts will override each other in the order of the Array definition.
+
+All of these artifacts have different sources, but they are placed in the same <code>artifact_run_dir</code>, which
+defaults to <code>application/artifacts</code>. This location is customizable as well with the <code>artifact_run_dir</code>
+option.
 
 ~~~ruby
 OrigenSim::cadence do |sim|
-  # Change the default artifact directory
-  sim.artifact_dir "#{Origen.app.root}/simulation/testbench"
+  # Add a user artifact directory
+  sim.user_artifact_dirs ["#{Origen.app.root}/simulation/testbench"]
 
   # Change the artifact target location, within the context of the run directory.
   # NOTE: this is relative to the run_dir. This expands to /path/to/run/dir/testbench
@@ -301,17 +307,12 @@ The <code>OrigenSim::Artifacts</code> class inherits from
 [Origen::Componentable](http://origen-sdk.org/origen/guides/models/componentable/#The_Parent_Class),
 so any of the <i>componentable</i> methods are available.
 
-Additional artifacts can be added to any that the default <code>artifact_dir</code> picks up:
+Additional single-artifact items can be added manually:
 
 ~~~ruby
 # in environment/sim.rb
 
 tester = OrigenSim::cadence do |sim|
-  # Force all artifacts to be copied
-  artifact_populate_method :copy
-
-  # Force all artifacts to be symlinked
-  artifact_populate_method :symlink
 end
 
 tester.simulator.artifact(:my_artifact) do |a|
