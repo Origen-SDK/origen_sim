@@ -30,6 +30,9 @@ which Origen can access any DUT.
 In principle the DUT object can be any design view that is wrapped by a conventional top-level Verilog module, meaning that
 OrigenSim can be used to run RTL or gate-level simulations depending on what has been compiled into the snapshot.
 
+**Note also that the DUT can be either an IP-block or an SoC, and so OrigenSim can be used equally well for running
+both IP-level and top-level simulations.**
+
 ### The Testbench
 
 The testbench is quite simple and it does little more than instantiate the DUT module and connect all of its pins to
@@ -38,13 +41,14 @@ The testbench module is named `origen` by default and all OrigenSim simulation d
 
 ~~~text
 .
-└── origen
-    ├── debug     // Contains an error count, pattern name and comments, and other debug aids
-    ├── dut       // Your DUT
-    └── pins
-       ├── tdi    // Driver for the TDI pin (for example)
-       ├── tdo
-       └── tck
+└── my_pattern
+    └── origen
+        ├── debug     // Contains an error count, pattern name and comments, and other debug aids
+        ├── dut       // Your DUT
+        └── pins
+           ├── tdi    // Driver for the TDI pin (for example)
+           ├── tdo
+           └── tck
 ~~~
 
 

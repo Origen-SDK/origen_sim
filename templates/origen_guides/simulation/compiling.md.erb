@@ -1,4 +1,190 @@
 % render "layouts/guides.html" do
 
+The details of how to build a given IP or SoC design can be complicated and can vary significantly
+from case to case; it is something that is best managed by the design or verification team for
+a given design under test (DUT).
+
+Therefore, OrigenSim does not attempt to manage the simulation build process but instead provides
+components that should be integrated into the target DUT's existing design build flow in order to
+produce an output that is compatible with OrigenSim.
+
+#### High-Level Flow
+
+The high-level flow that we are aiming for here is as follows:
+
+1. The design flow owner runs an Origen command to create the Origen components, the top-level Verilog
+   is supplied as an input to this command and this will be used to create a DUT-specific Origen testbench
+2. The design flow owner incorporates these components into their build flow and executes it, stopping
+   after elaboration to create the Origen simulation object
+3. The design flow owner delivers the Origen simulation object to the Origen flow owner (e.g. the test engineer)
+4. The Origen flow owner integrates this simulation object into an Origen application
+
+This process should be repeated from step 1 anytime either of the following occur:
+
+* Changes are made to the top-level pin interface of the DUT
+* A new version of OrigenSim is available with some new features that need to be compiled into the DUT
+
+The process should be repeated from step 2 anytime:
+
+* Changes have been made to the internal operation of the DUT (design changes) and you wish to be included
+  in Origen simulations
+
+
+#### Creating the Origen Components
+
+The OrigenSim plugin provides a command called `sim:build` to create the Origen components that should
+be incorporated into the design build process.
+
+To check if this is available, run the `origen` command outside of an application workspace, you should
+see something like this:
+
+~~~text
+> origen
+
+Usage: origen COMMAND [ARGS]
+
+The following commands are available:
+ new                Create a new Origen application or plugin. "origen new my_app" creates a
+                    new origen application workspace in "./my_app"
+ interactive        Start an interactive Origen console (short-cut alias: "i"), this is just
+                    IRB with the 'origen' lib loaded automatically
+
+The following global commands are provided by plugins:
+ sim:build          Build an Origen testbench and simulator extension for a given design
+
+Many commands can be run with -h (or --help) for more information.
+~~~
+
+Note the `sim:build` command is noted as being provided by a plugin at the bottom. If you don't see that
+then it means that OrigenSim needs to be installed into your global Ruby, if you have the required admin
+rights you can do this by simply executing:
+
+~~~text
+gem install origen_sim
+~~~
+
+If you don't have the required permission then speak to your system administrator to have them do this.
+More detailed information on how to manage your globally available plugins like this can be found in
+the [advanced guide on how Origen is invoked](<%= path "guides/advanced/invocations" %>).
+
+If the `origen` command does not work at all, then first refer
+to [the guide on how to install Origen](<%= path "guides/starting/installing" %>).
+
+Once you have verified that you have the `sim:build` command available, execute it by supplying the
+path to your top-level Verilog file like this:
+
+~~~text
+origen sim:build path/to/my_top_level.v
+~~~
+
+**It is highly recommended that you supply a stub model here, all that Origen needs to know about is the
+top-level pin interface and reducing the amount of superfluous design code will reduce the chance
+of parse errors during this step.**
+
+Multiple files can be passed in, for example to include a defines file:
+
+~~~text
+origen sim:build path/to/my_defines.v path/to/my_top_level.v
+~~~
+
+If you prefer, it also works by supplying the source file directory path(s) separately:
+
+~~~text
+origen sim:build my_defines.v my_top_level.v -s path/to
+~~~
+
+The `sim:build` command does have some rudimentary support for evaluating and applying Verilog compiler
+directive rules, though at the time of writing it does not evaluate Verilog parameters.
+
+If you find that it does choke on your design files please do enter a ticket describing the code
+which failed to parse here - <https://github.com/Origen-SDK/origen_verilog/issues>
+
+In most cases any parse issues can be resolved by moving to a stub model or by simply removing the
+offending code to create a partial stub.
+
+Once you see a message like this, you are ready to move onto the next step:
+
+~~~text
+-----------------------------------------------------------
+
+Testbench and VPI extension created!
+
+This file can be imported into an Origen top-level DUT model to define the pins:
+
+  /path/to/origen/my_top_level.rb
+
+See above for what to do now to create an Origen-enabled simulation object for your particular simulator.
+
+~~~
+
+#### Building the Design
+
+We need to start from a command which can compile and elaborate the DUT only, so any 3rd party testbench
+should be removed from the build process before we go any further.
+
+The output from the previous step contains compiler-specific instructions on what files and switches
+should be added to your build command, here for example for Cadence:
+
+
+~~~text
+-----------------------------------------------------------
+Cadence (irun)
+-----------------------------------------------------------
+
+Add the following to your build script to create an Origen-enabled simulation object (AND REMOVE ANY OTHER TESTBENCH!):
+
+  /path/to/my/origen/origen.v \
+  /path/to/my/origen/*.c \
+  -ccargs "-std=c99" \
+  -top origen \
+  -elaborate  \
+  -snapshot origen \
+  -access +rw \
+  -timescale 1ns/1ns
+
+The following files should then be used for Origen integration:
+
+  /home/nxa21353/Code/my_origen/origen/my_design_top.rb
+  INCA_libs/ (created by irun)
+~~~
+
+At the time of writing Cadence, Synopsys and Icarus Verilog simulators are supported.
+
+Simply add the files and switches as instructed to your baseline build command and it should then create
+a snapshot of your design that is ready to talk to Origen.
+
+The compiler-specific notes also mention what files should be given to the Origen application integrator, in
+this case for Cadence the `INCA_libs` directory and an Origen file that defines the DUT's pins.
+
+Once you are in possession of these files, you are ready for the final step:
+
+
+#### Integrating the Simulation Object
+
+One of the generated components from the `sim:build` command is an Origen file that defines the DUT's pins. If you wish to use this
+in your model (optional, you can define them in the model by hand or any other way you like), then check it
+into your application's `vendor` directory and import it within your model's `initialize` method like this:
+
+~~~ruby
+# Import pin definitions as extracted from the design
+import 'my_top_level', dir: "#{Origen.root!}/vendor/wherever/i/like", namespace: nil
+~~~
+
+Note that `'my_top_level'` corresponds to the name of the file.
+
+Your application should already have a target setup that corresponds to this DUT, if not create one.
+
+The copy the compiled design files into `simulation/TARGET/SIMULATOR/.`, where `TARGET` is the name
+of the target, e.g. `my_dut` and `SIMULATOR` is either `cadence`, `synopsys` or `icarus`.
+
+For example, the `INCA_libs` directory in this Cadence example might be copied to `simulation/my_dut/cadence/INCA_libs`.
+
+You can check these simulation files into your application's revision control system, but since they can be very large binaries
+it is recommended that you add the `simulation` directory to your `.gitignore` and use an alternative revision control
+tool like DesignSync to store them.
+
+This will be further discussed in the environment setup, which is the [next section](<%= path "guides/simulation/environment" %>)
+of this guide to simulation...
+
 
 % end

@@ -37,8 +37,10 @@ class OrigenSimApplication < Origen::Application
         section.page :howitworks, heading: "How It Works"
         section.page :compiling, heading: "Compiling the DUT"
         section.page :environment, heading: "Environment Setup"
+        section.page :app, heading: "Application Setup"
         section.page :patterns, heading: "Simulating Patterns"
         section.page :flows, heading: "Simulating Flows"
+        section.page :log, heading: "Simulator Log Output"
         section.page :debugging, heading: "Interactive Debugging"
         section.page :capturing, heading: "Capturing Responses"
       end
