@@ -34,6 +34,13 @@ class OrigenSimApplication < Origen::Application
     origen_guides_index: -> (index) do
       index.section :simulation, heading: "Simulation", after: :program do |section|
         section.page :introduction, heading: "Introduction"
+        section.page :howitworks, heading: "How It Works"
+        section.page :compiling, heading: "Compiling the DUT"
+        section.page :environment, heading: "Environment Setup"
+        section.page :patterns, heading: "Simulating Patterns"
+        section.page :flows, heading: "Simulating Flows"
+        section.page :debugging, heading: "Interactive Debugging"
+        section.page :capturing, heading: "Capturing Responses"
       end
     end
   }
