@@ -1,4 +1,185 @@
 % render "layouts/guides.html" do
 
+Patterns are simulated by simply generating the pattern with
+a [simulation environment](<%= path "guides/simulation/environment" %>)
+selected:
+
+~~~text
+origen g my_pattern -e environment/sim.rb
+~~~
+
+Most of the [common pattern API](<%= path "guides/pattern/common" %>) is supported
+by OrigenSim and therefore you should expect to find the simulation environment
+a drop-in replacement for your conventional ATE environment driver.
+
+If you come across an API that OrigenSim does not support but you think that
+it should, please raise a ticket here describing what you
+tried to do <https://github.com/Origen-SDK/origen_sim/issues>.
+
+
+#### Waiting For Events
+
+When your pattern invokes some DUT action and you need to wait for it to complete, you
+normally have two options:
+
+* Calculate how long it should take and wait for a fixed delay
+* Implement a match loop to dynamically wait for an expected response to occur
+
+Both of these are fully supported by OrigenSim, see the
+[Timing and Waiting guide](<%= path "guides/pattern/timing" %>) for more information on these APIs.
+
+However, if your pattern generation flow is going to be supported by simulation, then you also have
+a third option - to derive the required wait time from the simulation itself.
+
+OrigenSim makes this very easy via the following API:
+
+~~~ruby
+cc "Wait for the program command to complete"
+
+tester.sim_delay :program_command do
+  dut.pin(:done).assert!(1)
+end
+~~~
+
+The `sim_delay` method provides the convenience of a match loop for the purposes of
+delay calculation but will still generate a static pattern for the ATE. It will automatically calculate how
+long the given block takes to pass and then insert that delay when later generating the pattern for an ATE.
+
+An ID must be given to each delay, `:program_command` in this example, and if the same ID is used in multiple
+calls to `sim_delay` then it means that the same delay will be used for each occurrence.
+
+When simulating a pattern that contains `sim_delay` block(s) for the first time, the delay will
+be calculated from the simulation and stored in an Org file (Origen native pattern format) within your
+application's pattern directory. These files should be committed to your revision control system and considered
+as part of your application.
+
+The next time that you simulate it, the previously calculated delay will be inserted into the
+pattern and therefore the simulation will be verifying that the delay is correct.
+
+If you want to re-calculate the delays during a simulation then run with the `--sim_capture` switch:
+
+~~~text
+origen g my_pattern -e environment/sim.rb --sim_capture
+~~~
+
+Additional padding can be added to the calculated delay like this (all the usual `time_in_us:` style
+of time options are supported):
+
+~~~ruby
+tester.sim_delay :program_command, padding: { time_in_cycles: 10 } do
+  dut.pin(:done).assert!(1)
+end
+~~~
+
+By default, the block will be evaluated constantly until it passes when calculating the delay from
+the simulation.
+
+If the time is long and this is making your simulation run too slow, you can use lower resolution
+by supplying a `:resolution` option, either as a number of cycles:
+
+
+~~~ruby
+tester.sim_delay :program_command, resolution: 10 do
+  dut.pin(:done).assert!(1)
+end
+~~~
+
+or by supplying a hash filled with the usual time options:
+
+~~~ruby
+tester.sim_delay :program_command, resolution: { time_in_ns: 50 } do
+  dut.pin(:done).assert!(1)
+end
+~~~
+
+#### Capturing Responses from the Simulation
+
+Sometimes the response from your DUT maybe hard to predict and/or complicated to model in Origen, think about a digital data
+stream response from a pin when testing a communications protocol.
+
+OrigenSim provides an API for such a case which allows pin output values for a subset of pins/vectors
+to be sampled during a simulation. The response is then captured and converted into the corresponding
+expect data when the same pattern is later generated for the ATE.
+
+Capturing is really easy, just wrap the operation you want to capture in your pattern source code like this:
+
+~~~ruby
+tester.sim_capture :cmd55, :dout, :test_bus, :tdo do
+  dut.pins(:din_port).drive!(0x1234_5678)
+  dut.cmd.write!(0x55)
+  60.cycles
+end
+~~~
+
+The first argument is an ID for the capture, this can be anything but the user must assign it.
+Then supply a list of pin/pin_group IDs (or pin objects) that you want to capture.
+
+If you use the same ID more than once it means that the same captured data will be used in multiple places.
+
+When you add this to the pattern an error will be raised if you try to generate an ATE pattern, this will
+advise that the data has not been captured yet and it must be run in a simulation first.
+
+When you run it in a simulation for the first time, the data will be captured and stored to your application
+in the `pattern/sim_capture` directory. These files should be checked into your application as if they were regular patterns.
+
+On subsequent simulation runs, the data will not be captured but instead will be re-played from the simulation
+- i.e. the pattern will assert that the DUT output matches what is in the capture file.
+In other words, by adding this and then simulating twice using the same command, you are both capturing and
+then verifying the captured data.
+
+Add this switch to update the captures during a subsequent simulation run:
+
+~~~text
+origen g my_pattern --sim_capture
+~~~
+
+To use the captured data in an ATE pattern, simply switch to an ATE target and generate as normal.
+
+A known limitation of this feature is that the pin state data is currently captured at the end of a cycle, not
+at the point during the cycle where it will be read by the pattern.
+However, if this were to be a problem in a particular application, you would see it fail when re-playing the
+captured data in simulation.
+
+#### Creating Simulation-Only Assertions
+
+Users are of course encouraged to write patterns that test the DUT via its pin interface since such
+patterns will work in physical environments like the ATE.
+
+However, it can be useful to supplement your patterns with simulation-only assertions which peek inside
+the DUT to check that it is behaving as expected. Such assertions can report useful failure information
+back to the user which may help when debugging a failed pattern simulation.
+
+~~~ruby
+# This code must be skipped when the pattern is generating for an ATE target environment
+if tester.sim?
+  value = tester.simulator.peek("origen.dut.path.to.net").to_i[7..4]
+  if value != 0xA
+    OrigenSim.error "The internal node was #{value.to_hex} instead of 0xA!"
+  end
+end
+~~~
+
+Note the use of `OrigenSim.error` to report the error message, this will cause the simulation result
+to be reported as a FAIL, even if all pin level assertions otherwise pass.
+
+Also note that the value returned from the `peek` method is converted into an integer. This is because
+`peek` returns an instance of [Origen::Value](<%= path "api/Origen/Value.html" %>) which can also handle
+`X` or `Z` values.
+
+So for example, if you actually wanted a given bit to be `Z` you could write your assertion as:
+
+~~~ruby
+unless tester.simulator.peek("origen.dut.path.to.net")[4].z?
+  OrigenSim.error "Bit 4 of some net was not in hi-Z mode!"
+end
+~~~
+
+It is also possible to force nets within the DUT via a corresponding `poke` method:
+
+~~~ruby
+if tester.sim?
+  test.simulator.poke "path.to.some.net[15:8]", 0x51
+end
+~~~
 
 % end

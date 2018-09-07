@@ -1,4 +1,15 @@
 % render "layouts/guides.html" do
 
+Now if you run this:
+
+origen g my_pat_1 my_pat_2
+it will run them sequentially as separate simulations, creating two waveforms named after each pattern.
+
+To get the previous behavior of combining them into a single simulation you now need to add a --flow option:
+
+origen g my_pat_1 my_pat_2 --flow my_flow
+This will simulate the given patterns back-back and dump them to a waveform named after the flow option, in this case "my_flow".
+
+Program generation works the same as before, but now the generated wave will be named after the flow and not called 'origen'.
 
 % end

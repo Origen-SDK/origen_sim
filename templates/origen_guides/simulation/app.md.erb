@@ -1,17 +1,128 @@
 % render "layouts/guides.html" do
 
+Generally speaking, an Origen application setup is the same whether you are generating
+a pattern/flow for the ATE or if you wish to simulate it.
 
+Therefore, the rest of the guides are applicable for how to setup a [model](<%= path "guides/models/introduction" %>) and a
+[controller](<%= path "guides/controllers/introduction" %>) for your DUT,
+and how to create a [pattern](<%= path "guides/patterns/introduction" %>).
 
-#### Startup and Interactive Startup
-
+However, there are still a few simulation-specific points that are worth noting to help
+make your application simulation-ready.
 
 #### Pin Definitions
 
+To simulate, you will at the very least need a model that corresponds to your DUT and which
+defines the pins that you want to wiggle.
 
+It is not necessary to define all the pins of your DUT in the model, but for those that you do
+define the IDs should match up between the model and the top-level Verilog module for your
+DUT.
 
+The easiest way to achieve this is to define your model's pins by importing the pins that were
+extracted from the design (using `sim:build` as described in the 
+[Compiling the DUT section](<%= path "guides/simulation/compiling" %>)).
 
+This will guarantee that your model exactly matches the design, and if you want
+to use different pin names in the ATE patterns you can define these as aliases and add a
+[`pin_pattern_order` statement](<%= path "guides/pattern/pins/#Controlling_the_Pattern_Pin_Order" %>)
+to choose the alias instead of the h/ware names:
 
-Forcing a pin value...
+~~~ruby
+module MyApp
+  class MyDUT
+    include Origen::TopLevel
 
+    def initialize(options = {})
+      import 'my_dut', dir: "#{Origen.root!}/vendor/pins", namespace: nil
+
+      # Add aliases if you want to use different names in your application and in ATE patterns
+      add_pin_alias :resetn, :reset_neg_async
+    end
+  end
+end
+~~~
+
+Alternatively, if you already have your pins defined manually in the application and you need to
+reconcile these with what they are called in the design, then you can add the `rtl_name` attribute
+to your definition:
+
+~~~ruby
+add_pin :resetn, rtl_name: :reset_neg_async
+~~~
+
+Once you have your pins defined, you can immediately create a pattern and simulate it
+to see if you can see the pins wiggling!
+
+~~~ruby
+# pattern/sign_of_life.rb
+
+Pattern.create do
+  10.times do
+    dut.pin(:my_pin).drive!(1)
+    dut.pin(:my_pin).drive!(0)
+  end
+end
+~~~
+
+To simulate it:
+
+~~~text
+origen g sign_of_life -e environment/sim.rb
+~~~
+
+#### Simulation Startup
+
+When simulating a pattern, the same [startup callback](<%= path "guides/misc/callbacks/#Pattern_Generation" %>)
+(that you might use to implement a mode entry or other setup sequence) will be called as it would
+when you are generating for an ATE.
+
+However, sometimes you may need to do some additional setup in simulation, for example to drive
+some power pins that would be handled by a power supply on an ATE - i.e. they are not normally
+cared about in the pattern.
+
+A simulation-specific callback exists for this purpose, this will be called immediately upon a
+simulation starting and before the pattern or flow creation gets underway - i.e. it will be
+called before the regular `startup` callback.
+
+~~~ruby
+def simulation_startup
+  # Drive these power pins to 1, these are not included in the ATE patterns and will be handled
+  # be a power supply on the tester
+  pin(:vdd).drive(1)
+  pin(:vddc).drive(1)
+  pin(:vss).drive(0)
+end
+~~~
+
+**Note that if multiple patterns are being generated back-back in a single simulation, then the
+`simulation_startup` will only be called once at the very start of the simulation. In contrast,
+the `startup` method will be called at the start of every individual pattern within the simulation.**
+
+#### Simulation Specific Code
+
+Any simulation-specific code in your application can be gated as shown below:
+
+~~~ruby
+if tester.sim?
+  # Only executed when simulating
+end
+~~~
+
+#### Starting the Simulator in an Interactive Session
+
+When in an interactive session (`origen i`) the simulator can be started by typing
+`tester.start`.
+
+If you want this to happen automatically every time you start an interactive session when
+the simulation environment is selected, add this to the [interactive startup callback](<%= path "guides/misc/callbacks/#interactive_startup" %>):
+
+~~~ruby
+def interactive_startup
+  # Always start the simulator immediately if I open an interactive session with the
+  # simulation environment selected
+  tester.start if tester.sim?
+end
+~~~
 
 % end

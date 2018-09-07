@@ -72,7 +72,7 @@ OrigenSim.cadence do |sim|
     'origen.dut.pmc.some.internal.node' => 1,
   }
   # Custom probes can be specified, e.g. to include memory contents in the wave dump
-  sim.setup %Q(
+  sim.tcl_inputs %Q(
     probe -create -shm origen.dut.mems.user -all -memories -variables -unpacked 262144 -depth all
     probe -create -shm origen.dut.mems.cache -all -memories -variables -unpacked 262144 -depth all
   )
