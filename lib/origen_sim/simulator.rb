@@ -1,12 +1,16 @@
 require 'origen_sim/simulation'
+require 'origen_sim/artifacts'
+
 module OrigenSim
   # Responsible for managing and communicating with the simulator
   # process, a single instance of this class is instantiated as
   # OrigenSim.simulator
   class Simulator
     include Origen::PersistentCallbacks
+    include Artifacts
 
     VENDORS = [:icarus, :cadence, :synopsys, :generic]
+    DEFAULT_ARTIFACT_DIR = Pathname("#{Origen.app.root}/simulation/application/artifacts")
 
     attr_reader :configuration
     alias_method :config, :configuration
@@ -116,6 +120,76 @@ module OrigenSim
       end
       @configuration = options
       @tmp_dir = nil
+
+      # Temporary workaround for bug in componentable, which is making the container a class object, instead of an
+      # instance object.
+      clear_artifacts
+
+      # Add any artifacts in the given artifact path
+      if Dir.exist?(default_artifact_dir)
+        default_artifact_dir.children.each { |a| artifact(a.basename.to_s, target: a) }
+      end
+
+      # Add any artifacts from the target-specific path (simulation/<target>/artifacts). Files of the same name
+      # will override artifacts residing in the default directory.
+      if Dir.exist?(target_artifact_dir)
+        target_artifact_dir.children.each do |a|
+          remove_artifact(a.basename.to_s) if has_artifact?(a.basename.to_s)
+          add_artifact(a.basename.to_s, target: a)
+        end
+      end
+
+      # If a user artifact path was given, add those artifacts as well, overriding any of the default and target artifacts
+      if user_artifact_dirs?
+        user_artifact_dirs.each do |d|
+          if Dir.exist?(d)
+            # Add any artifacts from any user-given paths. Files of the same name will override artifacts residing in the default directory.
+            d.children.each do |a|
+              remove_artifact(a.basename.to_s) if has_artifact?(a.basename.to_s)
+              add_artifact(a.basename.to_s, target: a)
+            end
+          else
+            Origen.app.fail! message: "Simulator configuration specified a user artifact dir at #{d} but this directory could not be found!"
+          end
+        end
+      end
+
+      self
+    end
+
+    def default_artifact_dir
+      DEFAULT_ARTIFACT_DIR
+    end
+
+    def user_artifact_dirs?
+      @configuration.key?(:user_artifact_dirs)
+    end
+
+    def user_artifact_dirs
+      @configuration.key?(:user_artifact_dirs) ? @configuration[:user_artifact_dirs].map { |d| Pathname(d) } : nil
+    end
+
+    def target_artifact_dir
+      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/#{Origen.target.name}/artifacts")
+    end
+
+    def artifact_run_dir
+      p = Pathname(@configuration[:artifact_run_dir] || './application/artifacts')
+      if p.absolute?
+        p
+      else
+        Pathname(run_dir).join(p)
+      end
+    end
+
+    def artifact_populate_method
+      @configuration[:artifact_populate_method] || begin
+        if Origen.running_on_windows?
+          :copy
+        else
+          :symlink
+        end
+      end
     end
 
     # The ID assigned to the current simulation target, falls back to to the
@@ -160,7 +234,7 @@ module OrigenSim
     end
 
     def wave_config_file
-      @wave_config_file ||= begin
+      @wave_config_file ||= configuration[:wave_config_file] || begin
         f = "#{wave_config_dir}/#{User.current.id}.#{wave_config_ext}"
         unless File.exist?(f)
           # Take a default wave if one has been set up
@@ -269,6 +343,10 @@ module OrigenSim
       cmd = post_process_run_cmd.call(cmd, self) if post_process_run_cmd
       fail "OrigenSim: :post_process_run_cmd returned object of class #{cmd.class}. Must return a String." unless cmd.is_a?(String)
 
+      # Print the command if debug is enabled
+      Origen.log.debug 'OrigenSim Run Command:'
+      Origen.log.debug cmd
+
       cmd
     end
 
@@ -362,6 +440,9 @@ module OrigenSim
       simulations << @simulation
 
       fetch_simulation_objects
+
+      artifact.clean
+      artifact.populate
 
       cmd = run_cmd + ' & echo \$!'
 
