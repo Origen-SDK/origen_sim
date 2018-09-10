@@ -305,10 +305,10 @@ module OrigenSim
         cmd += " -nclibdirpath #{compiled_dir}"
 
       when :synopsys
-        if configuration[:dve]
-         cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
-        elsif configuration[:verdi]
+        if configuration[:verdi]
          cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{Origen.target.name}/#{wave_file_basename}.fsdb +memcbk +vcsd"
+        else
+         cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
         end
 
       when :generic
