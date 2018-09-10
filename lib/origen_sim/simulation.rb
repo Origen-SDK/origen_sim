@@ -91,11 +91,31 @@ module OrigenSim
     # heartbeats.
     def start_heartbeat
       @heartbeat = @server_heartbeat.accept
-      @heartbeat_thread = Heartbeat.new(@heartbeat)
+      if Heartbeat::THREADSAFE
+        @heartbeat_thread = Heartbeat.new(@heartbeat)
+      else
+        @heartbeat_pid = fork do
+          loop do
+            @heartbeat.write("OK\n")
+            sleep 5
+          end
+        end
+      end
     end
 
     def stop_heartbeat
-      @heartbeat_thread.stop
+      if Heartbeat::THREADSAFE
+        @heartbeat_thread.stop
+      else
+        Process.kill('SIGHUP', @heartbeat_pid)
+
+        # Ensure that the process has stopped before closing the IO pipes
+        begin
+          Process.waitpid(@heartbeat_pid)
+        rescue Errno::ECHILD
+          # Heartbeat process has already stopped, so ignore this.
+        end
+      end
     end
 
     # Open the communication channels with the simulator

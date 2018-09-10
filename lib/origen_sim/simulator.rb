@@ -1,12 +1,16 @@
 require 'origen_sim/simulation'
+require 'origen_sim/artifacts'
+
 module OrigenSim
   # Responsible for managing and communicating with the simulator
   # process, a single instance of this class is instantiated as
   # OrigenSim.simulator
   class Simulator
     include Origen::PersistentCallbacks
+    include Artifacts
 
-    VENDORS = [:icarus, :cadence, :synopsys, :verdi, :generic]
+    VENDORS = [:icarus, :cadence, :synopsys, :generic]
+    DEFAULT_ARTIFACT_DIR = Pathname("#{Origen.app.root}/simulation/application/artifacts")
 
     attr_reader :configuration
     alias_method :config, :configuration
@@ -116,6 +120,76 @@ module OrigenSim
       end
       @configuration = options
       @tmp_dir = nil
+
+      # Temporary workaround for bug in componentable, which is making the container a class object, instead of an
+      # instance object.
+      clear_artifacts
+
+      # Add any artifacts in the given artifact path
+      if Dir.exist?(default_artifact_dir)
+        default_artifact_dir.children.each { |a| artifact(a.basename.to_s, target: a) }
+      end
+
+      # Add any artifacts from the target-specific path (simulation/<target>/artifacts). Files of the same name
+      # will override artifacts residing in the default directory.
+      if Dir.exist?(target_artifact_dir)
+        target_artifact_dir.children.each do |a|
+          remove_artifact(a.basename.to_s) if has_artifact?(a.basename.to_s)
+          add_artifact(a.basename.to_s, target: a)
+        end
+      end
+
+      # If a user artifact path was given, add those artifacts as well, overriding any of the default and target artifacts
+      if user_artifact_dirs?
+        user_artifact_dirs.each do |d|
+          if Dir.exist?(d)
+            # Add any artifacts from any user-given paths. Files of the same name will override artifacts residing in the default directory.
+            d.children.each do |a|
+              remove_artifact(a.basename.to_s) if has_artifact?(a.basename.to_s)
+              add_artifact(a.basename.to_s, target: a)
+            end
+          else
+            Origen.app.fail! message: "Simulator configuration specified a user artifact dir at #{d} but this directory could not be found!"
+          end
+        end
+      end
+
+      self
+    end
+
+    def default_artifact_dir
+      DEFAULT_ARTIFACT_DIR
+    end
+
+    def user_artifact_dirs?
+      @configuration.key?(:user_artifact_dirs)
+    end
+
+    def user_artifact_dirs
+      @configuration.key?(:user_artifact_dirs) ? @configuration[:user_artifact_dirs].map { |d| Pathname(d) } : nil
+    end
+
+    def target_artifact_dir
+      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/#{Origen.target.name}/artifacts")
+    end
+
+    def artifact_run_dir
+      p = Pathname(@configuration[:artifact_run_dir] || './application/artifacts')
+      if p.absolute?
+        p
+      else
+        Pathname(run_dir).join(p)
+      end
+    end
+
+    def artifact_populate_method
+      @configuration[:artifact_populate_method] || begin
+        if Origen.running_on_windows?
+          :copy
+        else
+          :symlink
+        end
+      end
     end
 
     # The ID assigned to the current simulation target, falls back to to the
@@ -160,7 +234,7 @@ module OrigenSim
     end
 
     def wave_config_file
-      @wave_config_file ||= begin
+      @wave_config_file ||= configuration[:wave_config_file] || begin
         f = "#{wave_config_dir}/#{User.current.id}.#{wave_config_ext}"
         unless File.exist?(f)
           # Take a default wave if one has been set up
@@ -191,8 +265,6 @@ module OrigenSim
         'svcf'
       when :synopsys
         'tcl'
-      when :verdi
-        'rc'
       end
     end
 
@@ -233,10 +305,11 @@ module OrigenSim
         cmd += " -nclibdirpath #{compiled_dir}"
 
       when :synopsys
-        cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
-
-      when :verdi
-        cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{Origen.target.name}/#{wave_file_basename}.fsdb +memcbk +vcsd"
+        if configuration[:dve]
+         cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
+        elsif configuration[:verdi]
+         cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{Origen.target.name}/#{wave_file_basename}.fsdb +memcbk +vcsd"
+        end
 
       when :generic
         # Generic tester requires that a generic_run_command option/block be provided.
@@ -274,6 +347,10 @@ module OrigenSim
       cmd = post_process_run_cmd.call(cmd, self) if post_process_run_cmd
       fail "OrigenSim: :post_process_run_cmd returned object of class #{cmd.class}. Must return a String." unless cmd.is_a?(String)
 
+      # Print the command if debug is enabled
+      Origen.log.debug 'OrigenSim Run Command:'
+      Origen.log.debug cmd
+
       cmd
     end
 
@@ -284,7 +361,11 @@ module OrigenSim
         if Origen.app.current_job
           @last_wafe_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
         else
-          @last_wafe_file_basename
+          if Origen.interactive?
+            'interactive'
+          else
+            @last_wafe_file_basename
+          end
         end
       end
     end
@@ -313,25 +394,25 @@ module OrigenSim
       when :synopsys
         edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
         cmd = "cd #{edir} && "
-        cmd += configuration[:dve] || 'dve'
-        dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-        cmd += " -vpd #{dir}/#{wave_file_basename}.vpd"
-        f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
-        cmd += " -session #{f}"
-        cmd += ' &'
-
-     when :verdi
-      unless ENV["VCS_HOME"] && ENV["LD_LIBRARY_PATH"]
-       puts "Please make sure the VCS_HOME and LD_LIBRARY PATH are setup correctly before using Verdi"
-      end
-       edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
-       cmd = "cd #{edir} && "
-       cmd += configuration[:verdi] || 'verdi'
-       dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-       cmd += " -ssz -dbdir #{Origen.root}/simulation/#{Origen.target.name}/verdi/simv.daidir/ -ssf #{dir}/#{wave_file_basename}.fsdb"
-       f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
-       cmd += " -sswr #{f}"
-       cmd += ' &'
+        if configuration[:dve]
+         cmd += configuration[:dve] || 'dve'
+         dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+         cmd += " -vpd #{dir}/#{wave_file_basename}.vpd"
+         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+         cmd += " -session #{f}"
+         cmd += ' &'
+        elsif configuration[:verdi]
+         unless ENV["VCS_HOME"] && ENV["LD_LIBRARY_PATH"]
+          puts "Please make sure the VCS_HOME and LD_LIBRARY PATH are setup correctly before using Verdi"
+         end
+          edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
+          cmd = "cd #{edir} && "
+          cmd += configuration[:verdi] || 'verdi'
+          dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+          cmd += " -ssz -dbdir #{Origen.root}/simulation/#{Origen.target.name}/verdi/simv.daidir/ -ssf #{dir}/#{wave_file_basename}.fsdb"
+          f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+          cmd += " -sswr #{f}"
+        end
 
       when :generic
         # Since this could be anything, the simulator will need to set this up. But, once it is, we can print it here.
@@ -378,6 +459,9 @@ module OrigenSim
       simulations << @simulation
 
       fetch_simulation_objects
+
+      artifact.clean
+      artifact.populate
 
       cmd = run_cmd + ' & echo \$!'
 
@@ -480,6 +564,8 @@ module OrigenSim
         simulation.log_results
         exit  # Assume it is not worth trying another pattern in this case, some kind of environment/config issue
       end
+      Origen.log.info "OrigenSim version #{Origen.app!.version}"
+      Origen.log.info "OrigenSim DUT version #{dut_version}"
       # Tick the simulation on, this seems to be required since any VPI puts operations before
       # the simulation has started are not applied.
       # Note that this is not setting a tester timeset, so the application will still have to
@@ -641,6 +727,17 @@ module OrigenSim
       data = get
       unless data.strip == 'OK!'
         fail 'Origen and the simulator are out of sync!'
+      end
+    end
+
+    # Flush any buffered simulation output, this should cause live wave viewers to
+    # reflect the latest state
+    def flush
+      if dut_version > '0.12.1'
+        put('j^')
+        sync_up
+      else
+        OrigenSim.error "Use of flush requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
       end
     end
 
@@ -841,6 +938,20 @@ module OrigenSim
       end
     end
 
+    # Any vectors executed within the given block will increment the match_errors counter
+    # rather than the errors counter.
+    # The match_errors counter will be returned to 0 at the end.
+    def match_loop
+      poke("#{testbench_top}.pins.match_loop", 1)
+      yield
+      poke("#{testbench_top}.pins.match_loop", 0)
+      poke("#{testbench_top}.pins.match_errors", 0)
+    end
+
+    def match_errors
+      peek("#{testbench_top}.pins.match_errors").to_i
+    end
+
     private
 
     # Pre 0.8.0 the simulator represented the time in ns instead of ps
@@ -850,7 +961,7 @@ module OrigenSim
 
     def clean(net)
       if net =~ /^dut\./
-        "origen.#{net}"
+        "#{testbench_top}.#{net}"
       else
         net
       end

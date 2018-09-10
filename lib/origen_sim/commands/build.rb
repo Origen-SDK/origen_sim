@@ -107,14 +107,6 @@ else
 
   puts
   puts
-  puts 'Testbench and VPI extension created!'
-  puts
-  puts 'This file can be imported into an Origen top-level DUT model to define the pins:'
-  puts
-  puts "  #{output_directory}/#{rtl_top_module}.rb"
-  puts
-  puts 'See below for what to do now to create an Origen-enabled simulation object for your particular simulator:'
-  puts
   puts '-----------------------------------------------------------'
   puts 'Cadence Incisive (irun)'
   puts '-----------------------------------------------------------'
@@ -145,7 +137,7 @@ else
   puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
   puts
   puts "  #{output_directory}/origen.v \\"
-  puts "  #{output_directory}/brdige.c \\"
+  puts "  #{output_directory}/bridge.c \\"
   puts "  #{output_directory}/client.c \\"
   puts '  -CFLAGS "-std=c99" \\'
   puts '  +vpi \\'
@@ -187,6 +179,15 @@ else
   puts "  #{output_directory}/origen.vpi"
   puts '  origen.vvp'
   puts
+  puts '-----------------------------------------------------------'
+  puts
+  puts 'Testbench and VPI extension created!'
+  puts
+  puts 'This file can be imported into an Origen top-level DUT model to define the pins:'
+  puts
+  puts "  #{output_directory}/#{rtl_top_module}.rb"
+  puts
+  puts 'See above for what to do now to create an Origen-enabled simulation object for your particular simulator.'
   puts
   puts '-----------------------------------------------------------'
   puts 'Verdi VCS'

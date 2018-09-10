@@ -28,8 +28,23 @@ class OrigenSimApplication < Origen::Application
     #:patterns => "pattern",
     #:templates => "templates",
     #:programs => "program",
-    :command_launcher => "config/shared_commands.rb",
-    :global_launcher => "config/global_commands.rb"
+    command_launcher: "config/shared_commands.rb",
+    global_launcher: "config/global_commands.rb",
+    origen_guides: "templates/origen_guides",
+    origen_guides_index: -> (index) do
+      index.section :simulation, heading: "Simulation", after: :program do |section|
+        section.page :introduction, heading: "Introduction"
+        section.page :howitworks, heading: "How It Works"
+        section.page :compiling, heading: "Compiling the DUT"
+        section.page :environment, heading: "Environment Setup"
+        section.page :app, heading: "Application Setup"
+        section.page :patterns, heading: "Simulating Patterns"
+        section.page :flows, heading: "Simulating Flows"
+        section.page :log, heading: "Simulator Log Output"
+        section.page :artifacts, heading: "Artifacts"
+        section.page :debugging, heading: "Interactive Debugging"
+      end
+    end
   }
 
   config.remotes = [

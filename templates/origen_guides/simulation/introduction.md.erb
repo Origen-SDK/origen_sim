@@ -1,0 +1,35 @@
+% render "layouts/guides.html" do
+
+<img src="https://user-images.githubusercontent.com/158364/36662666-6b49d096-1adf-11e8-997e-889caba391b2.png" alt="origen_sim" style="
+    width: 100%;
+">
+
+OrigenSim is a plugin that enables semiconductor test patterns (and flows) written in Origen/Ruby to be run
+in a dynamic Verilog simulation, similar to what is commonly known as a _Virtual Test_ simulation in other workflows.
+
+It provides a simulation tester driver (which can be used as a direct replacement for Origen's
+conventional ATE tester drivers) which will
+pass requests to drive or expect pin values onto a simulator instead of rendering them to an ASCII file. Since
+the application-level Origen code is the same in both cases, it guarantees that what happens in the simulation
+and in the final pattern are the same and that ultimately they will work first time on silicon.
+
+For debugging, OrigenSim supports the injection of regular Ruby debugger breakpoints anywhere in the pattern
+source code. This will halt the simulation at the given point in time, allowing it to be interactively
+debugged at the Origen-source-code level.
+
+Similarly, an Origen interactive session (`origen i`) can be launched with an OrigenSim driver,
+allowing designers and test engineers to use Origen APIs to interactively manipulate a live simulation of their
+DUT while viewing the response in real time in a wave viewer.
+
+#### Adding OrigenSim To Your Application
+
+To enable your application to use OrigenSim, simply add the plugin to your Gemfile:
+
+~~~ruby
+gem "<%= Origen.app.name %>"
+~~~
+
+and then [create a simulation environment setup](<%= path "guides/simulation/environment" %>).
+
+
+% end

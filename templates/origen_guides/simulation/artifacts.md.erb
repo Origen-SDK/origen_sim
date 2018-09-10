@@ -1,0 +1,115 @@
+% render "layouts/guides.html" do
+
+When OrigenSim runs, it will change the current directory to run the simulator. This is not necessarily the
+same directory that the compiled snapshot resides in and will most likely break relative paths compiled into the
+snapshot.
+
+OrigenSim provides an <code>artifacts</code> API to handle this problem. <code>Artifacts</code> are just files or
+directories that need to be available in the run directory prior to the simulation start. This can be used to
+reconstruct the run directory regardless of vendor or target configurations, and without requiring you to build in the
+logic into the application itself.
+
+OrigenSim will automatically look for artifacts in the directory <code>#{Origen.app.root}/simulation/application/artifacts</code>.
+Anything in the this folder will be moved to the run directory and placed in <code>application/artifacts</code> just before the
+simulation process starts. These artifacts will be populated across targets. You can override an artifact with one
+specific to your target by placing an artifact with the same name in <code>simulation/TARGET/artifacts</code>. 
+
+For example, if I have an artifact <code>simulation/application/artifacts/startup.sv</code> that I need for 
+three targets, <code>rtl</code>, <code>part_analog</code>, and <code>all_analog</code>, this same artifact will be used
+whenever any of those targets are used. Then, consider I have a new target <code>gate</code>, which has a different
+<code>startup.sv</code> to run. By placing this at <code>simulation/gate/artifacts/startup.sv</code>, OrigenSim
+will replace the artifact in <code>simulation/application/artifacts</code> with this one, in the same run directory.
+
+Warning: Default artifacts only go a single level deep. Directories placed at <code>simulation/TARGET/artifacts</code>
+will override an entire directory at <code>application/artifacts</code>. If you need more
+control over the artifacts, you can see further down in this guide for manually adding artifacts.
+
+OrigenSim provides two further customizations to the default setup. Like the target directory, you can pass additional
+<code>user_artifact_dirs</code>, which will override any artifacts found at either the default or target artifact levels.
+These artifacts will override each other in the order of the Array definition.
+
+All of these artifacts have different sources, but they are placed in the same <code>artifact_run_dir</code>, which
+defaults to <code>application/artifacts</code>. This location is customizable as well with the <code>artifact_run_dir</code>
+option.
+
+~~~ruby
+OrigenSim::cadence do |sim|
+  # Add a user artifact directory
+  sim.user_artifact_dirs ["#{Origen.app.root}/simulation/testbench"]
+
+  # Change the artifact target location, within the context of the run directory.
+  # NOTE: this is relative to the run directory. This expands to /path/to/run/dir/testbench
+   sim.artifact_run_dir "./testbench"
+end
+~~~
+
+Note here that the <code>artifact_run_dir</code> is <b>implicitly relative</b> to the
+run directory. Relative paths are expanded in the context of the run directory, <b>not</b> relative to
+the current script location.
+
+Artifacts can be populated either by symlinks or by copying the contents directly. By default, Linux will symlink the
+contents and unlink to clean them. However, due to the elevated priveledges required by later Windows systems to symlink objects,
+the default behavior for Windows is to just copy files. This does mean that larger, and/or a large number, of artifacts
+may take longer. This behavior can be changed however:
+
+~~~ruby
+OrigenSim::cadence do |sim|
+  # Force all artifacts to be copied
+  artifact_populate_method :copy
+	
+  # Force all artifacts to be symlinked
+  artifact_populate_method :symlink
+end
+~~~
+
+OrigemSim's artifacts can be queried, populated, or cleaned, directly by accessing the <code>OrigenSim.artifact</code>
+object (note: the exclusion of the <i>s</i>). Some methods also exist to retrieve and list the current artifacts:
+
+~~~ruby
+# Populate all the artifacts
+tester.simulator.artifact.populate
+
+# Clean the currently populated artifacts
+tester.simulator.artifact.clean
+
+# List the current artifact names
+tester.simulator.list_artifacts
+
+# Retrieve the current artifact instances (as a Hash whose keys are the names returned above)
+tester.simulator.artifacts
+
+# Retrieve a single artifact
+tester.simulator.artifacts[my_artifact]
+tester.simulator.artifact[my_artifact]
+~~~
+
+The <code>OrigenSim::Artifacts</code> class inherits from
+[Origen::Componentable](http://origen-sdk.org/origen/guides/models/componentable/#The_Parent_Class),
+so any of the <i>componentable</i> methods are available.
+
+Additional single-artifact items can be added manually:
+
+~~~ruby
+# in environment/sim.rb
+
+tester = OrigenSim::cadence do |sim|
+end
+
+tester.simulator.artifact(:my_artifact) do |a|
+  # Point to a custom target
+  a.target "/path/to/my/artifact.mine"
+
+  # Point to a custom run target
+  # Recall this will expand to /path/to/run/dir/custom_artifacts
+  # This ultimately places the artifact at /path/to/run/dir/custom_artifacts/artifact.mine
+  a.run_target "./custom_artifacts"
+
+  # Indicate this artifact should be copied, regardlesss of global/OS settings.
+  a.populate_method :copy
+end
+~~~
+
+Note that this takes place <b>outside</b> of the initial tester instantiation, but can still occur in the environment
+file.
+
+% end

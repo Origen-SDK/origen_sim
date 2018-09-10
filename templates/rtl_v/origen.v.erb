@@ -75,6 +75,8 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
 
   output reg [31:0] errors = 0;
   reg sync = 0;
+  reg [31:0] match_errors = 0;
+  reg match_loop = 0;
 
   always @(
 
@@ -86,7 +88,10 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
 %   end
 % end
   ) begin
-    errors[31:0] = errors[31:0] + 1;
+    if (match_loop == 1)
+      match_errors[31:0] = match_errors[31:0] + 1;
+    else
+      errors[31:0] = errors[31:0] + 1;
   end
 
 % dut.rtl_pins.each do |name, pin, options|

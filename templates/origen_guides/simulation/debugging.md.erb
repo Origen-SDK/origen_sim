@@ -1,0 +1,19 @@
+% render "layouts/guides.html" do
+
+
+### Register Reading
+
+reg.sync
+
+
+
+Added an API to allow application code to force a simulation fail, which piggy backs on the way that log output from the simulator can make the simulation result be classed as a fail:
+
+# When running in simulation, verify this node which is not observable on the tester
+if tester.sim?
+  if tester.simulator.peek("origen.dut.path.to.some.node").to_i == 1
+    OrigenSim.error "The internal blah warning was asserted!"
+  end
+end
+
+% end
