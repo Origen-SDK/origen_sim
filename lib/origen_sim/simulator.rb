@@ -394,14 +394,7 @@ module OrigenSim
       when :synopsys
         edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
         cmd = "cd #{edir} && "
-        if configuration[:dve]
-         cmd += configuration[:dve] || 'dve'
-         dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-         cmd += " -vpd #{dir}/#{wave_file_basename}.vpd"
-         f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
-         cmd += " -session #{f}"
-         cmd += ' &'
-        elsif configuration[:verdi]
+        if configuration[:verdi]
          unless ENV["VCS_HOME"] && ENV["LD_LIBRARY_PATH"]
           puts "Please make sure the VCS_HOME and LD_LIBRARY PATH are setup correctly before using Verdi"
          end
@@ -412,6 +405,13 @@ module OrigenSim
           cmd += " -ssz -dbdir #{Origen.root}/simulation/#{Origen.target.name}/verdi/simv.daidir/ -ssf #{dir}/#{wave_file_basename}.fsdb"
           f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
           cmd += " -sswr #{f}"
+        else
+          cmd += configuration[:dve] || 'dve'
+          dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+          cmd += " -vpd #{dir}/#{wave_file_basename}.vpd"
+          f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+          cmd += " -session #{f}"
+          cmd += ' &'
         end
 
       when :generic
