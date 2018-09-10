@@ -14,7 +14,7 @@ module OrigenSim
             if line
               line = line.chomp
               if OrigenSim.fail_on_stderr && !line.empty? &&
-                 !OrigenSim.stderr_string_exceptions.any? { |s| line =~ /#{s}/ }
+                 !OrigenSim.stderr_string_exceptions.any? { |s| line =~ /#{s}/i }
                 # We're failing on stderr, so print its results and log as errors if its not an exception.
                 @logged_errors = true
                 Origen.log.error "(STDERR): #{line}"
