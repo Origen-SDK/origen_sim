@@ -1,4 +1,108 @@
 % render "layouts/guides.html" do
 
+Log output from simulations is often very verbose, which can make it hard to distinguish between messages
+that are important and those that can be safely ignored.
+
+By default, OrigenSim will automatically suppress all simulator log output except for any lines that
+contain the text _WARNING_ or _ERROR_; both of these will be logged to the console and any occurrences of
+the latter will also make the result of the simulation be classed as a FAIL.
+
+All log output can be shown in the console by running with the `-d` or `--debug` switches, and the log files will
+always contain everything that was output by the simulator.
+
+OrigenSim will also consider any output from the simulator to STDERR as a sign that something has gone wrong
+and this will also cause the simulation result to be classed as a FAIL.
+
+If your simulation produces STDERR output which you don't care about (and which you don't want to make your
+simulation FAIL), then you can configure OrigenSim to ignore all STDERR messages via:
+
+~~~ruby
+OrigenSim.fail_on_stderr = false
+~~~
+
+Alternatively, a safer solution is to declare which specific messages on STDERR should be ignored.
+For example, say that in an early design build the ADC is not configured correctly and this results
+in a message about this being output to STDERR.
+However, since this problem does not affect the particular IP that we are testing we do
+not want our simulations to FAIL because of it.
+
+In such a case you can add strings to the `stderr_string_exceptions` array and any STDERR lines which contain
+the given text will by ignored:
+
+~~~ruby
+OrigenSim.stderr_string_exceptions << 'invalid adc config'
+~~~
+
+Similarly, if you find that the default of matching for _ERROR_ in STDOUT messages is being overly aggressive,
+exceptions can be added in a similar way:
+
+~~~ruby
+OrigenSim.error_string_exceptions << 'uninitialized value in ROM at'
+~~~
+
+This means that a log line resembling <code>ERROR uninitialized value in ROM at 0x1000</code> will not fail the simulation,
+but the line `ERROR uninitialized value in RAM at 0x2000` will fail.
+
+On the other hand, if you find that simply matching for _ERROR_ is not catching some cases which you would
+like to cause a FAIL, you can add additional strings to watch out for like this:
+
+~~~ruby
+OrigenSim.error_strings << 'FAILED'
+~~~
+
+If you want to remove 'ERROR' from the list of error strings (in there by default), you can assign a new array
+instance:
+
+~~~ruby
+OrigenSim.error_strings << 'FAILED'
+
+OrigenSim.error_strings  # => ['ERROR', 'FAILED']
+
+OrigenSim.error_strings = ['FAILED']
+
+OrigenSim.error_strings  # => ['FAILED']
+~~~
+
+Similar variables exist to configure what you want to catch as a warning:
+
+~~~ruby
+OrigenSim.warning_strings            # => ['WARNING']
+
+OrigenSim.warning_string_exceptions  # => []
+~~~
+
+and also to match and output lines that you simply want to be shown in the console by default:
+
+~~~ruby
+OrigenSim.log_string  # => []
+~~~
+
+It is conventional to do all such configuration like this with `environment/sim.rb`, where you can decide
+to make it global (applies to all targets), target-specific, or a combination of both:
+
+~~~ruby
+# environment/sim.rb
+
+# Will apply to all targets
+OrigenSim.error_strings << 'FAILED'
+
+case Origen.target.name
+
+when "my_dut1"
+  OrigenSim.cadence do |sim|
+    # Configuration of Cadence simulator to be used for DUT1 here
+  end
+
+  # Known problem with this specific DUT only
+  OrigenSim.error_string_exceptions << 'uninitialized value in ROM at'
+
+when "my_dut2"
+  OrigenSim.synopsys do |sim|
+    # Configuration of Synopsys simulator to be used for DUT2 here
+  end
+
+# ...
+~~~
+
 
 % end

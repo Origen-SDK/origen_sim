@@ -41,6 +41,7 @@ class OrigenSimApplication < Origen::Application
         section.page :patterns, heading: "Simulating Patterns"
         section.page :flows, heading: "Simulating Flows"
         section.page :log, heading: "Simulator Log Output"
+        section.page :artifacts, heading: "Artifacts"
         section.page :debugging, heading: "Interactive Debugging"
       end
     end
