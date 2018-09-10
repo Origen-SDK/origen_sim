@@ -440,8 +440,6 @@ module OrigenSim
         d
       when :synopsys
         wave_dir
-      when :veridi
-        wave_dir
       else
         tmp_dir
       end
