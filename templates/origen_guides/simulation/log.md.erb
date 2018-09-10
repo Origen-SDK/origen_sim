@@ -27,7 +27,7 @@ However, since this problem does not affect the particular IP that we are testin
 not want our simulations to FAIL because of it.
 
 In such a case you can add strings to the `stderr_string_exceptions` array and any STDERR lines which contain
-the given text will by ignored:
+the given text will be ignored:
 
 ~~~ruby
 OrigenSim.stderr_string_exceptions << 'invalid adc config'
@@ -71,7 +71,7 @@ OrigenSim.warning_strings            # => ['WARNING']
 OrigenSim.warning_string_exceptions  # => []
 ~~~
 
-and also to match and output lines that you simply want to be shown in the console by default:
+and also to match any output lines that you simply want to be shown in the console by default:
 
 ~~~ruby
 OrigenSim.log_string  # => []
