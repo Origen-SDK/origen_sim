@@ -405,6 +405,7 @@ module OrigenSim
           cmd += " -ssz -dbdir #{Origen.root}/simulation/#{Origen.target.name}/synopsys/simv.daidir/ -ssf #{dir}/#{wave_file_basename}.fsdb"
           f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
           cmd += " -sswr #{f}"
+          cmd += ' &'
         else
           cmd += configuration[:dve] || 'dve'
           dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
