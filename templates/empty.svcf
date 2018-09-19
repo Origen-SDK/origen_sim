@@ -2,18 +2,22 @@
 # Preferences
 #
 preferences set plugin-enable-svdatabrowser-new 1
-preferences set toolbar-SimControl-WaveWindow {
+preferences set toolbar-Standard-WaveWindow {
   usual
-  position -row 1 -pos 4 -anchor e
+  position -pos 1
 }
 preferences set plugin-enable-groupscope 0
-preferences set sb-display-values 1
 preferences set plugin-enable-interleaveandcompare 0
 preferences set plugin-enable-waveformfrequencyplot 0
 preferences set toolbar-WaveZoom-WaveWindow {
   usual
   position -row 1 -pos 3 -anchor w
 }
+preferences set toolbar-SimControl-WaveWindow {
+  usual
+  position -row 1 -pos 4 -anchor e
+}
+preferences set sb-display-values 1
 preferences set whats-new-dont-show-at-startup 1
 #
 # Groups
@@ -21,6 +25,7 @@ preferences set whats-new-dont-show-at-startup 1
 catch {group new -name Debug -overlay 0}
 catch {group new -name {Group 2} -overlay 0}
 catch {group new -name DUT -overlay 0}
+catch {group new -name Comments -overlay 0}
 group using Debug
 group set -overlay 0
 group set -comment {}
@@ -28,8 +33,7 @@ group clear 0 end
 
 group insert \
     [subst  {[format {origen.debug.pattern[1023:0]}]} ] \
-    [subst  {[format {origen.debug.comments[1023:0]}]} ] \
-    [subst  {[format {origen.debug.errors[31:0]}]} ]
+    Comments
 group using {Group 2}
 group set -overlay 0
 group set -comment {}
@@ -40,6 +44,22 @@ group set -overlay 0
 group set -comment {}
 group clear 0 end
 
+group using Comments
+group set -overlay 0
+group set -comment {}
+group clear 0 end
+
+group insert \
+    [subst  {[format {origen.debug.comments0[1023:0]}]} ] \
+    [subst  {[format {origen.debug.comments1[1023:0]}]} ] \
+    [subst  {[format {origen.debug.comments2[1023:0]}]} ] \
+    [subst  {[format {origen.debug.comments3[1023:0]}]} ] \
+    [subst  {[format {origen.debug.comments4[1023:0]}]} ] \
+    [subst  {[format {origen.debug.comments5[1023:0]}]} ] \
+    [subst  {[format {origen.debug.comments6[1023:0]}]} ] \
+    [subst  {[format {origen.debug.comments7[1023:0]}]} ] \
+    [subst  {[format {origen.debug.comments8[1023:0]}]} ] \
+    [subst  {[format {origen.debug.comments9[1023:0]}]} ]
 
 #
 # Mnemonic Maps
@@ -70,15 +90,51 @@ waveform baseline set -time 0
 
 
 set groupId0 [waveform add -groups Debug]
+
+set groupId1 [waveform find -name Comments]
+set gpGlist1 [waveform hierarchy contents $groupId1]
+set gpID1 [lindex $gpGlist1 0]
+foreach {name attrs} [subst  {
+    {[format {origen.debug.comments0[1023:0]}]} {-radix %a}
+    {[format {origen.debug.comments1[1023:0]}]} {-radix %a}
+    {[format {origen.debug.comments2[1023:0]}]} {-radix %a}
+    {[format {origen.debug.comments3[1023:0]}]} {-radix %a}
+    {[format {origen.debug.comments4[1023:0]}]} {-radix %a}
+    {[format {origen.debug.comments5[1023:0]}]} {-radix %a}
+    {[format {origen.debug.comments6[1023:0]}]} {-radix %a}
+    {[format {origen.debug.comments7[1023:0]}]} {-radix %a}
+    {[format {origen.debug.comments8[1023:0]}]} {-radix %a}
+    {[format {origen.debug.comments9[1023:0]}]} {-radix %a}
+}] childcmds {
+    {}
+    {}
+    {}
+    {}
+    {}
+    {}
+    {}
+    {}
+    {}
+    {}
+} {
+    set expected [ join [waveform signals -format path $gpID1] ]
+    if {[string equal $name $expected] || $name == "cdivider"} {
+        if {$attrs != ""} {
+            eval waveform format $gpID1 $attrs
+        }
+        if { $childcmds != ""} {
+            eval $childcmds
+        }
+    }
+    set gpGlist1 [lrange $gpGlist1 1 end]
+    set gpID1 [lindex $gpGlist1 0]
+}
+
 set gpGlist0 [waveform hierarchy contents $groupId0]
 set gpID0 [lindex $gpGlist0 0]
 foreach {name attrs} [subst  {
     {[format {origen.debug.pattern[1023:0]}]} {-radix %a}
-    {[format {origen.debug.comments[1023:0]}]} {-radix %a}
-    {[format {origen.debug.errors[31:0]}]} {}
 }] childcmds {
-    {}
-    {}
     {}
 } {
     set expected [ join [waveform signals -format path $gpID0] ]
@@ -94,7 +150,21 @@ foreach {name attrs} [subst  {
     set gpID0 [lindex $gpGlist0 0]
 }
 
+set id [waveform add -signals [subst  {
+	{[format {origen.debug.errors[31:0]}]}
+	} ]]
 
 set groupId0 [waveform add -groups DUT]
 
+waveform xview limits 0 32768000ns
+
+#
+# Waveform Window Links
+#
+
+#
+# Console windows
+#
+console set -windowname Console
+window geometry Console 600x250+2364+0
 
