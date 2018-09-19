@@ -200,10 +200,12 @@ module OrigenSim
       @socket.close
       @stderr.close
       @stdout.close
+      @status.close
       File.unlink(socket_id(:heartbeat)) if File.exist?(socket_id(:heartbeat))
       File.unlink(socket_id) if File.exist?(socket_id)
       File.unlink(socket_id(:stderr)) if File.exist?(socket_id(:stderr))
       File.unlink(socket_id(:stdout)) if File.exist?(socket_id(:stdout))
+      File.unlink(socket_id(:status)) if File.exist?(socket_id(:status))
     end
 
     # Returns true if the simulation is running
@@ -230,7 +232,7 @@ module OrigenSim
     end
 
     def socket_id(type = nil)
-      @socket_ids[type] ||= "/tmp/#{socket_number}#{type}.sock"
+      @socket_ids[type] ||= "#{OrigenSim.socket_dir || '/tmp'}/#{socket_number}#{type}.sock"
     end
 
     private

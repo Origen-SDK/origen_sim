@@ -60,6 +60,14 @@ module OrigenSim
     @flow
   end
 
+  def self.socket_dir=(val)
+    @socket_dir = val
+  end
+
+  def self.socket_dir
+    @socket_dir
+  end
+
   def self.error_strings
     @error_strings ||= ['ERROR']
   end
