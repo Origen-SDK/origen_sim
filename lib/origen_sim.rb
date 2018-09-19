@@ -6,6 +6,8 @@ require 'origen_sim/origen/pins/pin'
 require 'origen_sim/origen/top_level'
 require 'origen_sim/origen/application/runner'
 module OrigenSim
+  NUMBER_OF_COMMENT_LINES = 10
+
   # THIS FILE SHOULD ONLY BE USED TO LOAD RUNTIME DEPENDENCIES
   # If this plugin has any development dependencies (e.g. dummy DUT or other models that are only used
   # for testing), then these should be loaded from config/boot.rb

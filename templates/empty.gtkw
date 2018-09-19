@@ -17,10 +17,28 @@
 [signals_width] 158
 [sst_expanded] 1
 [sst_vpaned_height] 337
+@800200
+-debug
 @820
 origen.debug.pattern[1023:0]
-origen.debug.comments[1023:0]
+@800200
+-Comments
+@820
+origen.debug.comments0[1023:0]
+origen.debug.comments1[1023:0]
+origen.debug.comments2[1023:0]
+origen.debug.comments3[1023:0]
+origen.debug.comments4[1023:0]
+origen.debug.comments5[1023:0]
+origen.debug.comments6[1023:0]
+origen.debug.comments7[1023:0]
+origen.debug.comments8[1023:0]
+origen.debug.comments9[1023:0]
+@1000200
+-Comments
 @22
 origen.debug.errors[31:0]
+@1000200
+-debug
 [pattern_trace] 1
 [pattern_trace] 0
