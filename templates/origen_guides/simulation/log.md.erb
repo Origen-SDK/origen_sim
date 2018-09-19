@@ -30,11 +30,18 @@ In such a case you can add strings to the `stderr_string_exceptions` array and a
 the given text will by ignored:
 
 ~~~ruby
-OrigenSim.stderr_string_exceptions << 'invalid adc config'
+OrigenSim.stderr_string_exceptions << 'invalid adc config'    # Case in-sensitive match
 ~~~
 
 **Note that in all of these cases the given text is considered to be case-insensitive when considering if
 it matches a log line.**
+
+If you need case-sensitivity (or more generally need more control of exactly what is considered to be a match), you can
+supply a regular expression instead of a string for all of the cases discussed here:
+
+~~~ruby
+OrigenSim.stderr_string_exceptions << /invalid adc config/    # Case sensitive match
+~~~
 
 Similarly, if you find that the default of matching for _ERROR_ in STDOUT messages is being overly aggressive,
 exceptions can be added in a similar way:

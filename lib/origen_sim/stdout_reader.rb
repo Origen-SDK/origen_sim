@@ -13,16 +13,16 @@ module OrigenSim
             line = @socket.gets
             if line
               line = line.chomp
-              if OrigenSim.error_strings.any? { |s| line =~ /#{s}/i } &&
-                 !OrigenSim.error_string_exceptions.any? { |s| line =~ /#{s}/i }
+              if OrigenSim.error_strings.any? { |s| s.is_a?(Regexp) ? s.match?(line) : line =~ /#{s}/i } &&
+                 !OrigenSim.error_string_exceptions.any? { |s| s.is_a?(Regexp) ? s.match?(line) : line =~ /#{s}/i }
                 @logged_errors = true
                 Origen.log.error "(STDOUT): #{line}"
-              elsif OrigenSim.warning_strings.any? { |s| line =~ /#{s}/i } &&
-                    !OrigenSim.warning_string_exceptions.any? { |s| line =~ /#{s}/i }
+              elsif OrigenSim.warning_strings.any? { |s| s.is_a?(Regexp) ? s.match?(line) : line =~ /#{s}/i } &&
+                    !OrigenSim.warning_string_exceptions.any? { |s| s.is_a?(Regexp) ? s.match?(line) : line =~ /#{s}/i }
                 Origen.log.warn line
               else
                 if OrigenSim.verbose? ||
-                   OrigenSim.log_strings.any? { |s| line =~ /#{s}/i }
+                   OrigenSim.log_strings.any? { |s| s.is_a?(Regexp) ? s.match?(line) : line =~ /#{s}/i }
                   Origen.log.info line
                 else
                   Origen.log.debug line
