@@ -355,12 +355,12 @@ module OrigenSim
         OrigenSim.flow.to_s
       else
         if Origen.app.current_job
-          @last_wafe_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
+          @last_wave_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
         else
           if Origen.interactive?
             'interactive'
           else
-            @last_wafe_file_basename
+            @last_wave_file_basename || 'unnamed_pattern'
           end
         end
       end
@@ -612,6 +612,7 @@ module OrigenSim
         @pattern_count += 1
       end
     end
+    alias_method :setup_simulation, :before_pattern
 
     # This will be called at the end of every pattern, make
     # sure the simulator is not running behind before potentially
@@ -622,6 +623,7 @@ module OrigenSim
         simulation.completed_cleanly = true unless @flow_running
       end
     end
+    alias_method :end_simulation, :pattern_generated
 
     def write_comment(comment)
       # Not sure what the limiting factor here is, the comment memory in the test bench should

@@ -135,5 +135,26 @@ module OrigenSim
   def self.error(message)
     simulator.error(message)
   end
+
+  def self.run(name, options = {}, &block)
+    # Load up the application and target
+    Origen.load_application
+    Origen.app.load_target!
+
+    # Make sure the current environment in a simulator.
+
+    # Start up the simulator and run whatever's in the target block.
+    # After the block completes, shutdown the simulator
+    tester.simulator.setup_simulation(name)
+    yield
+    tester.simulator.end_simulation(name)
+  end
+
+  def self.run_source(source, options = {})
+    OrigenSim.run(source) do
+      # Decompile
+      # Run simulation
+    end
+  end
 end
 OrigenSim.__instantiate_simulator__
