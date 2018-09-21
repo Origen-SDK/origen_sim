@@ -306,9 +306,9 @@ module OrigenSim
 
       when :synopsys
         if configuration[:verdi]
-         cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{Origen.target.name}/#{wave_file_basename}.fsdb +memcbk +vcsd"
+          cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{Origen.target.name}/#{wave_file_basename}.fsdb +memcbk +vcsd"
         else
-         cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
+          cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
         end
 
       when :generic
@@ -395,9 +395,9 @@ module OrigenSim
         edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
         cmd = "cd #{edir} && "
         if configuration[:verdi]
-         unless ENV["VCS_HOME"] && ENV["LD_LIBRARY_PATH"]
-          puts "Please make sure the VCS_HOME and LD_LIBRARY PATH are setup correctly before using Verdi"
-         end
+          unless ENV['VCS_HOME'] && ENV['LD_LIBRARY_PATH']
+            puts 'Please make sure the VCS_HOME and LD_LIBRARY PATH are setup correctly before using Verdi'
+          end
           edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
           cmd = "cd #{edir} && "
           cmd += configuration[:verdi] || 'verdi'
