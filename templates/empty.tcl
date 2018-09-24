@@ -7,8 +7,8 @@
 # 	TopLevel.1
 # 	TopLevel.2
 #   Source.1: origen.dut
-#   Wave.1: 3 signals
-#   Group count = 2
+#   Wave.1: 12 signals
+#   Group count = 3
 #   Group Debug signal count = 3
 #   Group DUT signal count = 0
 # End_DVE_Session_Save_Info
@@ -69,7 +69,7 @@ if {![gui_exist_window -window TopLevel.1]} {
 } else { 
     set TopLevel.1 TopLevel.1
 }
-gui_show_window -window ${TopLevel.1} -show_state normal -rect {{525 653} {2223 1819}}
+gui_show_window -window ${TopLevel.1} -show_state normal -rect {{529 678} {2226 1843}}
 
 # ToolBar settings
 gui_set_toolbar_attributes -toolbar {TimeOperations} -dock_state top
@@ -149,7 +149,7 @@ if {![gui_exist_window -window TopLevel.2]} {
 } else { 
     set TopLevel.2 TopLevel.2
 }
-gui_show_window -window ${TopLevel.2} -show_state normal -rect {{293 121} {2365 1172}}
+gui_show_window -window ${TopLevel.2} -show_state normal -rect {{297 146} {2368 1196}}
 
 # ToolBar settings
 gui_set_toolbar_attributes -toolbar {TimeOperations} -dock_state top
@@ -241,15 +241,42 @@ set _session_group_1 Debug
 gui_sg_create "$_session_group_1"
 set Debug "$_session_group_1"
 
-gui_sg_addsignal -group "$_session_group_1" { origen.debug.pattern origen.debug.comments origen.debug.errors }
+gui_sg_addsignal -group "$_session_group_1" { origen.debug.pattern origen.debug.errors }
 gui_set_radix -radix {ascii} -signals {V1:origen.debug.pattern}
 gui_set_radix -radix {unsigned} -signals {V1:origen.debug.pattern}
-gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments}
-gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments}
 
-set _session_group_2 DUT
+set _session_group_2 $_session_group_1|
+append _session_group_2 Comments
 gui_sg_create "$_session_group_2"
-set DUT "$_session_group_2"
+set Debug|Comments "$_session_group_2"
+
+gui_sg_addsignal -group "$_session_group_2" { origen.debug.comments0 origen.debug.comments1 origen.debug.comments2 origen.debug.comments3 origen.debug.comments4 origen.debug.comments5 origen.debug.comments6 origen.debug.comments7 origen.debug.comments8 origen.debug.comments9 }
+gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments0}
+gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments0}
+gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments1}
+gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments1}
+gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments2}
+gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments2}
+gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments3}
+gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments3}
+gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments4}
+gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments4}
+gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments5}
+gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments5}
+gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments6}
+gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments6}
+gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments7}
+gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments7}
+gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments8}
+gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments8}
+gui_set_radix -radix {ascii} -signals {V1:origen.debug.comments9}
+gui_set_radix -radix {unsigned} -signals {V1:origen.debug.comments9}
+
+gui_sg_move "$_session_group_2" -after "$_session_group_1" -pos 1 
+
+set _session_group_3 DUT
+gui_sg_create "$_session_group_3"
+set DUT "$_session_group_3"
 
 
 # Global: Highlighting
@@ -317,6 +344,7 @@ gui_list_create_group_when_add -wave -disable
 gui_marker_set_ref -id ${Wave.1}  C1
 gui_wv_zoom_timerange -id ${Wave.1} 0 353973502
 gui_list_add_group -id ${Wave.1} -after {New Group} {Debug}
+gui_list_add_group -id ${Wave.1}  -after {origen.debug.pattern[1023:0]} {Debug|Comments}
 gui_list_add_group -id ${Wave.1} -after {New Group} {DUT}
 gui_seek_criteria -id ${Wave.1} {Any Edge}
 

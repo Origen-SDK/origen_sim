@@ -11,6 +11,13 @@ when 'generate'
 
   @application_options << ["--flow NAME", "Simulate multiple patterns back-back within a single simulation with the given name", ->(options, name) { OrigenSim.flow = name }]
 
+  @application_options << ["--socket_dir PATH", "Specify the directory to be used for creating the Origen -> simulator communication socket (/tmp by default) ", ->(options, path) {
+    FileUtils.mkdir_p(path) unless File.exist?(path)
+    path = Pathname.new(path)
+    path = path.realpath.to_s
+    OrigenSim.socket_dir = path
+  }]
+
 when "sim:ci", "origen_sim:ci"
   require "#{Origen.root!}/lib/origen_sim/commands/ci"
   exit 0

@@ -551,10 +551,10 @@ module OrigenSim
 
       Origen.log.debug 'Starting the simulation monitor...'
 
-      simulator_parent_process = spawn("ruby -e \"#{launch_simulator}\"")
-      Process.detach(simulator_parent_process)
+      monitor_pid = spawn("ruby -e \"#{launch_simulator}\"")
+      Process.detach(monitor_pid)
 
-      simulation.open(config[:startup_timeout] || 60) # This will block until the simulation process has started
+      simulation.open(monitor_pid, config[:startup_timeout] || 60) # This will block until the simulation process has started
 
       # The VPI extension will send 'READY!' when it starts, make sure we get it before proceeding
       data = get
@@ -577,6 +577,14 @@ module OrigenSim
     # Send the given message string to the simulator
     def put(msg)
       simulation.socket.write(msg + "\n")
+    rescue Errno::EPIPE => e
+      if simulation.running?
+        Origen.log.error 'Communication with the simulator has been lost (though it seems to still be running)!'
+      else
+        Origen.log.error 'The simulator has stopped unexpectedly!'
+      end
+      sleep 2 # To make sure that any log output from the simulator is captured before we pull the plug
+      exit 1
     end
 
     # Get a message from the simulator, will block until one
@@ -641,11 +649,16 @@ module OrigenSim
       end
     end
 
-    def write_comment(comment)
+    def write_comment(line, comment)
+      return if line >= OrigenSim::NUMBER_OF_COMMENT_LINES
       # Not sure what the limiting factor here is, the comment memory in the test bench should
       # be able to handle 1024 / 8 length strings, but any bigger than this hangs the simulation
-      comment = comment[0..96]
-      put("c^#{comment}")
+      comment = comment ? comment[0..96] : ''
+      if dut_version > '0.12.1'
+        put("c^#{line}^#{comment} ")  # Space at the end is important so that an empty comment is communicated properly
+      else
+        put("c^#{comment} ")
+      end
     end
 
     # Applies the current state of all pins to the simulation
@@ -732,7 +745,7 @@ module OrigenSim
     # Flush any buffered simulation output, this should cause live wave viewers to
     # reflect the latest state
     def flush
-      if dut_version > '0.12.1'
+      if dut_version > '0.12.0'
         put('j^')
         sync_up
       else

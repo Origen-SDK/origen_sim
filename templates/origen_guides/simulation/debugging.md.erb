@@ -1,19 +1,135 @@
 % render "layouts/guides.html" do
 
+The execution of an Origen simulation is fully controlled by Origen/Ruby, this means that if you
+insert a regular Ruby debugger breakpoint into your application code then you can step through the
+simulation in real time.
 
-### Register Reading
+This guide describes some features that are useful for interacting with the DUT from a simulation
+breakpoint, or when running
+[an interactive ad-hoc simulation from the console.](<%= path "guides/simulation/app/#Starting_the_Simulator_in_an_Interactive_Session" %>)
 
-reg.sync
+#### Syncing & Flushing
+
+When a simulation is running most of the communication is one-way, Origen tells the simulator what to do,
+and for performance reasons there is no handshake between Origen and the simulator at every instruction. Instead,
+Origen fires off instructions into a buffer, the simulator executes them as fast as it can, and then Origen
+periodically waits for the simulator to catch up if it is running too far ahead.
+
+If you have entered a breakpoint and you suspect that the simulator may be still catching up, you can run:
+
+~~~ruby
+tester.sync_up
+~~~
+
+When that method returns you are guaranteed that the simulator is at the same point.
+
+Note that most of the time you will not need to do this manually since Origen will automatically sync up for
+any operation that involves reading data from the simulation, e.g. peeking or reading registers.
+
+If you have a wave viewer open during the debug session it may still look like the simulation is running behind, or the
+wave viewer may appear to hang if you have tried to refresh it.
+This is because the simulator is buffering output that has yet to be written to the wave dump.
+
+You can force it to flush the buffer and update the wave viewer by running:
+
+~~~ruby
+tester.flush
+~~~
+
+Note that flushing will internally call a `sync_up` so you don't have to do both of these manually.
+
+#### Accessing the DUT's Internal Nets
+
+The methods `tester.simulator.peek` and `tester.simulator.poke` are available for reading and writing values
+to internal DUT nets respectively.
+
+See the section on [Creating Simulation-Only Assertions](<%= path "guides/simulation/patterns/#Creating_Simulation-Only_Assertions" %>)
+for more details on these.
+
+#### Register Reading (and Writing)
+
+Referencing a register from the console will show you what Origen thinks the register currently contains:
+
+~~~text
+dut.my_block.my_reg
+
+=>
+0x10008000 - :my_reg
+   ===============================================================================================================
+  │     15      │     14      │     13      │     12      │     11      │     10      │      9      │      8      │
+  │                                                    d[15:8]                                                    │
+  │                                                      0x0                                                      │
+  ├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+  │      7      │      6      │      5      │      4      │      3      │      2      │      1      │      0      │
+  │                                                    d[7:0]                                                     │
+  │                                                      0x0                                                      │
+  └─────────────┴─────────────┴─────────────┴─────────────┴─────────────┴─────────────┴─────────────┴─────────────┘
+
+~~~
+
+However, this may not be what the simulation currently reflects. To see what the simulation holds, call `sync`
+on the register:
+
+~~~text
+dut.my_block.my_reg.sync
+
+=>
+0x10008000 - :my_reg
+   ===============================================================================================================
+  │     15      │     14      │     13      │     12      │     11      │     10      │      9      │      8      │
+  │                                                    d[15:8]                                                    │
+  │                                                     0x8E                                                      │
+  ├─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤
+  │      7      │      6      │      5      │      4      │      3      │      2      │      1      │      0      │
+  │                                                    d[7:0]                                                     │
+  │                                                     0xFF                                                      │
+  └─────────────┴─────────────┴─────────────┴─────────────┴─────────────┴─────────────┴─────────────┴─────────────┘
+
+~~~
+
+A convenience API exists for this by appending `!` to the register name:
+
+~~~text
+dut.my_block.my_reg!
+~~~
+
+Note that this works by firing off a conventional `read_register` request to your DUT model/controller.
+
+That means that it should work for breakpoints in the majority of application code, however if you have stopped it
+or stepped into a place in low-level code, such as in the middle of a prior transaction, then this feature may not work.
+
+#### Advancing Time
+
+If you have just written to a register, it may kick off some operation within the DUT and time (clock cycles)
+will be required before you will be able to observe the response.
+
+It is important to understand that the simulator is also paused during a breakpoint and therefore simulation time
+is not continuing to run while you are at the console.
+
+Simulation time can be advanced by calling the usual `tester.wait` API, however these convenience APIs exist for advancing
+time during a debugger breakpoint (and they can also be used in source code if you wish):
+
+~~~ruby
+10.cycles
+
+10.ns!
+
+10.us!
+
+10.ms!
+
+10.s!
+~~~
+
+Note that 10 is just used as an example here, you can apply any number that you want.
 
 
+#### Checking The Error Count
 
-Added an API to allow application code to force a simulation fail, which piggy backs on the way that log output from the simulator can make the simulation result be classed as a fail:
+You can query the current error count by running:
 
-# When running in simulation, verify this node which is not observable on the tester
-if tester.sim?
-  if tester.simulator.peek("origen.dut.path.to.some.node").to_i == 1
-    OrigenSim.error "The internal blah warning was asserted!"
-  end
-end
+~~~ruby
+tester.simulator.error_count   # => 0
+~~~
 
 % end

@@ -39,6 +39,8 @@ cc "Wait for the program command to complete"
 tester.sim_delay :program_command do
   dut.pin(:done).assert!(1)
 end
+dut.pin(:done).dont_care  # Any pin assertions/reads created within the block will persist beyond it, so
+                          # remember to clear any assertions that you don't want to carryover afterwards
 ~~~
 
 The `sim_delay` method provides the convenience of a match loop for the purposes of
@@ -69,6 +71,8 @@ of time options are supported):
 tester.sim_delay :program_command, padding: { time_in_cycles: 10 } do
   dut.pin(:done).assert!(1)
 end
+dut.pin(:done).dont_care  # Any pin assertions/reads created within the block will persist beyond it, so
+                          # remember to clear any assertions that you don't want to carryover afterwards
 ~~~
 
 By default, the block will be evaluated constantly until it passes when calculating the delay from
@@ -82,6 +86,8 @@ by supplying a `:resolution` option, either as a number of cycles:
 tester.sim_delay :program_command, resolution: 10 do
   dut.pin(:done).assert!(1)
 end
+dut.pin(:done).dont_care  # Any pin assertions/reads created within the block will persist beyond it, so
+                          # remember to clear any assertions that you don't want to carryover afterwards
 ~~~
 
 or by supplying a hash filled with the usual time options:
@@ -90,6 +96,8 @@ or by supplying a hash filled with the usual time options:
 tester.sim_delay :program_command, resolution: { time_in_ns: 50 } do
   dut.pin(:done).assert!(1)
 end
+dut.pin(:done).dont_care  # Any pin assertions/reads created within the block will persist beyond it, so
+                          # remember to clear any assertions that you don't want to carryover afterwards
 ~~~
 
 #### Capturing Responses from the Simulation
