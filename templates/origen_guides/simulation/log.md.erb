@@ -4,7 +4,7 @@ Log output from simulations is often very verbose, which can make it hard to dis
 that are important and those that can be safely ignored.
 
 By default, OrigenSim will automatically suppress all simulator log output except for any lines that
-contain the text _WARNING_ or _ERROR_; both of these will be logged to the console and any occurrences of
+contain the text _WARNING_ or _ERROR_ (case insensitive); both of these will be logged to the console and any occurrences of
 the latter will also make the result of the simulation be classed as a FAIL.
 
 All log output can be shown in the console by running with the `-d` or `--debug` switches, and the log files will
@@ -30,7 +30,17 @@ In such a case you can add strings to the `stderr_string_exceptions` array and a
 the given text will be ignored:
 
 ~~~ruby
-OrigenSim.stderr_string_exceptions << 'invalid adc config'
+OrigenSim.stderr_string_exceptions << 'invalid adc config'    # Case in-sensitive match
+~~~
+
+**Note that in all of these cases the given text is considered to be case-insensitive when considering if
+it matches a log line.**
+
+If you need case-sensitivity (or more generally need more control of exactly what is considered to be a match), you can
+supply a regular expression instead of a string for all of the cases discussed here:
+
+~~~ruby
+OrigenSim.stderr_string_exceptions << /invalid adc config/    # Case sensitive match
 ~~~
 
 Similarly, if you find that the default of matching for _ERROR_ in STDOUT messages is being overly aggressive,
