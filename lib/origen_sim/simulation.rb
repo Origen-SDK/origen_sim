@@ -96,7 +96,17 @@ module OrigenSim
       else
         @heartbeat_pid = fork do
           loop do
-            @heartbeat.write("OK\n")
+            begin
+              @heartbeat.write("OK\n")
+            rescue Errno::EPIPE => e
+              if monitor_running?
+                Origen.log.error 'Communication with the simulation monitor has been lost (though it seems to still be running)!'
+              else
+                Origen.log.error 'The simulation monitor has stopped unexpectedly!'
+              end
+              sleep 2 # To make sure that any log output from the simulator is captured before we pull the plug
+              exit 1
+            end
             sleep 5
           end
         end
@@ -119,7 +129,8 @@ module OrigenSim
     end
 
     # Open the communication channels with the simulator
-    def open(timeout)
+    def open(monitor_pid, timeout)
+      @monitor_pid = monitor_pid
       timeout_connection(timeout) do
         start_heartbeat
         @stdout = @server_stdout.accept
@@ -189,10 +200,12 @@ module OrigenSim
       @socket.close
       @stderr.close
       @stdout.close
+      @status.close
       File.unlink(socket_id(:heartbeat)) if File.exist?(socket_id(:heartbeat))
       File.unlink(socket_id) if File.exist?(socket_id)
       File.unlink(socket_id(:stderr)) if File.exist?(socket_id(:stderr))
       File.unlink(socket_id(:stdout)) if File.exist?(socket_id(:stdout))
+      File.unlink(socket_id(:status)) if File.exist?(socket_id(:status))
     end
 
     # Returns true if the simulation is running
@@ -206,8 +219,20 @@ module OrigenSim
       end
     end
 
+    # Returns true if the simulation monitor process (the one that receives the heartbeat
+    # and kills the simulation if it stops) is running
+    def monitor_running?
+      return false unless @monitor_pid
+      begin
+        Process.getpgid(@monitor_pid)
+        true
+      rescue Errno::ESRCH
+        false
+      end
+    end
+
     def socket_id(type = nil)
-      @socket_ids[type] ||= "/tmp/#{socket_number}#{type}.sock"
+      @socket_ids[type] ||= "#{OrigenSim.socket_dir || '/tmp'}/#{socket_number}#{type}.sock"
     end
 
     private

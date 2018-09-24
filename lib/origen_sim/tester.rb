@@ -14,6 +14,8 @@ module OrigenSim
       end
 
       simulator.configure(opts, &block)
+      @comment_buffer = []
+      @last_comment_size = 0
       super()
     end
 
@@ -83,6 +85,7 @@ module OrigenSim
         puts '$tester.set_timeset("nvmbist", 40)   # Where 40 is the period in ns'
         exit 1
       end
+      flush_comments unless @comment_buffer.empty?
       simulator.cycle(options[:repeat] || 1)
       @cycle_count ||= 0
       @cycle_count += options[:repeat] || 1
@@ -93,7 +96,7 @@ module OrigenSim
     end
 
     def c1(msg, options = {})
-      simulator.write_comment(msg) if @step_comment_on
+      @comment_buffer << msg if @step_comment_on
     end
 
     def loop_vectors(name, number_of_loops, options = {})
@@ -223,6 +226,16 @@ module OrigenSim
     end
 
     private
+
+    def flush_comments
+      # Looping for at least the length of the last comment is require to ensure that all lines
+      # from the last comment are either overwritten or cleared
+      [@comment_buffer.size, @last_comment_size].max.times do |i|
+        simulator.write_comment(i, @comment_buffer[i])
+      end
+      @last_comment_size = @comment_buffer.size
+      @comment_buffer.clear
+    end
 
     def after_next_vector(*args, &block)
       @after_next_vector = block
