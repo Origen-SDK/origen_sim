@@ -264,7 +264,11 @@ module OrigenSim
       when :cadence
         'svcf'
       when :synopsys
-        'tcl'
+        if configuration[:verdi]
+         'rc'
+        else
+         'tcl'
+        end
       end
     end
 
