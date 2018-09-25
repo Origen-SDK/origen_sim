@@ -265,9 +265,9 @@ module OrigenSim
         'svcf'
       when :synopsys
         if configuration[:verdi]
-         'rc'
+          'rc'
         else
-         'tcl'
+          'tcl'
         end
       end
     end

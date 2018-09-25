@@ -47,13 +47,10 @@ COMPLEX_EVENT_END
 curSTATUS ByChange
 
 
-addGroup "APB"
-addGroup "SOC"
-addGroup "Errors"
-addGroup "Firmware"
-addGroup "command"
-addGroup "G6"
 activeDirFile "" ""
+addGroup "Debug"
+addSignal -h 15 -UNSIGNED -HEX -holdScope errors[31:0]
+addSignal -h 15 -UNSIGNED -ASC -holdScope pattern[1023:0]
 addGroup "Comments"
 addSignal -h 15 -UNSIGNED -ASC /origen/debug/comments[0]
 addSignal -h 15 -UNSIGNED -ASC /origen/debug/comments[1]
@@ -65,6 +62,7 @@ addSignal -h 15 -UNSIGNED -ASC /origen/debug/comments[6]
 addSignal -h 15 -UNSIGNED -ASC /origen/debug/comments[7]
 addSignal -h 15 -UNSIGNED -ASC /origen/debug/comments[8]
 addSignal -h 15 -UNSIGNED -ASC /origen/debug/comments[9]
+addGroup "DUT"
 
 ; getSignalForm Scope Hierarchy Status
 ; active file of getSignalForm
