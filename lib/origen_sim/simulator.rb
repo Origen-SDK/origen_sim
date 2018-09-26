@@ -264,7 +264,11 @@ module OrigenSim
       when :cadence
         'svcf'
       when :synopsys
-        'tcl'
+        if configuration[:verdi]
+          'rc'
+        else
+          'tcl'
+        end
       end
     end
 
@@ -305,7 +309,11 @@ module OrigenSim
         cmd += " -nclibdirpath #{compiled_dir}"
 
       when :synopsys
-        cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
+        if configuration[:verdi]
+          cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{Origen.target.name}/#{wave_file_basename}.fsdb +memcbk +vcsd"
+        else
+          cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
+        end
 
       when :generic
         # Generic tester requires that a generic_run_command option/block be provided.
@@ -390,12 +398,26 @@ module OrigenSim
       when :synopsys
         edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
         cmd = "cd #{edir} && "
-        cmd += configuration[:dve] || 'dve'
-        dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-        cmd += " -vpd #{dir}/#{wave_file_basename}.vpd"
-        f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
-        cmd += " -session #{f}"
-        cmd += ' &'
+        if configuration[:verdi]
+          unless ENV['VCS_HOME'] && ENV['LD_LIBRARY_PATH']
+            puts 'Please make sure the VCS_HOME and LD_LIBRARY PATH are setup correctly before using Verdi'
+          end
+          edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
+          cmd = "cd #{edir} && "
+          cmd += configuration[:verdi] || 'verdi'
+          dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+          cmd += " -ssz -dbdir #{Origen.root}/simulation/#{Origen.target.name}/synopsys/simv.daidir/ -ssf #{dir}/#{wave_file_basename}.fsdb"
+          f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+          cmd += " -sswr #{f}"
+          cmd += ' &'
+        else
+          cmd += configuration[:dve] || 'dve'
+          dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+          cmd += " -vpd #{dir}/#{wave_file_basename}.vpd"
+          f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+          cmd += " -session #{f}"
+          cmd += ' &'
+        end
 
       when :generic
         # Since this could be anything, the simulator will need to set this up. But, once it is, we can print it here.

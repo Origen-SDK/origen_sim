@@ -177,7 +177,16 @@ module origen;
     $vcdplusmemon;
   end
 `endif
-    
+
+`ifdef ORIGEN_FSDB
+  initial
+  begin
+    $fsdbDumpfile("origen.fsdb");
+    $fsdbDumpvars(0, "+all");
+  end
+`endif
+
+
   always @(posedge finish) begin
     //$display("********************************");
     //$display("Finishing simulation...");

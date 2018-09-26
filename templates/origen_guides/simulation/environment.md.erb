@@ -94,6 +94,15 @@ OrigenSim.cadence do |sim|
 end
 ~~~
 
+Origen Sim also offers the option to use Verdi as a wave viewer instead of 'dve', the vendor-specific options for Synopsys w/Verdi would be: 
+
+~~~ruby
+OrigenSim.cadence do |sim|
+  sim.vcs "/tools/synopsys/L-2016.06/bin/vcs"
+  sim.verdi "/tools/synopsys/L-2016.06/bin/verdi"
+end
+~~~
+
 #### Icarus Verilog Specific Configuration
 
 Here are the vendor-specific options for Icarus Verilog:
