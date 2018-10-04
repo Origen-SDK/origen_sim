@@ -10,7 +10,6 @@ module OrigenSim
     include Artifacts
 
     VENDORS = [:icarus, :cadence, :synopsys, :generic]
-    DEFAULT_ARTIFACT_DIR = Pathname("#{Origen.app.root}/simulation/application/artifacts")
 
     attr_reader :configuration
     alias_method :config, :configuration
@@ -158,7 +157,9 @@ module OrigenSim
     end
 
     def default_artifact_dir
-      DEFAULT_ARTIFACT_DIR
+      # Removed this from a constant at the top of the file since it gave boot errors when the file was
+      # being required while Origen.app was still loading
+      Pathname("#{Origen.app.root}/simulation/application/artifacts")
     end
 
     def user_artifact_dirs?
@@ -949,8 +950,12 @@ module OrigenSim
     # Returns the version of Origen Sim that the current DUT object was compiled with
     def dut_version
       @dut_version ||= begin
-        put('i^')
-        Origen::VersionString.new(get.strip)
+        # Allow configs to force a dut version, this is to allow backwards compatibility with very early
+        # compiled duts which do not support the command to get it from the compiled object
+        config[:dut_version] || begin
+          put('i^')
+          Origen::VersionString.new(get.strip)
+        end
       end
     end
 
