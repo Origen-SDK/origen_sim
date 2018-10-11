@@ -14,7 +14,13 @@ module OrigenSim
       @continue = true
       super do
         while @continue
-          socket.write("OK\n")
+          begin
+            socket.write("OK\n")
+          rescue Errno::EPIPE => e
+            Origen.log.error 'Communication with the simulation monitor has been lost!'
+            sleep 2
+            exit 1
+          end
           sleep 5
         end
       end

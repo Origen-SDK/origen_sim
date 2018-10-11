@@ -107,14 +107,6 @@ else
 
   puts
   puts
-  puts 'Testbench and VPI extension created!'
-  puts
-  puts 'This file can be imported into an Origen top-level DUT model to define the pins:'
-  puts
-  puts "  #{output_directory}/#{rtl_top_module}.rb"
-  puts
-  puts 'See below for what to do now to create an Origen-enabled simulation object for your particular simulator:'
-  puts
   puts '-----------------------------------------------------------'
   puts 'Cadence Incisive (irun)'
   puts '-----------------------------------------------------------'
@@ -145,7 +137,7 @@ else
   puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
   puts
   puts "  #{output_directory}/origen.v \\"
-  puts "  #{output_directory}/brdige.c \\"
+  puts "  #{output_directory}/bridge.c \\"
   puts "  #{output_directory}/client.c \\"
   puts '  -CFLAGS "-std=c99" \\'
   puts '  +vpi \\'
@@ -187,5 +179,45 @@ else
   puts "  #{output_directory}/origen.vpi"
   puts '  origen.vvp'
   puts
+  puts '-----------------------------------------------------------'
+  puts 'Verdi w/ Synopsys VCS'
+  puts '-----------------------------------------------------------'
   puts
+  puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
+  puts
+  puts "  #{output_directory}/origen.v \\"
+  puts "  #{output_directory}/brdige.c \\"
+  puts "  #{output_directory}/client.c \\"
+  puts '  -CFLAGS "-std=c99" \\'
+  puts '  +vpi \\'
+  puts "  #{output_directory}/origen.c \\"
+  puts '  +define+ORIGEN_FSDB=1 \\'
+  puts '  -debug_access+all \\'
+  puts '  +lint=all,noVCDE,noIWU,noVNGS,noCAWM-L,noPORTFRC,noZERO,noNS \\'
+  puts '  -PP \\'
+  puts '  -timescale=1ns/100ps \\'
+  puts '  -full64 \\'
+  puts '  -lca \\'
+  puts '  -kdb \\'
+  puts
+  puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
+  puts
+  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/origen.v #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi #{output_directory}/origen.c +define+ORIGEN_FSDB=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all +lint=all,noVCDE,noIWU,noVNGS,noCAWM-L,noPORTFRC,noZERO,noNS -PP -timescale=1ns/100ps -full64 -lca -kdb"
+  puts
+  puts 'Copy the following files (produced by vcs) to simulation/<target>/verdi/. within your Origen application:'
+  puts
+  puts '  simv'
+  puts '  simv.daidir'
+  puts
+  puts '-----------------------------------------------------------'
+  puts
+  puts 'Testbench and VPI extension created!'
+  puts
+  puts 'This file can be imported into an Origen top-level DUT model to define the pins:'
+  puts
+  puts "  #{output_directory}/#{rtl_top_module}.rb"
+  puts
+  puts 'See above for what to do now to create an Origen-enabled simulation object for your particular simulator.'
+  puts
+
 end

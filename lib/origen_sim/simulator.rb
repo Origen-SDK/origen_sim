@@ -10,7 +10,6 @@ module OrigenSim
     include Artifacts
 
     VENDORS = [:icarus, :cadence, :synopsys, :generic]
-    DEFAULT_ARTIFACT_DIR = Pathname("#{Origen.app.root}/simulation/application/artifacts")
 
     attr_reader :configuration
     alias_method :config, :configuration
@@ -158,7 +157,9 @@ module OrigenSim
     end
 
     def default_artifact_dir
-      DEFAULT_ARTIFACT_DIR
+      # Removed this from a constant at the top of the file since it gave boot errors when the file was
+      # being required while Origen.app was still loading
+      Pathname("#{Origen.app.root}/simulation/application/artifacts")
     end
 
     def user_artifact_dirs?
@@ -264,7 +265,11 @@ module OrigenSim
       when :cadence
         'svcf'
       when :synopsys
-        'tcl'
+        if configuration[:verdi]
+          'rc'
+        else
+          'tcl'
+        end
       end
     end
 
@@ -305,7 +310,11 @@ module OrigenSim
         cmd += " -nclibdirpath #{compiled_dir}"
 
       when :synopsys
-        cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
+        if configuration[:verdi]
+          cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{Origen.target.name}/#{wave_file_basename}.fsdb +memcbk +vcsd"
+        else
+          cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
+        end
 
       when :generic
         # Generic tester requires that a generic_run_command option/block be provided.
@@ -390,12 +399,26 @@ module OrigenSim
       when :synopsys
         edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
         cmd = "cd #{edir} && "
-        cmd += configuration[:dve] || 'dve'
-        dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-        cmd += " -vpd #{dir}/#{wave_file_basename}.vpd"
-        f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
-        cmd += " -session #{f}"
-        cmd += ' &'
+        if configuration[:verdi]
+          unless ENV['VCS_HOME'] && ENV['LD_LIBRARY_PATH']
+            puts 'Please make sure the VCS_HOME and LD_LIBRARY PATH are setup correctly before using Verdi'
+          end
+          edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
+          cmd = "cd #{edir} && "
+          cmd += configuration[:verdi] || 'verdi'
+          dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+          cmd += " -ssz -dbdir #{Origen.root}/simulation/#{Origen.target.name}/synopsys/simv.daidir/ -ssf #{dir}/#{wave_file_basename}.fsdb"
+          f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+          cmd += " -sswr #{f}"
+          cmd += ' &'
+        else
+          cmd += configuration[:dve] || 'dve'
+          dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
+          cmd += " -vpd #{dir}/#{wave_file_basename}.vpd"
+          f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
+          cmd += " -session #{f}"
+          cmd += ' &'
+        end
 
       when :generic
         # Since this could be anything, the simulator will need to set this up. But, once it is, we can print it here.
@@ -533,10 +556,10 @@ module OrigenSim
 
       Origen.log.debug 'Starting the simulation monitor...'
 
-      simulator_parent_process = spawn("ruby -e \"#{launch_simulator}\"")
-      Process.detach(simulator_parent_process)
+      monitor_pid = spawn("ruby -e \"#{launch_simulator}\"")
+      Process.detach(monitor_pid)
 
-      simulation.open(config[:startup_timeout] || 60) # This will block until the simulation process has started
+      simulation.open(monitor_pid, config[:startup_timeout] || 60) # This will block until the simulation process has started
 
       # The VPI extension will send 'READY!' when it starts, make sure we get it before proceeding
       data = get
@@ -559,6 +582,14 @@ module OrigenSim
     # Send the given message string to the simulator
     def put(msg)
       simulation.socket.write(msg + "\n")
+    rescue Errno::EPIPE => e
+      if simulation.running?
+        Origen.log.error 'Communication with the simulator has been lost (though it seems to still be running)!'
+      else
+        Origen.log.error 'The simulator has stopped unexpectedly!'
+      end
+      sleep 2 # To make sure that any log output from the simulator is captured before we pull the plug
+      exit 1
     end
 
     # Get a message from the simulator, will block until one
@@ -625,11 +656,16 @@ module OrigenSim
     end
     alias_method :end_simulation, :pattern_generated
 
-    def write_comment(comment)
+    def write_comment(line, comment)
+      return if line >= OrigenSim::NUMBER_OF_COMMENT_LINES
       # Not sure what the limiting factor here is, the comment memory in the test bench should
       # be able to handle 1024 / 8 length strings, but any bigger than this hangs the simulation
-      comment = comment[0..96]
-      put("c^#{comment}")
+      comment = comment ? comment[0..96] : ''
+      if dut_version > '0.12.1'
+        put("c^#{line}^#{comment} ")  # Space at the end is important so that an empty comment is communicated properly
+      else
+        put("c^#{comment} ")
+      end
     end
 
     # Applies the current state of all pins to the simulation
@@ -716,7 +752,7 @@ module OrigenSim
     # Flush any buffered simulation output, this should cause live wave viewers to
     # reflect the latest state
     def flush
-      if dut_version > '0.12.1'
+      if dut_version > '0.12.0'
         put('j^')
         sync_up
       else
@@ -916,8 +952,12 @@ module OrigenSim
     # Returns the version of Origen Sim that the current DUT object was compiled with
     def dut_version
       @dut_version ||= begin
-        put('i^')
-        Origen::VersionString.new(get.strip)
+        # Allow configs to force a dut version, this is to allow backwards compatibility with very early
+        # compiled duts which do not support the command to get it from the compiled object
+        config[:dut_version] || begin
+          put('i^')
+          Origen::VersionString.new(get.strip)
+        end
       end
     end
 

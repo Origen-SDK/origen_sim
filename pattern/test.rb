@@ -11,6 +11,9 @@ Pattern.create do
   dut.jtag.read_ir(0xE, size: 4)
 
   ss "Switch to slower timeset"
+  ss "And test multiple comments for Github issue #8"
+  ss "Blah blah, more stuff to verify that we can handle large comment blocks without having problems"
+  ss "Blah blah, more stuff to verify that we can handle large comment blocks without having problems"
   tester.set_timeset("func", 200)
 
   dut.jtag.write_ir(0x5, size: 4)

@@ -1,0 +1,217 @@
+% render "layouts/guides.html" do
+
+By convention, the OrigenSim simulator driver is configured within the file `environment/sim.rb`.
+
+Usually the simulator configuration may be different for each DUT target, so often this file is structured like this
+to enable a single Origen simulation environment setup file to support multiple DUT targets within the
+application:
+
+~~~ruby
+# environment/sim.rb
+
+case Origen.target.name
+
+when "my_dut1"
+  OrigenSim.cadence do |sim|
+    # Configuration of Cadence simulator to be used for DUT1 here
+  end
+
+when "my_dut2"
+  OrigenSim.synopsys do |sim|
+    # Configuration of Synopsys simulator to be used for DUT2 here
+  end
+
+else
+  Origen.log.error "No simulation environment has been setup for target #{Origen.target.name}, edit environment/sim.rb to add one."
+  exit 1
+end
+~~~
+
+#### Configuring The Simulator
+
+Here is an example of configuring the simulator with some generic options that are supported by all simulators:
+
+~~~ruby
+OrigenSim.cadence do |sim|
+  # By default a simulation will be given 60 seconds to startup, if it fails to start within this time the
+  # simulation will be abandoned and considered failed. If a particular simulation is known to be slow to start,
+  # the timeout can be extended as shown in this example (5 minutes):
+  sim.startup_timeout 5 * 60
+  # Sometimes due to different Verilog timescale references, the time specified by Origen may not align to what
+  # is seen in the simulation. For example, your Origen application might define a cycle period of 40ns but in
+  # the simulation this manifests as 400ns. Such differences can be fixed by specifying this time factor which
+  # will be multiplied with all time advancements defined by Origen. This can be any value like 0.01, 0.1, 10,
+  # 100, 1000, etc. to make the cycle period seen in simulation bigger or smaller.
+  sim.time_factor 100
+end
+~~~
+
+Note that defining a configuration like this will also instantiate an instance of `OrigenSim::Tester` and assign it to
+the global variable `tester`.
+This `tester` object will behave like any other Origen tester driver and your application will be unaware that it is
+driving a simulator rather than an ATE-specific pattern renderer.
+
+Note also that the `post_process_run_cmd` option is available for all simulators, however it is reserved for discussion
+later in this guide since it is more of an advanced topic.
+
+#### Cadence (irun) Specific Configuration
+
+Additionally, a Cadence simulator setup supports the following vendor-specific options:
+
+~~~ruby
+OrigenSim.cadence do |sim|
+  # By default the simulation will be run by calling 'irun', this can be changed to anything you want, but it
+  # is usually a good idea to use this option to lock to a specific version of irun (the same version that was
+  # used to compile the DUT snapshot)
+  sim.irun '/tools/cadence/15.10.023/bin/irun'
+  # The default wave viewer is 'simvision', this can also be changed
+  sim.simvision '/tools/cadence/15.10.023/bin/simvision'
+  # The cadence simulator configuration does support the use of forces, though this is generally discouraged
+  sim.force {
+    'origen.dut.vref_0v8' => 1,
+    'origen.dut.pmc.some.internal.node' => 1,
+  }
+  # Custom probes can be specified, e.g. to include memory contents in the wave dump
+  sim.tcl_inputs %Q(
+    probe -create -shm origen.dut.mems.user -all -memories -variables -unpacked 262144 -depth all
+    probe -create -shm origen.dut.mems.cache -all -memories -variables -unpacked 262144 -depth all
+  )
+end
+~~~
+
+#### Synopsys Specific Configuration
+
+Here are the vendor-specific options for Synopsys:
+
+~~~ruby
+OrigenSim.cadence do |sim|
+  # By default the simulation will be run by calling 'vcs', this can be changed to anything you want, but it
+  # is usually a good idea to use this option to lock to a specific version of vcs (the same version that was
+  # used to compile the DUT snapshot)
+  sim.vcs "/tools/synopsys/L-2016.06/bin/vcs"
+  # The default wave viewer is 'dve', this can also be changed
+  sim.dve "/tools/synopsys/L-2016.06/bin/dve"
+end
+~~~
+
+Origen Sim also offers the option to use Verdi as a wave viewer instead of 'dve', the vendor-specific options for Synopsys w/Verdi would be: 
+
+~~~ruby
+OrigenSim.cadence do |sim|
+  sim.vcs "/tools/synopsys/L-2016.06/bin/vcs"
+  sim.verdi "/tools/synopsys/L-2016.06/bin/verdi"
+end
+~~~
+
+#### Icarus Verilog Specific Configuration
+
+Here are the vendor-specific options for Icarus Verilog:
+
+~~~ruby
+OrigenSim.cadence do |sim|
+  # By default the simulation will be run by calling 'vvp', this can be changed to anything you want, but it
+  # is usually a good idea to use this option to lock to a specific version of vvp (the same version that was
+  # used to compile the DUT snapshot)
+  sim.vvp "/tools/icarus/0.9.7/bin/vvp"
+  # The default wave viewer is 'gtkwave', this can also be changed
+  sim.gtkwave "/tools/gtkwave/3.3.66/bin/gtkwave"
+end
+~~~
+
+#### Generic and Advanced Simulator Configuration
+
+A generic simulator configuration allows you to use a tool that is not supported out of the box by <code>OrigenSim</code>. For these, it 
+is your responsibility to provide the command to start the simulation process, however, this allows for arbitrary commands to
+start the process and allows end users to still use <code>origen g</code> as if with a fully <code>OrigenSim</code> supported
+simulator configuration.
+
+An example of such a configuration could be:
+
+~~~ruby
+OrigenSim.generic do |sim|
+  sim.generic_run_cmd do |s|
+    # Return the command to start the simulation
+    "path/to/custom/sim/script +socket+#{s.socket_id}"
+  end
+end
+~~~
+
+Here is an example using the predecessor of the supported Cadence tool <code>irun</code>, <code>ncsim</code>:
+
+~~~ruby
+OrigenSim.generic do |sim|
+  sim.testbench_top 'na_origen'
+  sim.generic_run_cmd do |s|
+    "ncsim na_origen -loadpli origen.so:bootstrap +socket+#{s.socket_id}"
+  end
+end
+~~~
+
+The following commonly used options are available to a generic simulation configuration:
+
+* `testbench_top` - Defines the testbench name if different from <code>origen</code>.
+* `view_waveform_cmd` - Required for generic configurations - prints out this statement following a simulation instructing the
+user on how to open the waveforms for viewing. For supported simulators, this is already provided, but can be overwritten.
+* `generic_run_cmd` - Either a string, array to be joined by ' && ', or a block returning either of the aforementioned that
+the generic configuration will use to launch the simulation.
+* `post_process_run_cmd` - Block object to post-process the command that OrigenSim will launch the simulation with. This can be used
+to post-process the command for any supported vendor. This block should return the command to run, as a string.
+
+An example of the <code>post_process_run_cmd</code> usage is:
+
+~~~ruby
+OrigenSim.cadence do |sim|
+  sim.post_process_run_cmd do |cmd, s|
+    # cmd is the current command that will be run. s is the simulator object, same as sim in this case.
+    # this should return either a string or an array to be joined by ' && ' (chain commands)
+    # note that we must RETURN the string. We cannot just edit it.
+    
+    # add an environment variable and run setup script as an example
+    return "export PROJECT=my_rtl && source #{Origen.app.root.join('settings.sh')} && #{cmd}"
+    
+    # or, we could return
+    return [
+      'export PROJECT=my_rtl',
+      "source #{Origen.app.root.join('settings.sh')}",
+      cmd
+    ]
+    #=> "export PROJECT=my_rtl && source #{Origen.app.root.join('settings.sh')} && #{cmd}"
+  end
+end
+~~~
+
+#### Simulation Object Checkin/Checkout
+
+Environment setups can also include information on the url and version of where the compiled simulation object
+is to be stored - often this will not be checked into the same repository as the main application code since
+for example Git, which is good for application code storage, is not really so good for storing large binaries
+like the simulation objects.
+
+Here is an example setup:
+
+~~~ruby
+OrigenSim.synopsys do |sim|
+  sim.rc_dir_url 'sync://sync-12345:12345/Projects/origen_sim_snapshots'
+  sim.rc_version 'Trunk'
+end
+~~~
+  
+The `rc_dir_url` option should point to a directory in the repository where the snapshot files should be
+stored, not to the snapshot file itself.
+
+The `rc_version` can be set to the version to use, which can be a pointer to latest like 'Trunk' or 'master' or
+to an absolute version.
+
+The object should be committed to the repository by running the `origen sim:ci` command with the environment/target
+setup to select the object to be checked in.
+Origen Sim will then automatically tar up the object and check it in.
+
+This same command can be run again in future to check in new versions.
+
+Origen Sim will then automatically check for the presence of the object in the local workspace and will fetch
+it as required - i.e. if not present or if the `rc_version` has been updated.
+
+Note that when a latest pointer is used as the version, the remote repository is not automatically checked for updates.
+If you want to fetch the latest version or force a re-checkout at anytime you can run the `origen sim:co` command.
+
+% end

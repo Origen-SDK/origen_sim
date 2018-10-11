@@ -538,6 +538,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
   UNUSED(data);
   int max_msg_len = 1024;
   char msg[max_msg_len];
+  char comment[128];
   int err;
   char *opcode, *arg1, *arg2, *arg3, *arg4;
   vpiHandle handle;
@@ -706,13 +707,18 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         }
         break;
       // Set Comment
-      //   c^Some comment about the pattern
+      //   c^0^Some comment about the pattern
       case 'c' :
-        handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.comments"), NULL);
         arg1 = strtok(NULL, "^");
+        arg2 = strtok(NULL, "^");
+
+        strcpy(comment, ORIGEN_SIM_TESTBENCH_CAT("debug.comments"));
+        strcat(comment, arg1);
+
+        handle = vpi_handle_by_name(comment, NULL);
 
         v.format = vpiStringVal;
-        v.value.str = arg1;
+        v.value.str = arg2;
         vpi_put_value(handle, &v, NULL, vpiNoDelay);
         break;
       // Log all messages
