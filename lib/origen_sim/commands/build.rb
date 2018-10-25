@@ -186,7 +186,7 @@ else
   puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
   puts
   puts "  #{output_directory}/origen.v \\"
-  puts "  #{output_directory}/brdige.c \\"
+  puts "  #{output_directory}/bridge.c \\"
   puts "  #{output_directory}/client.c \\"
   puts '  -CFLAGS "-std=c99" \\'
   puts '  +vpi \\'
