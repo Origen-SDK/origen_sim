@@ -36,7 +36,7 @@ module OrigenSim
     Tester.new(options.merge(vendor: :cadence), &block)
   end
 
-  def self.synopsys(optoins = {}, &block)
+  def self.synopsys(options = {}, &block)
     Tester.new(options.merge(vendor: :synopsys), &block)
   end
 
