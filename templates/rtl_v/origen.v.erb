@@ -31,6 +31,7 @@ module pin_driver(error, pin, sync, match_loop);
   reg [127:0] sync_memory = 0;
 
   wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : data[0]);
+  wire contention = drive ? (pin !== drive_data ? 1 : 0) : 0;
 
   assign pin = drive ? drive_data : 1'bz;
 
@@ -46,6 +47,11 @@ module pin_driver(error, pin, sync, match_loop);
     if (match_loop != 1) begin
       $display("OrigenSim: Error compare FAIL on pin %s, expected %d received %d at time %t", pin_name, data[0], pin, $time);
     end
+  end
+  
+  // pin contention logger
+  always @(posedge contention) begin
+    $display("OrigenSim: Error contention on pin %s, tester drives %d beginning at %t", pin_name, drive_data, $time);
   end
 
   always @(posedge capture) begin
