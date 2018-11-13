@@ -141,7 +141,7 @@ else
   puts "  #{output_directory}/client.c \\"
   puts '  -CFLAGS "-std=c99" \\'
   puts '  +vpi \\'
-  puts "  -use_vpiobj #{output_directory}/origen.c \\"
+  puts "  #{output_directory}/origen.c \\"
   puts '  +define+ORIGEN_VPD=1 \\'
   puts '  -debug_access+all \\'
   puts '  -PP \\'
@@ -149,7 +149,7 @@ else
   puts
   puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
   puts
-  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/origen.v #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi -use_vpiobj #{output_directory}/origen.c -timescale=1ns/1ns  +define+ORIGEN_VPD=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all -PP"
+  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/origen.v #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi #{output_directory}/origen.c -timescale=1ns/1ns  +define+ORIGEN_VPD=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all -PP"
   puts
   puts 'Copy the following files (produced by vcs) to simulation/<target>/synopsys/. within your Origen application:'
   puts
