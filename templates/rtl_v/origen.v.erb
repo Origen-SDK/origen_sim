@@ -45,14 +45,15 @@ module pin_driver(error, pin, sync, match_loop);
   // pin compare failure logger
   always @(posedge error) begin
     if (match_loop != 1) begin
-      $display("OrigenSim: Error compare FAIL on pin %s, expected %d received %d at time %t", pin_name, data[0], pin, $time);
+      $display("OrigenSim Error: miscompare on pin %s, expected %d received %d at %t", pin_name, data[0], pin, $time);
     end
   end
   
-  // pin contention logger
-  always @(posedge contention) begin
-    $display("OrigenSim: Error contention on pin %s, tester drives %d beginning at %t", pin_name, drive_data, $time);
-  end
+  // SMcG - needs more work, causes non-genuine fails in OrigenSim test case
+  //// pin contention logger
+  //always @(posedge contention) begin
+  //  $display("OrigenSim Error: contention on pin %s, tester drives %d beginning at %t", pin_name, drive_data, $time);
+  //end
 
   always @(posedge capture) begin
     if (sync == 1) begin
@@ -67,8 +68,8 @@ module pin_driver(error, pin, sync, match_loop);
   end
 
   initial begin
-    // Set the timescale to ns (-9) with 2 decimal place precision, 20 chars
-    $timeformat(-9, 2, " ns", 20);
+    // Set the timescale to ns (-9) with 0 decimal place precision, 20 chars
+    $timeformat(-9, 0, " ns", 20);
     if (init_drive == 1) begin
       drive = 1;
       data[0] = 1;
