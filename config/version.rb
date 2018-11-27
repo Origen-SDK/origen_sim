@@ -1,6 +1,6 @@
 module OrigenSim
   MAJOR = 0
-  MINOR = 13
+  MINOR = 14
   BUGFIX = 0
   DEV = nil
 

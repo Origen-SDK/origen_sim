@@ -1,3 +1,14 @@
+<a class="anchor release_tag" name="v0_14_0"></a>
+<h1><a href="#v0_14_0">Tag: v0.14.0</a></h1>
+
+##### Branch: 'master'
+
+##### by Stephen McGinty on 27-Nov-2018 16:32PM
+
+
+* Added logging of pin miscompares, requires snapshot re-compile to enable (Paul Derouen)
+* Various bug fixes
+
 <a class="anchor release_tag" name="v0_13_0"></a>
 <h1><a href="#v0_13_0">Tag: v0.13.0</a></h1>
 
