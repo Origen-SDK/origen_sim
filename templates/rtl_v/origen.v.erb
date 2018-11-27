@@ -11,12 +11,14 @@
 //
 // 0 - Force data 0
 // 1 - Force data 1
-module pin_driver(error, pin, sync);
+module pin_driver(error, pin, sync, match_loop);
   parameter init_drive = 2; // Which means don't drive initially, set to 0 or 1 to drive
+  parameter pin_name = "undefined_name";
 
   output reg error;
   inout pin;
   input sync;
+  input match_loop;
 
   reg [1:0] data = 0;
   reg [1:0] force_data = 0;
@@ -29,6 +31,7 @@ module pin_driver(error, pin, sync);
   reg [127:0] sync_memory = 0;
 
   wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : data[0]);
+  wire contention = drive ? (pin !== drive_data ? 1 : 0) : 0;
 
   assign pin = drive ? drive_data : 1'bz;
 
@@ -37,6 +40,18 @@ module pin_driver(error, pin, sync);
 
   always @(*) begin
     error = (compare && !capture) ? (pin == data[0] ? 0 : 1) : 0;
+  end
+
+  // pin compare failure logger
+  always @(posedge error) begin
+    if (match_loop != 1) begin
+      $display("OrigenSim: Error compare FAIL on pin %s, expected %d received %d at time %t", pin_name, data[0], pin, $time);
+    end
+  end
+  
+  // pin contention logger
+  always @(posedge contention) begin
+    $display("OrigenSim: Error contention on pin %s, tester drives %d beginning at %t", pin_name, drive_data, $time);
   end
 
   always @(posedge capture) begin
@@ -52,6 +67,8 @@ module pin_driver(error, pin, sync);
   end
 
   initial begin
+    // Set the timescale to ns (-9) with 2 decimal place precision, 20 chars
+    $timeformat(-9, 2, " ns", 20);
     if (init_drive == 1) begin
       drive = 1;
       data[0] = 1;
@@ -95,7 +112,7 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
   end
 
 % dut.rtl_pins.each do |name, pin, options|
-  pin_driver <%= pin.driving? ? "#(#{pin.value}) " : '' %><%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err), .sync(sync));
+  pin_driver #(.init_drive(<%= pin.driving? ? "#{pin.value}" : '2' %>), .pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err), .sync(sync), .match_loop(match_loop));
 % end
 
 endmodule

@@ -222,7 +222,7 @@ static void bridge_enable_drive_wave(Pin * pin) {
 
 
 static void bridge_disable_drive_wave(Pin * pin) {
-  Wave *wave = &compare_waves[(*pin).drive_wave];
+  Wave *wave = &drive_waves[(*pin).drive_wave];
 
   if ((*wave).active_pin_count == 0) {
     vpi_printf("Wanted to disable drive on pin %i, but its drive wave has no active pins!\n", (*pin).index);
@@ -352,7 +352,9 @@ static void bridge_compare_pin(char * index, char * val) {
     if ((*pin).previous_state != 2) {
       bridge_enable_compare_wave(pin);
       if ((*pin).previous_state == 1) {
-        bridge_disable_drive_wave(pin);
+        if (!bridge_is_drive_whole_cycle(pin)) {
+          bridge_disable_drive_wave(pin);
+        }
       }
       (*pin).previous_state = 2;
     }
