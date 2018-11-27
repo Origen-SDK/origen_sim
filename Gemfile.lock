@@ -4,7 +4,7 @@ PATH
     origen_sim (0.13.0)
       origen (>= 0.35.0)
       origen_testers
-      origen_verilog (>= 0.5)
+      origen_verilog (>= 0.5.1)
 
 GEM
   remote: https://rubygems.org/
@@ -102,7 +102,7 @@ GEM
       atp (~> 1.1, >= 1.1.1)
       origen (>= 0.26.0)
       require_all (~> 1)
-    origen_verilog (0.5.0)
+    origen_verilog (0.5.1)
       ast (~> 2)
       treetop
     parser (2.5.1.2)
@@ -182,4 +182,4 @@ DEPENDENCIES
   rspec-autotest
 
 BUNDLED WITH
-   1.16.4
+   1.17.1
