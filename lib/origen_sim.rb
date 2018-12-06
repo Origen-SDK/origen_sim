@@ -19,6 +19,46 @@ module OrigenSim
   autoload :Tester, 'origen_sim/tester'
   autoload :Generator, 'origen_sim/generator'
 
+  # Include a mapping for various sematics.
+  INIT_PIN_STATE_MAPPING = {
+    # Drive Low Options
+    'drive_lo' => 0,
+    'drive-lo' => 0,
+    'drive_low' => 0,
+    'drive-low' => 0,
+    'lo' => 0,
+    'low' => 0,
+    '0' => 0,
+    
+    # Drive High Options
+    'drive_hi' => 1,
+    'drive-hi' => 1,
+    'drive_high' => 1,
+    'drive-high' => 1,
+    'hi' => 1,
+    'high' => 1,
+    '1' => 1,
+    
+    # High Impedance Options
+    'z' => 2,
+    'high_z' => 2,
+    'high-z' => 2,
+    'hi_z' => 2,
+    'hi-z' => 2,
+    'high_impedance' => 2,
+    'high-impedance' => 2,
+    '2' => 2,
+    
+    # Disable Options
+    '-1' => -1,
+    'disable' => -1,
+    'disabled' => -1,
+    #'disconneect' => -1,
+    #'disconnected-' => -1,
+    'no_action' => -1,
+    'no-action' => -1,
+  }
+
   def self.__instantiate_simulator__
     @simulator ||= Simulator.new
   end
@@ -157,13 +197,12 @@ module OrigenSim
     # After the block completes, shutdown the simulator
     tester.simulator.setup_simulation(name)
     yield
-    tester.simulator.end_simulation(name)
+    tester.simulator.complete_simulation(name)
   end
 
   def self.run_source(source, options = {})
     OrigenSim.run(source) do
-      # Decompile
-      # Run simulation
+      OrigenTesters::Decompiler.decompile(source).execute
     end
   end
 end

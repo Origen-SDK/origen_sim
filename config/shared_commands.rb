@@ -36,6 +36,10 @@ when "sim:unpack"
   OrigenSim::Commands::Pack.unpack
   exit 0
 
+when "sim:run"
+  OrigenSim.run_source(ARGV[0])
+  exit 0
+  
 #when "sim:list"
 #  require "#{Origen.root!}/lib/origen_sim/commands/pack"
 #  OrigenSim::Commands::Pack.list

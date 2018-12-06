@@ -171,7 +171,7 @@ module OrigenSim
     end
 
     def target_artifact_dir
-      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/#{Origen.target.name}/artifacts")
+      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/#{id}/artifacts")
     end
 
     def artifact_run_dir
@@ -311,7 +311,7 @@ module OrigenSim
 
       when :synopsys
         if configuration[:verdi]
-          cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{Origen.target.name}/#{wave_file_basename}.fsdb +memcbk +vcsd"
+          cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{id}/#{wave_file_basename}.fsdb +memcbk +vcsd"
         else
           cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
         end
@@ -407,7 +407,7 @@ module OrigenSim
           cmd = "cd #{edir} && "
           cmd += configuration[:verdi] || 'verdi'
           dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-          cmd += " -ssz -dbdir #{Origen.root}/simulation/#{Origen.target.name}/synopsys/simv.daidir/ -ssf #{dir}/#{wave_file_basename}.fsdb"
+          cmd += " -ssz -dbdir #{Origen.root}/simulation/#{id}/synopsys/simv.daidir/ -ssf #{dir}/#{wave_file_basename}.fsdb"
           f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
           cmd += " -sswr #{f}"
           cmd += ' &'
@@ -654,7 +654,7 @@ module OrigenSim
         simulation.completed_cleanly = true unless @flow_running
       end
     end
-    alias_method :end_simulation, :pattern_generated
+    alias_method :complete_simulation, :pattern_generated
 
     def write_comment(line, comment)
       return if line >= OrigenSim::NUMBER_OF_COMMENT_LINES

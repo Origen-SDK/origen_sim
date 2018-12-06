@@ -11,6 +11,12 @@
 //
 // 0 - Force data 0
 // 1 - Force data 1
+//
+// Parameter init_drive
+// 0 - Initialize drive and assign to 0
+// 1 - Initialize drive and assign to 1
+// 2 - Don't initialize drive and assign to Z (default)
+// -1 - Don't initialize drive or assign. Pin will be left unknown
 module pin_driver(error, pin, sync);
   parameter init_drive = 2; // Which means don't drive initially, set to 0 or 1 to drive
 
@@ -30,7 +36,9 @@ module pin_driver(error, pin, sync);
 
   wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : data[0]);
 
-  assign pin = drive ? drive_data : 1'bz;
+  if (init_drive != -1) begin
+    assign pin = drive ? drive_data : 1'bz;
+  end
 
   // Debug signal to show the expected data in the waves
   wire expect_data = compare ? data[0] : 1'bz;
@@ -95,14 +103,30 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
   end
 
 % dut.rtl_pins.each do |name, pin, options|
-  pin_driver <%= pin.driving? ? "#(#{pin.value}) " : '' %><%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err), .sync(sync));
+  pin_driver <%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : "#(#{pin.meta[:origen_sim_init_pin_state]}) "%><%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err), .sync(sync));
+% end
+
+
+endmodule
+
+
+// Placeholder for user notes. This will be an empty module if no notes were given
+module user_notes;
+% options[:user_notes].each do |name, note|
+  parameter <%= name %> = "<%= note %>";
 % end
 
 endmodule
 
 
 module debug(errors);
-
+  parameter ORIGEN_SIM_VERSION = "<%= OrigenSim::VERSION %>";
+  parameter COMPILATION_TIME_STAMP = "<%= Time.now %>";
+  parameter COMPILATION_PATH = "<%= Dir.pwd %>";
+  parameter DUT_NAME = "<%= options[:device_name] || 'No --device_name specified' %>";
+  parameter SNAPSHOT_VERSION = "<%= options[:snapshot_version] || 'No --snapshot_version specified' %>";
+  parameter PARENT_TB_VERSION = "<%= options[:parent_tb_version] || 'No --parent_tb_version specified' %>";
+  
   input [31:0] errors;
 
   reg [1023:0] pattern = 0;
@@ -112,6 +136,8 @@ module debug(errors);
 
   reg handshake;
 
+  user_notes user_notes();
+  
 endmodule
 
 module origen;
@@ -139,14 +165,17 @@ module origen;
 % dut.ground_pins.each do |name, pin, options|
     .<%= pin.id %>(<%= pin.id %>),
 % end
+% # Keep track of the primary groups seen.
+% seen_groups = []
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
 %   if options[:group]
-%     if pin.group_index == 0
+%     unless seen_groups.include?(pin.primary_group)
     .<%= pin.primary_group.id %>({
 %       pin.primary_group.each_with_index do |pin, i|
       <%= pin.id %><%= i == (pin.primary_group.size - 1) ? '' : ',' %>
 %       end
     })<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+%       seen_groups << pin.primary_group
 %     end
 %   else
     .<%= pin.rtl_name %>(<%= pin.id %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
