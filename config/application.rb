@@ -52,7 +52,8 @@ class OrigenSimApplication < Origen::Application
       dir: "example_rtl",
       rc_url: 'https://github.com/Origen-SDK/example_rtl.git',
       version: "master",
-      development: true
+      development: true,
+      path: "/home/stephen/Code/github/example_rtl"
     }
   ]
 

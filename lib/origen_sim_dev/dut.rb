@@ -72,6 +72,9 @@ module OrigenSimDev
         reg.bits 6..4, :b5
         reg.bits 2..0, :b6
       end
+
+      sub_block :ip1, class_name: 'IP'
+      sub_block :ip2, class_name: 'IP'
     end
 
     def interactive_startup
@@ -98,12 +101,22 @@ module OrigenSimDev
     end
 
     def write_register(reg, options = {})
-      jtag.write_ir(0x8, size: 4)
-      dr.rg_enable.write(1)
-      dr.rg_read.write(0)
-      dr.rg_addr.write(reg.address)
-      dr.rg_data.write(reg.data)
-      jtag.write_dr(dr)
+      if reg.path =~ /ip(\d)/
+        ir_val = 0b0100 | Regexp.last_match(1).to_i
+        jtag.write_ir(ir_val, size: 4)
+        ip = reg.parent
+        ip.dr.bits(:address).write(reg.address)
+        ip.dr.bits(:data).write(reg.data)
+        jtag.write_dr(ip.dr)
+      # Write to top-level reg
+      else
+        jtag.write_ir(0x8, size: 4)
+        dr.rg_enable.write(1)
+        dr.rg_read.write(0)
+        dr.rg_addr.write(reg.address)
+        dr.rg_data.write(reg.data)
+        jtag.write_dr(dr)
+      end
     end
 
     def read_register(reg, options = {})
@@ -119,14 +132,23 @@ module OrigenSimDev
         1.cycle
         dut.pins(:dout).dont_care
       else
-        jtag.write_ir(0x8, size: 4)
-        dr.rg_enable.write(1)
-        dr.rg_read.write(1)
-        dr.rg_addr.write(reg.address)
-        jtag.write_dr(dr)
-        dr.rg_enable.write(0)
-        dr.rg_data.copy_all(reg)
-        jtag.read_dr(dr)
+        if reg.path =~ /ip(\d)/
+          ir_val = 0b0100 | Regexp.last_match(1).to_i
+          jtag.write_ir(ir_val, size: 4)
+          ip = reg.parent
+          ip.dr.bits(:address).write(reg.address)
+          ip.dr.bits(:data).copy_all(reg)
+          jtag.read_dr(ip.dr)
+        else
+          jtag.write_ir(0x8, size: 4)
+          dr.rg_enable.write(1)
+          dr.rg_read.write(1)
+          dr.rg_addr.write(reg.address)
+          jtag.write_dr(dr)
+          dr.rg_enable.write(0)
+          dr.rg_data.copy_all(reg)
+          jtag.read_dr(dr)
+        end
       end
     end
   end
