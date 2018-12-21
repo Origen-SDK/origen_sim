@@ -105,6 +105,7 @@ module OrigenSimDev
         ir_val = 0b0100 | Regexp.last_match(1).to_i
         jtag.write_ir(ir_val, size: 4)
         ip = reg.parent
+        ip.dr.bits(:write).write(1)
         ip.dr.bits(:address).write(reg.address)
         ip.dr.bits(:data).write(reg.data)
         jtag.write_dr(ip.dr)
@@ -136,7 +137,10 @@ module OrigenSimDev
           ir_val = 0b0100 | Regexp.last_match(1).to_i
           jtag.write_ir(ir_val, size: 4)
           ip = reg.parent
+          ip.dr.bits(:write).write(0)
           ip.dr.bits(:address).write(reg.address)
+          ip.dr.bits(:data).write(0)
+          jtag.write_dr(ip.dr)
           ip.dr.bits(:data).copy_all(reg)
           jtag.read_dr(ip.dr)
         else
