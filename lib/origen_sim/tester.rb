@@ -225,9 +225,9 @@ module OrigenSim
       flush if Origen.running_interactively? && dut_version > '0.12.1'
     end
 
-    #def method_missing(m, *args, &block)
+    # def method_missing(m, *args, &block)
     #  super
-    #end
+    # end
 
     private
 

@@ -1,5 +1,6 @@
 require 'origen_sim/simulation'
-require 'origen_sim/artifacts'
+require 'origen_sim/simulator/artifacts'
+require 'origen_sim/simulator/snapshot_details'
 
 module OrigenSim
   # Responsible for managing and communicating with the simulator
@@ -117,7 +118,9 @@ module OrigenSim
       unless VENDORS.include?(options[:vendor])
         fail "Unknown vendor #{options[:vendor]}, valid values are: #{VENDORS.map { |v| ':' + v.to_s }.join(', ')}"
       end
-      @configuration = options
+      @configuration = {
+        snapshot_details_options: {}
+      }.merge(options)
       @tmp_dir = nil
 
       # Temporary workaround for bug in componentable, which is making the container a class object, instead of an
@@ -974,6 +977,23 @@ module OrigenSim
     def match_errors
       peek("#{testbench_top}.pins.match_errors").to_i
     end
+
+    def peek_str(signal)
+      val = tester.simulator.peek(signal)
+      unless val.nil?
+        puts val
+        puts val.class
+        # All zeros seems to be what an empty string is returned from the VPI,
+        # Otherwise, break the string up into 8-bit chunks and decode the ASCII>
+        val = (val.to_s == 'b00000000' ? '' : val.to_s[1..-1].scan(/.{1,8}/).collect { |char| char.to_i(2).chr }.join)
+      end
+      val
+      # puts "Peaking #{signal}: #{a}: #{a.class}"
+      # tester.simulator.peek(signal).to_s[1..-1].scan(/.{1,8}/).collect { |char| char.to_i(2).chr }.join
+    end
+    alias_method :str_peek, :peek_str
+    alias_method :peek_string, :peek_str
+    alias_method :string_peek, :peek_str
 
     private
 

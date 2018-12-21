@@ -22,41 +22,39 @@ module OrigenSim
   # Include a mapping for various sematics.
   INIT_PIN_STATE_MAPPING = {
     # Drive Low Options
-    'drive_lo' => 0,
-    'drive-lo' => 0,
-    'drive_low' => 0,
-    'drive-low' => 0,
-    'lo' => 0,
-    'low' => 0,
-    '0' => 0,
-    
+    'drive_lo'       => 0,
+    'drive-lo'       => 0,
+    'drive_low'      => 0,
+    'drive-low'      => 0,
+    'lo'             => 0,
+    'low'            => 0,
+    '0'              => 0,
+
     # Drive High Options
-    'drive_hi' => 1,
-    'drive-hi' => 1,
-    'drive_high' => 1,
-    'drive-high' => 1,
-    'hi' => 1,
-    'high' => 1,
-    '1' => 1,
-    
+    'drive_hi'       => 1,
+    'drive-hi'       => 1,
+    'drive_high'     => 1,
+    'drive-high'     => 1,
+    'hi'             => 1,
+    'high'           => 1,
+    '1'              => 1,
+
     # High Impedance Options
-    'z' => 2,
-    'high_z' => 2,
-    'high-z' => 2,
-    'hi_z' => 2,
-    'hi-z' => 2,
+    'z'              => 2,
+    'high_z'         => 2,
+    'high-z'         => 2,
+    'hi_z'           => 2,
+    'hi-z'           => 2,
     'high_impedance' => 2,
     'high-impedance' => 2,
-    '2' => 2,
-    
+    '2'              => 2,
+
     # Disable Options
-    '-1' => -1,
-    'disable' => -1,
-    'disabled' => -1,
-    #'disconneect' => -1,
-    #'disconnected-' => -1,
-    'no_action' => -1,
-    'no-action' => -1,
+    '-1'             => -1,
+    'disable'        => -1,
+    'disabled'       => -1,
+    'no_action'      => -1,
+    'no-action'      => -1
   }
 
   def self.__instantiate_simulator__
@@ -76,7 +74,7 @@ module OrigenSim
     Tester.new(options.merge(vendor: :cadence), &block)
   end
 
-  def self.synopsys(optoins = {}, &block)
+  def self.synopsys(options = {}, &block)
     Tester.new(options.merge(vendor: :synopsys), &block)
   end
 
@@ -190,8 +188,6 @@ module OrigenSim
     # Load up the application and target
     Origen.load_application
     Origen.app.load_target!
-
-    # Make sure the current environment in a simulator.
 
     # Start up the simulator and run whatever's in the target block.
     # After the block completes, shutdown the simulator

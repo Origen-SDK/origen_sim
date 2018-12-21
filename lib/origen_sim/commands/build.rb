@@ -3,7 +3,7 @@ require 'origen_sim'
 require_relative '../../../config/version'
 require 'origen_verilog'
 
-options = { incl_files: [], source_dirs: [], testbench_name: 'origen', defines: [], user_notes: {}, initial_pin_states: {}, verilog_top_output_name: 'origen'}
+options = { incl_files: [], source_dirs: [], testbench_name: 'origen', defines: [], user_details: {}, initial_pin_states: {}, verilog_top_output_name: 'origen' }
 
 # App options are options that the application can supply to extend this command
 app_options = @application_options || []
@@ -22,19 +22,10 @@ Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
   opts.on('-s', '--source_dir PATH', 'Directories to look for include files in (the directory containing the top-level is already considered)') do |path|
     options[:source_dirs] << path
   end
-  opts.on('--device_name NAME', 'Supply a device name to be cemented into the snapshot') { |n| options[:device_name] = n }
-  opts.on('--parent_tb_version VER', 'Supply a version of the testbench this snapshot was built from') { |v| options[:parent_tb_version] = v }
-  opts.on('--snapshot_version VER', 'Supply a version of the snapshot') { |v| options[:snapshot_version] = v }
   opts.on('--sv', 'Generate a .sv file instead of a .v file.') { |t| options[:sv] = t }
   opts.on('--verilog_top_output_name NAME', 'Renames the output filename from origen.v to NAME.v') do |name|
     options[:verilog_top_output_name] = name
   end
-  opts.on('--USER_NOTE NAME_AND_VALUE', 'Specify notes to build into the snapshot parameters') do |name_and_value|
-    name, value = name_and_value.split(':')
-    (options[:user_notes])[name] = value
-  end
-  #opts.on('--USER_REG REG_AND_INIT_VALUE', 'Specify user registers to be created in the origen.debug module') do |r|
-  #end
   opts.on('--define MACRO', 'Specify a compiler define') do |macro|
     options[:defines] << macro
   end
@@ -48,6 +39,26 @@ Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
     (options[:initial_pin_states])[name.to_sym] = OrigenSim::INIT_PIN_STATE_MAPPING[state]
   end
   opts.on('--include FILE' 'Specify files to include in the top verilog file.') { |f| options[:incl_files] << f }
+
+  # Specifying snapshot details
+  opts.on('--device_name NAME', '(Snapshot Detail) Specify a device name') { |n| options[:device_name] = n }
+  opts.on('--testbench_version VER', '(Snapshot Detail) Specify a version of the testbench this snapshot was built from') { |v| options[:testbench_version] = v }
+  opts.on('--revision REV', '(Snapshot Detail) Specify a revision of the snapshot') { |r| options[:revision] = r }
+  opts.on('--revision_note REV_NOTE', '(Snapshot Detail) Specify a brief note on this revision of the snapshot') { |n| options[:revision_note] = n }
+  opts.on('--author AUTHOR', '(Snapshot Detail) Specify the author of the snapshot (default is just Origen.current_user)') { |a| options[:author] = a }
+
+  # User-defined snapshot details
+  opts.on('--USER_DETAIL NAME_AND_VALUE', 'Specify custom user-defined details to build into the snapshot details. Format as NAME:VALUE, e.g.: \'--USER_DETAIL BUILD_TYPE:RTL\'') do |name_and_value|
+    name, value = name_and_value.split(':')
+
+    unless name.upcase == name
+      Origen.log.warning "Non-capitalized user detail '#{name}' was given!"
+      Origen.log.warning 'OrigenSim forces the Verilog practice that parameters should be capitalized.'
+      Origen.log.warning "The parameter '#{name.upcase}' will be used instead"
+      name.upcase!
+    end
+    (options[:user_details])[name] = value
+  end
   opts.on('-d', '--debugger', 'Enable the debugger') {  options[:debugger] = true }
   app_options.each do |app_option|
     opts.on(*app_option) {}
@@ -107,14 +118,8 @@ mod.to_top_level # Creates dut
 
 # Update the pins with any setings from the command line
 options[:initial_pin_states].each do |pin, state|
-  puts "initial pin states: #{pin}: #{state}".red
   dut.pins(pin).meta[:origen_sim_init_pin_state] = state
 end
-
-puts dut.pins(:vrefh).meta
-puts dut.pins(:vdda_3v).meta
-puts dut.object_id
-puts dut.pins
 
 if $_testing_build_return_dut_
   dut
@@ -131,15 +136,17 @@ else
                            check_for_changes: false,
                            quiet:             true,
                            preserve_target:   true,
-                           options:           { vendor: :cadence,
-                                                top: dut.name,
-                                                incl: options[:incl_files],
-                                                device_name: options[:device_name],
-                                                snapshot_version: options[:snapshot_version],
-                                                parent_tb_version: options[:parent_tb_version],
-                                                user_notes: options[:user_notes],
-                                                #user_regs: options[:user_regs],
-                                              }
+                           options:           {
+                             vendor:            :cadence,
+                             top:               dut.name,
+                             incl:              options[:incl_files],
+                             device_name:       options[:device_name],
+                             revision:          options[:revision],
+                             revision_note:     options[:revision_note],
+                             parent_tb_version: options[:testbench_version],
+                             user_details:      options[:user_details],
+                             author:            options[:author]
+                           }
 
   Origen.app.runner.launch action:            :compile,
                            files:             "#{Origen.root!}/ext",
@@ -186,7 +193,7 @@ else
   puts "  #{output_directory}/client.c \\"
   puts '  -CFLAGS "-std=c99" \\'
   puts '  +vpi \\'
-  puts "  -use_vpiobj #{output_directory}/origen.c \\"
+  puts "  #{output_directory}/origen.c \\"
   puts '  +define+ORIGEN_VPD=1 \\'
   puts '  -debug_access+all \\'
   puts '  -PP \\'
@@ -194,7 +201,7 @@ else
   puts
   puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
   puts
-  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/#{output_name} #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi -use_vpiobj #{output_directory}/origen.c -timescale=1ns/1ns  +define+ORIGEN_VPD=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all -PP"
+  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/#{output_name} #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi #{output_directory}/origen.c -timescale=1ns/1ns  +define+ORIGEN_VPD=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all -PP"
   puts
   puts 'Copy the following files (produced by vcs) to simulation/<target>/synopsys/. within your Origen application:'
   puts

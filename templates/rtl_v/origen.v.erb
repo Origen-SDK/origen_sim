@@ -17,12 +17,14 @@
 // 1 - Initialize drive and assign to 1
 // 2 - Don't initialize drive and assign to Z (default)
 // -1 - Don't initialize drive or assign. Pin will be left unknown
-module pin_driver(error, pin, sync);
+module pin_driver(error, pin, sync, match_loop);
   parameter init_drive = 2; // Which means don't drive initially, set to 0 or 1 to drive
+  parameter pin_name = "undefined_name";
 
   output reg error;
   inout pin;
   input sync;
+  input match_loop;
 
   reg [1:0] data = 0;
   reg [1:0] force_data = 0;
@@ -35,6 +37,7 @@ module pin_driver(error, pin, sync);
   reg [127:0] sync_memory = 0;
 
   wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : data[0]);
+  wire contention = drive ? (pin !== drive_data ? 1 : 0) : 0;
 
   if (init_drive != -1) begin
     assign pin = drive ? drive_data : 1'bz;
@@ -46,6 +49,19 @@ module pin_driver(error, pin, sync);
   always @(*) begin
     error = (compare && !capture) ? (pin == data[0] ? 0 : 1) : 0;
   end
+
+  // pin compare failure logger
+  always @(posedge error) begin
+    if (match_loop != 1) begin
+      $display("OrigenSim Error: miscompare on pin %s, expected %d received %d at %t", pin_name, data[0], pin, $time);
+    end
+  end
+  
+  // SMcG - needs more work, causes non-genuine fails in OrigenSim test case
+  //// pin contention logger
+  //always @(posedge contention) begin
+  //  $display("OrigenSim Error: contention on pin %s, tester drives %d beginning at %t", pin_name, drive_data, $time);
+  //end
 
   always @(posedge capture) begin
     if (sync == 1) begin
@@ -60,6 +76,8 @@ module pin_driver(error, pin, sync);
   end
 
   initial begin
+    // Set the timescale to ns (-9) with 0 decimal place precision, 20 chars
+    $timeformat(-9, 0, " ns", 20);
     if (init_drive == 1) begin
       drive = 1;
       data[0] = 1;
@@ -103,30 +121,43 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
   end
 
 % dut.rtl_pins.each do |name, pin, options|
-  pin_driver <%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : "#(#{pin.meta[:origen_sim_init_pin_state]}) "%><%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err), .sync(sync));
+  pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err), .sync(sync), .match_loop(match_loop));
 % end
 
 
 endmodule
-
 
 // Placeholder for user notes. This will be an empty module if no notes were given
-module user_notes;
-% options[:user_notes].each do |name, note|
+module user_details;
+  parameter _AVAILABLE_DETAILS_ = "<%= options[:user_details].empty? ? "" : options[:user_details].keys.join(',') %>";
+
+% options[:user_details].each do |name, note|
   parameter <%= name %> = "<%= note %>";
 % end
-
 endmodule
 
 
-module debug(errors);
+// SnapshotDetails module. Just stores some traceability details into the snapshot
+// that can be queried by OrigenSim or viewed in the waveform viewer.
+module snapshot_details;
+  // Add a parameter that lists the available parameters. OrigenSim can use this known parameter to query any others that are
+  // added here.
+  parameter _AVAILABLE_DETAILS_ = "ORIGEN_SIM_VERSION,COMPILATION_TIME_STAMP,COMPILATION_PATH,DEVICE_NAME,REVISION,REVISION_NOTE,TESTBENCH_VERSION,AUTHOR";
+  
   parameter ORIGEN_SIM_VERSION = "<%= OrigenSim::VERSION %>";
   parameter COMPILATION_TIME_STAMP = "<%= Time.now %>";
   parameter COMPILATION_PATH = "<%= Dir.pwd %>";
-  parameter DUT_NAME = "<%= options[:device_name] || 'No --device_name specified' %>";
-  parameter SNAPSHOT_VERSION = "<%= options[:snapshot_version] || 'No --snapshot_version specified' %>";
-  parameter PARENT_TB_VERSION = "<%= options[:parent_tb_version] || 'No --parent_tb_version specified' %>";
+  parameter DEVICE_NAME = "<%= options[:device_name] || 'No --device_name specified' %>";
+  parameter REVISION = "<%= options[:revision] || 'No --revision specified' %>";
+  parameter REVISION_NOTE = "<%= options[:revision_note] || 'No --revision_note specified' %>";
+  parameter TESTBENCH_VERSION = "<%= options[:parent_tb_version] || 'No --testbench_version specified' %>";
+  parameter AUTHOR = "<%= options[:author] || Origen.current_user.username %>";
   
+  user_details user_details();
+
+endmodule
+
+module debug(errors);
   input [31:0] errors;
 
   reg [1023:0] pattern = 0;
@@ -136,7 +167,7 @@ module debug(errors);
 
   reg handshake;
 
-  user_notes user_notes();
+  snapshot_details snapshot_details();
   
 endmodule
 
