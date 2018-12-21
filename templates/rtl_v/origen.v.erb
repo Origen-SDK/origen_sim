@@ -11,6 +11,12 @@
 //
 // 0 - Force data 0
 // 1 - Force data 1
+//
+// Parameter init_drive
+// 0 - Initialize drive and assign to 0
+// 1 - Initialize drive and assign to 1
+// 2 - Don't initialize drive and assign to Z (default)
+// -1 - Don't initialize drive or assign. Pin will be left unknown
 module pin_driver(error, pin, sync, match_loop);
   parameter init_drive = 2; // Which means don't drive initially, set to 0 or 1 to drive
   parameter pin_name = "undefined_name";
@@ -33,7 +39,9 @@ module pin_driver(error, pin, sync, match_loop);
   wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : data[0]);
   wire contention = drive ? (pin !== drive_data ? 1 : 0) : 0;
 
-  assign pin = drive ? drive_data : 1'bz;
+  if (init_drive != -1) begin
+    assign pin = drive ? drive_data : 1'bz;
+  end
 
   // Debug signal to show the expected data in the waves
   wire expect_data = compare ? data[0] : 1'bz;
@@ -113,14 +121,43 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
   end
 
 % dut.rtl_pins.each do |name, pin, options|
-  pin_driver #(.init_drive(<%= pin.driving? ? "#{pin.value}" : '2' %>), .pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err), .sync(sync), .match_loop(match_loop));
+  pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err), .sync(sync), .match_loop(match_loop));
 % end
+
 
 endmodule
 
+// Placeholder for user notes. This will be an empty module if no notes were given
+module user_details;
+  parameter _AVAILABLE_DETAILS_ = "<%= options[:user_details].empty? ? "" : options[:user_details].keys.join(',') %>";
+
+% options[:user_details].each do |name, note|
+  parameter <%= name %> = "<%= note %>";
+% end
+endmodule
+
+
+// SnapshotDetails module. Just stores some traceability details into the snapshot
+// that can be queried by OrigenSim or viewed in the waveform viewer.
+module snapshot_details;
+  // Add a parameter that lists the available parameters. OrigenSim can use this known parameter to query any others that are
+  // added here.
+  parameter _AVAILABLE_DETAILS_ = "ORIGEN_SIM_VERSION,COMPILATION_TIME_STAMP,COMPILATION_PATH,DEVICE_NAME,REVISION,REVISION_NOTE,TESTBENCH_VERSION,AUTHOR";
+  
+  parameter ORIGEN_SIM_VERSION = "<%= OrigenSim::VERSION %>";
+  parameter COMPILATION_TIME_STAMP = "<%= Time.now %>";
+  parameter COMPILATION_PATH = "<%= Dir.pwd %>";
+  parameter DEVICE_NAME = "<%= options[:device_name] || 'No --device_name specified' %>";
+  parameter REVISION = "<%= options[:revision] || 'No --revision specified' %>";
+  parameter REVISION_NOTE = "<%= options[:revision_note] || 'No --revision_note specified' %>";
+  parameter TESTBENCH_VERSION = "<%= options[:parent_tb_version] || 'No --testbench_version specified' %>";
+  parameter AUTHOR = "<%= options[:author] || Origen.current_user.username %>";
+  
+  user_details user_details();
+
+endmodule
 
 module debug(errors);
-
   input [31:0] errors;
 
   reg [1023:0] pattern = 0;
@@ -130,6 +167,8 @@ module debug(errors);
 
   reg handshake;
 
+  snapshot_details snapshot_details();
+  
 endmodule
 
 module origen;
@@ -157,14 +196,17 @@ module origen;
 % dut.ground_pins.each do |name, pin, options|
     .<%= pin.id %>(<%= pin.id %>),
 % end
+% # Keep track of the primary groups seen.
+% seen_groups = []
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
 %   if options[:group]
-%     if pin.group_index == 0
+%     unless seen_groups.include?(pin.primary_group)
     .<%= pin.primary_group.id %>({
 %       pin.primary_group.each_with_index do |pin, i|
       <%= pin.id %><%= i == (pin.primary_group.size - 1) ? '' : ',' %>
 %       end
     })<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+%       seen_groups << pin.primary_group
 %     end
 %   else
     .<%= pin.rtl_name %>(<%= pin.id %>)<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>

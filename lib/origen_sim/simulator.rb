@@ -1,5 +1,6 @@
 require 'origen_sim/simulation'
-require 'origen_sim/artifacts'
+require 'origen_sim/simulator/artifacts'
+require 'origen_sim/simulator/snapshot_details'
 
 module OrigenSim
   # Responsible for managing and communicating with the simulator
@@ -117,7 +118,9 @@ module OrigenSim
       unless VENDORS.include?(options[:vendor])
         fail "Unknown vendor #{options[:vendor]}, valid values are: #{VENDORS.map { |v| ':' + v.to_s }.join(', ')}"
       end
-      @configuration = options
+      @configuration = {
+        snapshot_details_options: {}
+      }.merge(options)
       @tmp_dir = nil
 
       # Temporary workaround for bug in componentable, which is making the container a class object, instead of an
@@ -171,7 +174,7 @@ module OrigenSim
     end
 
     def target_artifact_dir
-      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/#{Origen.target.name}/artifacts")
+      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/#{id}/artifacts")
     end
 
     def artifact_run_dir
@@ -311,7 +314,7 @@ module OrigenSim
 
       when :synopsys
         if configuration[:verdi]
-          cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{Origen.target.name}/#{wave_file_basename}.fsdb +memcbk +vcsd"
+          cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{id}/#{wave_file_basename}.fsdb +memcbk +vcsd"
         else
           cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
         end
@@ -364,12 +367,12 @@ module OrigenSim
         OrigenSim.flow.to_s
       else
         if Origen.app.current_job
-          @last_wafe_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
+          @last_wave_file_basename = Pathname.new(Origen.app.current_job.output_file).basename('.*').to_s
         else
           if Origen.interactive?
             'interactive'
           else
-            @last_wafe_file_basename
+            @last_wave_file_basename || 'unnamed_pattern'
           end
         end
       end
@@ -407,7 +410,7 @@ module OrigenSim
           cmd = "cd #{edir} && "
           cmd += configuration[:verdi] || 'verdi'
           dir = Pathname.new(wave_dir).relative_path_from(edir.expand_path)
-          cmd += " -ssz -dbdir #{Origen.root}/simulation/#{Origen.target.name}/synopsys/simv.daidir/ -ssf #{dir}/#{wave_file_basename}.fsdb"
+          cmd += " -ssz -dbdir #{Origen.root}/simulation/#{id}/synopsys/simv.daidir/ -ssf #{dir}/#{wave_file_basename}.fsdb"
           f = Pathname.new(wave_config_file).relative_path_from(edir.expand_path)
           cmd += " -sswr #{f}"
           cmd += ' &'
@@ -643,6 +646,7 @@ module OrigenSim
         @pattern_count += 1
       end
     end
+    alias_method :setup_simulation, :before_pattern
 
     # This will be called at the end of every pattern, make
     # sure the simulator is not running behind before potentially
@@ -653,6 +657,7 @@ module OrigenSim
         simulation.completed_cleanly = true unless @flow_running
       end
     end
+    alias_method :complete_simulation, :pattern_generated
 
     def write_comment(line, comment)
       return if line >= OrigenSim::NUMBER_OF_COMMENT_LINES
@@ -972,6 +977,23 @@ module OrigenSim
     def match_errors
       peek("#{testbench_top}.pins.match_errors").to_i
     end
+
+    def peek_str(signal)
+      val = tester.simulator.peek(signal)
+      unless val.nil?
+        puts val
+        puts val.class
+        # All zeros seems to be what an empty string is returned from the VPI,
+        # Otherwise, break the string up into 8-bit chunks and decode the ASCII>
+        val = (val.to_s == 'b00000000' ? '' : val.to_s[1..-1].scan(/.{1,8}/).collect { |char| char.to_i(2).chr }.join)
+      end
+      val
+      # puts "Peaking #{signal}: #{a}: #{a.class}"
+      # tester.simulator.peek(signal).to_s[1..-1].scan(/.{1,8}/).collect { |char| char.to_i(2).chr }.join
+    end
+    alias_method :str_peek, :peek_str
+    alias_method :peek_string, :peek_str
+    alias_method :string_peek, :peek_str
 
     private
 
