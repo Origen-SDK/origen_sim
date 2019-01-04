@@ -7,11 +7,11 @@ Pattern.sequence do |seq|
 
   seq.run :ip2_test
 
-  seq.in_parallel do
+  seq.in_parallel :ip1 do
     seq.run :ip1_test
   end
 
-  seq.in_parallel do
+  seq.in_parallel :ip2 do
     seq.run :ip2_test
   end
 end

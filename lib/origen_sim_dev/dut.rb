@@ -101,7 +101,7 @@ module OrigenSimDev
     end
 
     def write_register(reg, options = {})
-      PatSeq.serialize do
+      PatSeq.serialize :jtag do
         if reg.path =~ /ip(\d)/
           ir_val = 0b0100 | Regexp.last_match(1).to_i
           jtag.write_ir(ir_val, size: 4)
@@ -123,7 +123,7 @@ module OrigenSimDev
     end
 
     def read_register(reg, options = {})
-      PatSeq.serialize do
+      PatSeq.serialize :jtag do
         # Special read for this register to test sync'ing over a parallel
         if reg.id == :parallel_read
           pins = []
