@@ -18,6 +18,10 @@ module OrigenSim
     # Returns the communication socket used for sending commands to the Origen VPI running
     # in the simulation process
     attr_reader :socket
+    # Returns false when the simulation is running and will be set to true once all instructions
+    # have been sent and executed by the simulator and immediately before the end_simulation
+    # instruction is sent to the simulator.
+    attr_accessor :ended
 
     def initialize(id, view_wave_command)
       @id = id
@@ -25,6 +29,7 @@ module OrigenSim
       @completed_cleanly = false
       @failed_to_start = false
       @logged_errors = false
+      @ended = false
       @error_count = 0
       @socket_ids = {}
 
@@ -85,6 +90,24 @@ module OrigenSim
       end
     end
 
+    def ended=(val)
+      # If running the heartbeat from a fork we need to communicate to it that the simulation has
+      # ended by writing to a file
+      if val == true && !Heartbeat::THREADSAFE
+        FileUtils.touch(ended_file)
+      else
+        @ended = val
+      end
+    end
+
+    def ended_file
+      @ended_file ||= begin
+        dir = Origen.root.join('tmp', 'origen_sim', 'ended')
+        FileUtils.mkdir_p(dir.to_s)
+        dir.join(socket_number).to_s
+      end
+    end
+
     # Provide a heartbeat to let the parallel Ruby process in charge of the simulator
     # know that the master Origen process is still alive. If the Origen process crashes and leaves
     # the simulator running, the child process will automatically reap it after a couple of missed
@@ -92,20 +115,25 @@ module OrigenSim
     def start_heartbeat
       @heartbeat = @server_heartbeat.accept
       if Heartbeat::THREADSAFE
-        @heartbeat_thread = Heartbeat.new(@heartbeat)
+        @heartbeat_thread = Heartbeat.new(self, @heartbeat)
       else
+        ended_file # Cache this file name before forking
         @heartbeat_pid = fork do
           loop do
             begin
               @heartbeat.write("OK\n")
             rescue Errno::EPIPE => e
-              if monitor_running?
-                Origen.log.error 'Communication with the simulation monitor has been lost (though it seems to still be running)!'
+              if File.exist?(ended_file)
+                FileUtils.rm_f(ended_file)
+                exit 0
               else
-                Origen.log.error 'The simulation monitor has stopped unexpectedly!'
+                if monitor_running?
+                  Origen.log.error 'Communication with the simulation monitor has been lost (though it seems to still be running)!'
+                else
+                  Origen.log.error 'The simulation monitor has stopped unexpectedly!'
+                end
+                exit 1
               end
-              sleep 2 # To make sure that any log output from the simulator is captured before we pull the plug
-              exit 1
             end
             sleep 5
           end
@@ -125,6 +153,7 @@ module OrigenSim
         rescue Errno::ECHILD
           # Heartbeat process has already stopped, so ignore this.
         end
+        FileUtils.rm_f(ended_file) if File.exist?(ended_file)
       end
     end
 

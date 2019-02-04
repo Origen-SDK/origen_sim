@@ -869,6 +869,8 @@ module OrigenSim
       @simulation_open = false
       simulation.error_count = error_count
       Origen.listeners_for(:simulation_shutdown).each(&:simulation_shutdown)
+      sync_up
+      simulation.ended = true
       end_simulation
       # Give the simulator time to shut down
       sleep 0.1 while simulation.running?
