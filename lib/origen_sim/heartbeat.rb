@@ -1,7 +1,7 @@
 require 'thread'
 module OrigenSim
   class Heartbeat < Thread
-    attr_reader :socket
+    attr_reader :socket, :simulation
 
     # Can't use this with threads currently because Byebug pauses the sleep,
     # during a breakpoint, which means that the simulator is killed.
@@ -9,7 +9,8 @@ module OrigenSim
     # whenever this is set to false.
     THREADSAFE = false
 
-    def initialize(socket)
+    def initialize(simulation, socket)
+      @simulation = simulation
       @socket = socket
       @continue = true
       super do
@@ -17,8 +18,12 @@ module OrigenSim
           begin
             socket.write("OK\n")
           rescue Errno::EPIPE => e
-            Origen.log.error 'Communication with the simulation monitor has been lost!'
-            sleep 2
+            exit 0 if simulation.ended
+            if simulation.monitor_running?
+              Origen.log.error 'Communication with the simulation monitor has been lost (though it seems to still be running)!'
+            else
+              Origen.log.error 'The simulation monitor has stopped unexpectedly!'
+            end
             exit 1
           end
           sleep 5
