@@ -148,6 +148,41 @@ at the point during the cycle where it will be read by the pattern.
 However, if this were to be a problem in a particular application, you would see it fail when re-playing the
 captured data in simulation.
 
+#### Configuring the Capture Storage Location
+
+By default, both `sim_delay` and `sim_capture` will save their captured data to 
+Org files (Origen native pattern format) using the following file naming rule:
+`Origen.root/pattern/org/<target name>/<capture ID>.org`.
+
+If your application is a top-level application then the default setting should work fine unless you wish
+to share/re-use captured data between multiple targets.
+
+Another reason to change from the default would be if data is captured at plugin-level and this needs
+to be referenced later when running within a top-level application.
+There are potentially two issues in that case:
+
+* `Origen.root` will point to the top-level application's root instead of the plugin's
+* The target name used at the top-level could be different from the one that was used within the plugin to capture
+  the data
+
+In such cases, the default capture directory can be changed by setting the `OrigenSim.capture_dir` attribute.
+This can be set anytime before the first call is made to `sim_delay` or `sim_capture`.
+
+For example, a plugin that needs its captured data to work later as part of a top-level application,
+could set the capture directory in a [startup callback](<%= path "guides/misc/callbacks/#startup(options)" %>),
+like this:
+
+~~~ruby
+def startup(options)
+  # Only modify this if we are the current app or plugin
+  if Origen.app!.current? || Origen.app!.current_plugin?
+    # Use a directory within our root and named after the current IP block, rather than the target
+    OrigenSim.capture_dir = Origen.root!.join('pattern', 'org', dut.myip.name)
+  end
+end
+~~~
+
+
 #### Creating Simulation-Only Assertions
 
 Users are of course encouraged to write patterns that test the DUT via its pin interface since such
