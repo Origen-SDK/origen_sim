@@ -17,7 +17,7 @@ module OrigenTesters
       if @sim_capture || @sim_delay
         fail 'Nesting of sim_capture and/or sim_delay blocks is not yet supported!'
       end
-      Origen::OrgFile.open(id, path: OrigenSim.capture_path) do |org_file|
+      Origen::OrgFile.open(id, path: OrigenSim.capture_dir) do |org_file|
         @org_file = org_file
         if update_capture?
           @sim_delay = true
@@ -81,7 +81,7 @@ module OrigenTesters
       pins = pins.map { |p| p.is_a?(String) || p.is_a?(Symbol) ? dut.pin(p) : p }
       pins.each(&:save)
       @sim_capture = pins.map { |p| [p, "origen.dut.#{p.rtl_name}"] }
-      Origen::OrgFile.open(id, path: OrigenSim.capture_path) do |org_file|
+      Origen::OrgFile.open(id, path: OrigenSim.capture_dir) do |org_file|
         @org_file = org_file
         @update_capture = update_capture?
         if @update_capture
