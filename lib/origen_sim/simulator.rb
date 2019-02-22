@@ -573,6 +573,10 @@ module OrigenSim
       end
       Origen.log.info "OrigenSim version #{Origen.app!.version}"
       Origen.log.info "OrigenSim DUT version #{dut_version}"
+      unless dut_version > '0.15.0'
+        Origen.log.warning 'Progress comments may be out of sync with simulator output.'
+        Origen.log.warning 'Recompile your DUT with a newer version of OrigenSim to resolve this.'
+      end
       # Tick the simulation on, this seems to be required since any VPI puts operations before
       # the simulation has started are not applied.
       # Note that this is not setting a tester timeset, so the application will still have to
@@ -668,6 +672,21 @@ module OrigenSim
         put("c^#{line}^#{comment} ")  # Space at the end is important so that an empty comment is communicated properly
       else
         put("c^#{comment} ")
+      end
+    end
+
+    # Any messages passed in here will be output to the console log by making a round trip through
+    # the simulator. This ensures that the given log messages will be in sync with output from the
+    # simulator rather than potentially being ahead of the simulator if Origen were to output them
+    # immediately.
+    def log(msg)
+      # Not sure what the limiting factor here is, the comment memory in the test bench should
+      # be able to handle 1024 / 8 length strings, but any bigger than this hangs the simulation
+      msg = msg ? msg[0..96] : ''
+      if dut_version > '0.15.0'
+        put("k^#{msg}")
+      else
+        Origen.log.info msg
       end
     end
 

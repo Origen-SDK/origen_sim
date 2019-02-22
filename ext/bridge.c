@@ -769,6 +769,13 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       case 'j' :
         vpi_flush();
         break;
+      // Log message
+      //   k^A message to output to the console/log
+      case 'k' :
+        arg1 = strtok(NULL, "^");
+        vpi_printf("!Org!%s\n", arg1);
+
+        break;
       default :
         vpi_printf("ERROR: Illegal message received from Origen: %s\n", orig_msg);
         runtime_errors += 1;

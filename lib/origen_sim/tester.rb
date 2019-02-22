@@ -96,7 +96,16 @@ module OrigenSim
     end
 
     def c1(msg, options = {})
-      @comment_buffer << msg if @step_comment_on
+      if @step_comment_on
+        simulator.log msg
+        @comment_buffer << msg
+      end
+    end
+
+    def ss(msg = nil)
+      simulator.log '=' * 70
+      super
+      simulator.log '=' * 70
     end
 
     def loop_vectors(name, number_of_loops, options = {})
@@ -224,10 +233,6 @@ module OrigenSim
       super
       flush if Origen.running_interactively? && dut_version > '0.12.1'
     end
-
-    # def method_missing(m, *args, &block)
-    #  super
-    # end
 
     private
 
