@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdarg.h>
 
 #define MAX_NUMBER_PINS 2000
 #define MAX_WAVE_EVENTS 50
@@ -42,7 +43,7 @@ typedef struct Wave {
   int active_pin_count;
 } Wave;
 
-static uint64_t period_in_ps;
+static uint64_t period_in_simtime_units;
 static long repeat = 0;
 static Pin pins[MAX_NUMBER_PINS];
 static int number_of_pins = 0;
@@ -72,6 +73,7 @@ static void bridge_disable_compare_wave(Pin*);
 static void bridge_clear_waves_and_pins(void);
 static bool bridge_is_drive_whole_cycle(Pin*);
 static void end_simulation(void);
+static void origen_log(int, const char*, ...);
 
 static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * compare_wave_ix) {
   int index = atoi(pin_ix);
@@ -98,7 +100,7 @@ static void bridge_define_pin(char * name, char * pin_ix, char * drive_wave_ix, 
   free(data);
 
   if (!(*pin).data) {
-    vpi_printf("WARNING: Your DUT defines pin '%s', however it is not present in the testbench and will be ignored\n", (*pin).name);
+    origen_log(LOG_WARNING, "Your DUT defines pin '%s', however it is not present in the testbench and will be ignored", (*pin).name);
     (*pin).present = false;
   } else {
     (*pin).present = true;
@@ -225,7 +227,7 @@ static void bridge_disable_drive_wave(Pin * pin) {
   Wave *wave = &drive_waves[(*pin).drive_wave];
 
   if ((*wave).active_pin_count == 0) {
-    vpi_printf("Wanted to disable drive on pin %i, but its drive wave has no active pins!\n", (*pin).index);
+    origen_log(LOG_ERROR, "Wanted to disable drive on pin %i, but its drive wave has no active pins!", (*pin).index);
     end_simulation();
   }
 
@@ -276,9 +278,9 @@ static void bridge_clear_waves_and_pins() {
 }
 
 
-static void bridge_set_period(char * p_in_ps_str) {
-  uint64_t p = (uint64_t) strtol(p_in_ps_str, NULL, 10);
-  period_in_ps = p;
+static void bridge_set_period(char * p_in_simtime_units_str) {
+  uint64_t p = (uint64_t) strtol(p_in_simtime_units_str, NULL, 10);
+  period_in_simtime_units = p;
   bridge_clear_waves_and_pins();
 }
 
@@ -427,7 +429,7 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
         d = 0;
         break;
       default :
-        vpi_printf("ERROR: Unknown compare event: %c\n", (*wave).events[*event_ix].data);
+        origen_log(LOG_ERROR, "Unknown compare event: %c", (*wave).events[*event_ix].data);
         runtime_errors += 1;
         end_simulation();
         return 1;
@@ -469,7 +471,7 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
         on = 0;
         break;
       default :
-        vpi_printf("ERROR: Unknown drive event: %c\n", (*wave).events[*event_ix].data);
+        origen_log(LOG_ERROR, "Unknown drive event: %c\n", (*wave).events[*event_ix].data);
         runtime_errors += 1;
         end_simulation();
         return 1;
@@ -496,7 +498,7 @@ PLI_INT32 bridge_apply_wave_event_cb(p_cb_data data) {
 
 
 /// Registers a callback to apply the given wave during this cycle
-static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, uint64_t delay_in_ps) {
+static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, uint64_t delay_in_simtime_units) {
   s_cb_data call;
   s_vpi_time time;
 
@@ -513,8 +515,8 @@ static void bridge_register_wave_event(int wave_ix, int event_ix, int compare, u
 
   time.type = vpiSimTime;
 
-  time.high = (uint32_t)(delay_in_ps >> 32);
-  time.low  = (uint32_t)(delay_in_ps);
+  time.high = (uint32_t)(delay_in_simtime_units >> 32);
+  time.low  = (uint32_t)(delay_in_simtime_units);
 
   call.reason    = cbAfterDelay;
   call.cb_rtn    = bridge_apply_wave_event_cb;
@@ -534,6 +536,28 @@ PLI_INT32 bridge_init() {
 }
 
 
+/// Send output to the Origen log, this will be automatically timestamped to the simulation and
+/// sprintf type arguments can be supplied when calling:
+///
+///    origen_log(LOG_ERROR, "Wanted to disable drive on pin %i, but its drive wave has no active pins!", (*pin).index);
+///    origen_log(LOG_INFO, "Something to tell you about");
+void origen_log(int type, const char * fmt, ...) {
+  s_vpi_time now;
+  int max_msg_len = 2048;
+  char msg[max_msg_len];
+  va_list aptr;
+
+  now.type = vpiSimTime;
+  vpi_get_time(0, &now);
+
+  va_start(aptr, fmt);
+  vsprintf(msg, fmt, aptr);
+  va_end(aptr);
+
+  vpi_printf("!%d![%d,%d] %s\n", type, now.high, now.low, msg);
+};
+
+
 /// Waits and responds to instructions from Origen (to set pin states).
 /// When Origen requests a cycle, time will be advanced and this func will be called again.
 PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
@@ -542,6 +566,8 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
   char msg[max_msg_len];
   char comment[128];
   int err;
+  int timescale;
+  int type;
   char *opcode, *arg1, *arg2, *arg3, *arg4;
   vpiHandle handle;
   s_vpi_value v;
@@ -550,6 +576,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
 
     err = client_get(max_msg_len, msg);
     if (err) {
+      // Don't send to the Origen log since Origen may not be there
       vpi_printf("ERROR: Failed to receive from Origen!\n");
       end_simulation();
       return 1;
@@ -773,11 +800,37 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       //   k^A message to output to the console/log
       case 'k' :
         arg1 = strtok(NULL, "^");
-        vpi_printf("!Org!%s\n", arg1);
-
+        arg2 = strtok(NULL, "^");
+        type = atoi(arg1);
+        origen_log(type, arg2); 
+        break;
+      // Get timescale, returns a number that maps as follows:
+      //      -15 - fs
+      //      -14 - 10fs
+      //      -13 - 100fs
+      //      -12 - ps
+      //      -11 - 10ps
+      //      -10 - 100ps
+      //      -9  - ns
+      //      -8  - 10ns
+      //      -7  - 100ns
+      //      -6  - us
+      //      -5  - 10us
+      //      -4  - 100us
+      //      -3  - ms
+      //      -2  - 10ms
+      //      -1  - 100ms
+      //       0   - s
+      //       1   - 10s
+      //       2   - 100s
+      //   l^
+      case 'l' :
+        timescale = vpi_get(vpiTimeUnit, 0);
+        sprintf(msg, "%d\n", timescale);
+        client_put(msg);
         break;
       default :
-        vpi_printf("ERROR: Illegal message received from Origen: %s\n", orig_msg);
+        origen_log(LOG_ERROR, "Illegal message received from Origen: %s", orig_msg);
         runtime_errors += 1;
         end_simulation();
         return 1;
@@ -818,8 +871,8 @@ static void bridge_cycle() {
   s_vpi_time time;
 
   time.type = vpiSimTime;
-  time.high = (uint32_t)(period_in_ps >> 32);
-  time.low  = (uint32_t)(period_in_ps);
+  time.high = (uint32_t)(period_in_simtime_units >> 32);
+  time.low  = (uint32_t)(period_in_simtime_units);
 
   call.reason    = cbAfterDelay;
   call.obj       = 0;

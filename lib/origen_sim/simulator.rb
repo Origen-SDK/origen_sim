@@ -11,6 +11,28 @@ module OrigenSim
     include Artifacts
 
     VENDORS = [:icarus, :cadence, :synopsys, :generic]
+    LOG_CODES = { debug: 0, info: 1, warn: 2, warning: 2, success: 3, error: 4, deprecate: 5, deprecated: 5 }
+    LOG_CODES_ = { 0 => :debug, 1 => :info, 2 => :warn, 3 => :success, 4 => :error, 5 => :deprecated }
+
+    TIMESCALES = { -15 => '1fs',
+                   -14 => '10fs',
+                   -13 => '100fs',
+                   -12 => '1ps',
+                   -11 => '10ps',
+                   -10 => '100ps',
+                   -9  => '1ns',
+                   -8  => '10ns',
+                   -7  => '100ns',
+                   -6  => '1us',
+                   -5  => '10us',
+                   -4  => '100us',
+                   -3  => '1ms',
+                   -2  => '10ms',
+                   -1  => '100ms',
+                   0   => '1s',
+                   1   => '10s',
+                   2   => '100s'
+                  }
 
     attr_reader :configuration
     alias_method :config, :configuration
@@ -581,8 +603,17 @@ module OrigenSim
       # the simulation has started are not applied.
       # Note that this is not setting a tester timeset, so the application will still have to
       # do that before generating any vectors.
-      set_period(100)
+      put('1^100')
       cycle(1)
+      # Intercept all log messages until the end of the simulation so that they can be synced to
+      # simulation time
+      @log_intercept_id = Origen.log.start_intercepting do |msg, type, options, original|
+        if options[:from_origen_sim]
+          original.call(msg, type, options)
+        else
+          log(msg, type)
+        end
+      end
       Origen.listeners_for(:simulation_startup).each(&:simulation_startup)
     end
 
@@ -638,7 +669,17 @@ module OrigenSim
           start
         end
         # Set the current pattern name in the simulation
-        put("a^#{name.sub(/\..*/, '')}")
+        name = name.sub(/\..*/, '')
+        put("a^#{name}")
+        log '#' * 100
+        log '#' * 100
+        log '##'
+        log "##     START OF PATTERN: #{name}"
+        log '##'
+        log '#' * 100
+        log '#' * 100
+        @running_pattern_name = name
+        @pattern_starting_error_count = error_count
         @pattern_count ||= 0
         # If running a flow, give the user some feedback about pass/fail status after
         # each individual pattern has completed
@@ -658,6 +699,14 @@ module OrigenSim
     def pattern_generated(path)
       if simulation_tester?
         sync_up
+        log '#' * 100
+        log '#' * 100
+        log '##'
+        log "##     END OF PATTERN: #{@running_pattern_name}"
+        log "##             Errors: #{error_count - @pattern_starting_error_count}"
+        log '##'
+        log '#' * 100
+        log '#' * 100
         simulation.completed_cleanly = true unless @flow_running
       end
     end
@@ -679,14 +728,11 @@ module OrigenSim
     # the simulator. This ensures that the given log messages will be in sync with output from the
     # simulator rather than potentially being ahead of the simulator if Origen were to output them
     # immediately.
-    def log(msg)
-      # Not sure what the limiting factor here is, the comment memory in the test bench should
-      # be able to handle 1024 / 8 length strings, but any bigger than this hangs the simulation
-      msg = msg ? msg[0..96] : ''
+    def log(msg, type = :info)
       if dut_version > '0.15.0'
-        put("k^#{msg}")
+        put("k^#{LOG_CODES[type]}^#{msg}")
       else
-        Origen.log.info msg
+        Origen.log.send(type, msg)
       end
     end
 
@@ -725,16 +771,15 @@ module OrigenSim
 
     def wave_to_str(wave)
       wave.evaluated_events.map do |time, data|
-        time = time * time_conversion_factor * (config[:time_factor] || 1)
         if data == :x
           data = 'X'
         elsif data == :data
           data = wave.drive? ? 'D' : 'C'
         end
         if data == 'C'
-          "#{time}_#{data}_#{time + (time_conversion_factor * (config[:time_factor] || 1))}_X"
+          "#{ns_to_simtime_units(time)}_#{data}_#{ns_to_simtime_units(time + 1)}_X"
         else
-          "#{time}_#{data}"
+          "#{ns_to_simtime_units(time)}_#{data}"
         end
       end.join('_')
     end
@@ -753,8 +798,7 @@ module OrigenSim
     end
 
     def set_period(period_in_ns)
-      period_in_ps = period_in_ns * time_conversion_factor * (config[:time_factor] || 1)
-      put("1^#{period_in_ps}")
+      put("1^#{ns_to_simtime_units(period_in_ns)}")
     end
 
     def cycle(number_of_cycles)
@@ -784,7 +828,7 @@ module OrigenSim
 
     def error(message)
       simulation.logged_errors = true
-      Origen.log.error message
+      log message, :error
     end
 
     # Returns the current simulation error count
@@ -889,6 +933,7 @@ module OrigenSim
       simulation.error_count = error_count
       Origen.listeners_for(:simulation_shutdown).each(&:simulation_shutdown)
       sync_up
+      Origen.log.stop_intercepting @log_intercept_id
       simulation.ended = true
       end_simulation
       # Give the simulator time to shut down
@@ -917,6 +962,14 @@ module OrigenSim
             Origen.app.stats.report_fail
           else
             Origen.app.stats.report_pass
+          end
+        end
+        puts
+        puts 'The following log files have been created:'
+        puts
+        simulations.each do |simulation|
+          simulation.log_files.each do |f|
+            puts "  #{f}"
           end
         end
         puts
@@ -985,6 +1038,30 @@ module OrigenSim
       end
     end
 
+    # Get the timescale of the current simulation, returns a number that maps as follows:
+    #      -15 - fs
+    #      -14 - 10fs
+    #      -13 - 100fs
+    #      -12 - ps
+    #      -11 - 10ps
+    #      -10 - 100ps
+    #      -9  - ns
+    #      -8  - 10ns
+    #      -7  - 100ns
+    #      -6  - us
+    #      -5  - 10us
+    #      -4  - 100us
+    #      -3  - ms
+    #      -2  - 10ms
+    #      -1  - 100ms
+    #       0  - s
+    #       1  - 10s
+    #       2  - 100s
+    def timescale
+      put('l^')
+      get.strip.to_i
+    end
+
     # Any vectors executed within the given block will increment the match_errors counter
     # rather than the errors counter.
     # The match_errors counter will be returned to 0 at the end.
@@ -1016,7 +1093,43 @@ module OrigenSim
     alias_method :peek_string, :peek_str
     alias_method :string_peek, :peek_str
 
+    # Returns the number of errors that are allowed before a aborting a simulation
+    def max_errors
+      config[:max_errors] || 10
+    end
+
+    def marker=(val)
+      poke("#{testbench_top}.debug.marker", val)
+    end
+
     private
+
+    def ns_to_simtime_units(time_in_ns)
+      if dut_version > '0.15.0'
+        (time_in_ns * time_factor).to_i
+      else
+        time_in_ns * time_conversion_factor * (config[:time_factor] || 1)
+      end
+    end
+
+    def simtime_units_to_ns(time)
+      (time / time_factor).to_i
+    end
+
+    def time_factor
+      @time_factor ||= begin
+        if config[:time_factor]
+          Origen.log.warning 'Your simulation environment setup defines a :time_factor, however this is no longer used by OrigenSim'
+        end
+        t = timescale
+        if t > -9
+          msg = "The simulation is running with a timescale of #{TIMESCALES[timescale]}, this is greater than OrigenSim's min resolution of 1ns"
+          OrigenSim.error(msg)
+          exit 1
+        end
+        "1e#{t + 9}".to_f
+      end
+    end
 
     # Pre 0.8.0 the simulator represented the time in ns instead of ps
     def time_conversion_factor

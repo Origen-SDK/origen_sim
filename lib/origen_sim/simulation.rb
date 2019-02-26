@@ -23,6 +23,8 @@ module OrigenSim
     # instruction is sent to the simulator.
     attr_accessor :ended
 
+    attr_reader :log_files
+
     def initialize(id, view_wave_command)
       @id = id
       @view_wave_command = view_wave_command
@@ -32,6 +34,7 @@ module OrigenSim
       @ended = false
       @error_count = 0
       @socket_ids = {}
+      @log_files = []
 
       # Socket used to send Origen -> Verilog commands
       @server = UNIXServer.new(socket_id)
@@ -73,7 +76,7 @@ module OrigenSim
           end
         else
           if in_progress
-            Origen.log.error "The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!" if error_count > 0
+            simulator.log("The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!", :error) if error_count > 0
           else
             Origen.log.error "The simulation failed with #{error_count} errors!" if error_count > 0
           end
@@ -83,7 +86,7 @@ module OrigenSim
         end
       else
         if in_progress
-          Origen.log.success 'The simulation is passing!'
+          simulator.log 'The simulation is passing!', :success
         else
           Origen.log.success 'The simulation passed!'
         end
@@ -165,7 +168,7 @@ module OrigenSim
         @stdout = @server_stdout.accept
         @stderr = @server_stderr.accept
         @status = @server_status.accept
-        @stdout_reader = StdoutReader.new(@stdout)
+        @stdout_reader = StdoutReader.new(@stdout, simulator)
         @stderr_reader = StderrReader.new(@stderr)
 
         Origen.log.debug 'The simulation monitor has started'
@@ -265,6 +268,10 @@ module OrigenSim
     end
 
     private
+
+    def simulator
+      tester.simulator
+    end
 
     def socket_number
       @socket_number ||= (Process.pid.to_s + Time.now.to_f.to_s).sub('.', '')

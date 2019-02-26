@@ -5,6 +5,7 @@ require 'origen_sim/origen_testers/api'
 require 'origen_sim/origen/pins/pin'
 require 'origen_sim/origen/top_level'
 require 'origen_sim/origen/application/runner'
+require 'origen_sim/origen/registers/reg'
 module OrigenSim
   NUMBER_OF_COMMENT_LINES = 10
 

@@ -8,6 +8,11 @@ module OrigenTesters
     end
     alias_method :simulator?, :sim?
 
+    # Set a marker in the OrigenSim testbench
+    def marker=(val)
+      simulator.marker = val if sim?
+    end
+
     def sim_delay(id, options = {}, &block)
       if sim? && dut_version <= '0.12.0'
         OrigenSim.error "Use of sim_delay requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"

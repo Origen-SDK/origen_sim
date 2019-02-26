@@ -234,6 +234,10 @@ module OrigenSim
       flush if Origen.running_interactively? && dut_version > '0.12.1'
     end
 
+    def log_file_written(path)
+      simulator.simulation.log_files << path if simulator.simulation
+    end
+
     private
 
     def flush_comments

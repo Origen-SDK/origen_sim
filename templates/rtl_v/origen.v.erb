@@ -53,7 +53,7 @@ module pin_driver(error, pin, sync, match_loop);
   // pin compare failure logger
   always @(posedge error) begin
     if (match_loop != 1) begin
-      $display("OrigenSim Error: miscompare on pin %s, expected %d received %d at %t", pin_name, data[0], pin, $time);
+      $display("!4![%t] Miscompare on pin %s, expected %d received %d", $time, pin_name, data[0], pin);
     end
   end
   
@@ -77,7 +77,7 @@ module pin_driver(error, pin, sync, match_loop);
 
   initial begin
     // Set the timescale to ns (-9) with 0 decimal place precision, 20 chars
-    $timeformat(-9, 0, " ns", 20);
+    $timeformat(-9, 0, "", 20);
     if (init_drive == 1) begin
       drive = 1;
       data[0] = 1;
@@ -159,6 +159,7 @@ endmodule
 
 module debug(errors);
   input [31:0] errors;
+  reg [15:0] marker = 0;
 
   reg [1023:0] pattern = 0;
 % OrigenSim::NUMBER_OF_COMMENT_LINES.times do |i|
