@@ -26,6 +26,8 @@ module OrigenSim
                 msg = "#{time_in_ns}".rjust(11) + ' ns: ' + Regexp.last_match(6)
 
                 Origen.log.send(Simulator::LOG_CODES_[Regexp.last_match(1).to_i], msg, from_origen_sim: true)
+
+                simulator.send(:max_error_abort) if line =~ /!MAX_ERROR_ABORT!/
               else
                 if OrigenSim.error_strings.any? { |s| s.is_a?(Regexp) ? s.match?(line) : line =~ /#{s}/i } &&
                    !OrigenSim.error_string_exceptions.any? { |s| s.is_a?(Regexp) ? s.match?(line) : line =~ /#{s}/i }

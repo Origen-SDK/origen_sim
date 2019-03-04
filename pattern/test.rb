@@ -36,7 +36,7 @@ Pattern.create do
   ss "Now try and read and write a register"
   dut.cmd.write!(0x1234_5678)
   tester.marker = 1
-  dut.cmd.read!(0x1234_5698)
+  dut.cmd.read!(0x1234_5678)
 
   if tester.sim?
     tester.simulator.poke("dut.cmd", 0x1122_3344)

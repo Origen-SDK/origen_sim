@@ -53,7 +53,8 @@ module pin_driver(error, pin, sync, match_loop);
   // pin compare failure logger
   always @(posedge error) begin
     if (match_loop != 1) begin
-      $display("!4![%t] Miscompare on pin %s, expected %d received %d", $time, pin_name, data[0], pin);
+      //$display("!4![%t] Miscompare on pin %s, expected %d received %d", $time, pin_name, data[0], pin);
+      $bridge_on_miscompare(pin_name, data[0], pin);
     end
   end
   
@@ -116,8 +117,10 @@ module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join('
   ) begin
     if (match_loop == 1)
       match_errors[31:0] = match_errors[31:0] + 1;
-    else
+    else begin
       errors[31:0] = errors[31:0] + 1;
+      $bridge_on_error;
+    end
   end
 
 % dut.rtl_pins.each do |name, pin, options|

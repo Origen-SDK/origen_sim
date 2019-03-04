@@ -5,7 +5,6 @@ require 'origen_sim/origen_testers/api'
 require 'origen_sim/origen/pins/pin'
 require 'origen_sim/origen/top_level'
 require 'origen_sim/origen/application/runner'
-require 'origen_sim/origen/registers/reg'
 module OrigenSim
   NUMBER_OF_COMMENT_LINES = 10
 
@@ -88,7 +87,7 @@ module OrigenSim
   end
 
   def self.verbose?
-    !!(@verbose || Origen.debugger_enabled? || Origen.running_remotely?)
+    !!(@verbose || Origen.log.log_level == :verbose || Origen.running_remotely?)
   end
 
   def self.flow=(val)

@@ -41,6 +41,9 @@ module OrigenSim
     # Returns an array containing all instances of OrigenSim::Simulation that were created
     # in the order that they were created
     attr_reader :simulations
+    # Returns a hash of pins where the key is the RTL name, used to quickly retrieve the pin
+    # object from the pin name returned by the simulator
+    attr_reader :pins_by_rtl_name
 
     def initialize
       @simulations = []
@@ -482,7 +485,6 @@ module OrigenSim
 
     # Starts up the simulator process
     def start
-      Origen.log.level = :verbose if Origen.debugger_enabled?
       @simulation_open = true
       @simulation = Simulation.new(wave_file_basename, view_wave_command)
       simulations << @simulation
@@ -603,8 +605,11 @@ module OrigenSim
       # the simulation has started are not applied.
       # Note that this is not setting a tester timeset, so the application will still have to
       # do that before generating any vectors.
-      put('1^100')
+      put('1^0')  # Set period to 0 so that time does not advance
       cycle(1)
+      # Put cycle counter back to 0
+      put('q^0')
+      put("m^#{max_errors}")
       # Intercept all log messages until the end of the simulation so that they can be synced to
       # simulation time
       @log_intercept_id = Origen.log.start_intercepting do |msg, type, options, original|
@@ -621,10 +626,12 @@ module OrigenSim
     def put(msg)
       simulation.socket.write(msg + "\n")
     rescue Errno::EPIPE => e
+      # :from_origen_sim is added here to ensure this goes straight to the Origen console logger
+      # and does not get sent via the simulator since it is clearly having problems
       if simulation.running?
-        Origen.log.error 'Communication with the simulator has been lost (though it seems to still be running)!'
+        Origen.log.error 'Communication with the simulator has been lost (though it seems to still be running)!', from_origen_sim: true
       else
-        Origen.log.error 'The simulator has stopped unexpectedly!'
+        Origen.log.error 'The simulator has stopped unexpectedly!', from_origen_sim: true
       end
       sleep 2 # To make sure that any log output from the simulator is captured before we pull the plug
       exit 1
@@ -760,7 +767,9 @@ module OrigenSim
     # Tells the simulator about the pins in the current device so that it can
     # set up internal handles to efficiently access them
     def define_pins
+      @pins_by_rtl_name = {}
       dut.rtl_pins.each_with_index do |(name, pin), i|
+        @pins_by_rtl_name[pin.rtl_name] = pin
         pin.simulation_index = i
         put("0^#{pin.rtl_name}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
       end
@@ -1095,14 +1104,45 @@ module OrigenSim
 
     # Returns the number of errors that are allowed before a aborting a simulation
     def max_errors
-      config[:max_errors] || 10
+      config[:max_errors] || 100
     end
 
     def marker=(val)
       poke("#{testbench_top}.debug.marker", val)
     end
 
+    def start_read_reg_transaction
+      put('n^')
+    end
+
+    def stop_read_reg_transaction
+      put('o^')
+      data = get
+      error_count, max_errors = *(data.strip.split(',').map(&:to_i))
+      if error_count > 0
+        errors = []
+        error_count.times do |i|
+          data = get  # => "tdo,648,1,0\n"
+          pin_name, cycle, expected, recieved = *(data.strip.split(','))
+          errors << { pin_name: pin_name, cycle: cycle.to_i, expected: expected.to_i, recieved: recieved.to_i }
+        end
+        [true, error_count > max_errors, errors]
+      end
+    end
+
+    # Returns the simulator cycle count, this should be the same as tester.cycle_count but this
+    # gives the simulators count instead of Origen's
+    def cycle_count
+      put('p^')
+      get.strip.to_i
+    end
+
     private
+
+    # Will be called when the simulator has aborted due to the max error count being exceeded
+    def max_error_abort
+      simulation.max_errors_exceeded = true
+    end
 
     def ns_to_simtime_units(time_in_ns)
       if dut_version > '0.15.0'

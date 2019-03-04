@@ -10,7 +10,7 @@ gem 'origen_doc_helpers'
 gem 'rake-compiler'
 gem 'ZenTest'
 gem 'rspec-autotest'
-gem 'origen_jtag'
+gem 'origen_jtag', path: "~/Code/github/origen_jtag"
 # Uncomment these if you want to use a visual debugger (e.g. Visual Studio Code) to debug your app
 #gem 'ruby-debug-ide'
 #gem 'debase'

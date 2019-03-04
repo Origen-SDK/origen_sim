@@ -25,6 +25,8 @@ module OrigenSim
 
     attr_reader :log_files
 
+    attr_accessor :max_errors_exceeded
+
     def initialize(id, view_wave_command)
       @id = id
       @view_wave_command = view_wave_command
@@ -35,6 +37,7 @@ module OrigenSim
       @error_count = 0
       @socket_ids = {}
       @log_files = []
+      @max_errors_exceeded = false
 
       # Socket used to send Origen -> Verilog commands
       @server = UNIXServer.new(socket_id)
@@ -79,6 +82,7 @@ module OrigenSim
             simulator.log("The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!", :error) if error_count > 0
           else
             Origen.log.error "The simulation failed with #{error_count} errors!" if error_count > 0
+            Origen.log.error "The simulation was aborted due to exceeding #{simulator.max_errors} errors!" if max_errors_exceeded
           end
           Origen.log.error 'The simulation log reported errors!' if logged_errors
           Origen.log.error 'The simulation stderr reported errors!' if stderr_logged_errors

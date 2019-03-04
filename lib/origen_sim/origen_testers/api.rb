@@ -8,6 +8,10 @@ module OrigenTesters
     end
     alias_method :simulator?, :sim?
 
+    def read_register(reg_or_val, options = {})
+      yield
+    end
+
     # Set a marker in the OrigenSim testbench
     def marker=(val)
       simulator.marker = val if sim?
