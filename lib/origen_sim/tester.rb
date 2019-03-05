@@ -249,6 +249,10 @@ module OrigenSim
       else
         @read_reg_open = true
         @read_reg_cycles = {}
+        unless @supports_transactions_set
+          @supports_transactions = dut_version > '0.15.0'
+          @supports_transactions_set = true
+        end
 
         if reg_or_val.respond_to?(:named_bits)
           expected = reg_or_val.named_bits.map do |name, bits|
@@ -262,63 +266,80 @@ module OrigenSim
           read_flags = reg_or_val.map(&:is_to_be_read?)
         end
 
-        simulator.start_read_reg_transaction
+        error_count = simulator.error_count
+
+        simulator.start_read_reg_transaction if @supports_transactions
 
         yield
 
-        errors_captured, exceeded_max_errors, errors = *(simulator.stop_read_reg_transaction)
+        if @supports_transactions
+          errors_captured, exceeded_max_errors, errors = *(simulator.stop_read_reg_transaction)
+        end
 
         @read_reg_open = false
 
-        # if simulator.error_count > error_count
-        if errors_captured
-          if exceeded_max_errors
-            Origen.log.warning 'The number of errors in this transaction exceeded the capture buffer, the actual data reported here may not be accurate'
-          end
-          out_of_sync = cycle_count != simulator.cycle_count
-          if out_of_sync
-            Origen.log.warning 'Something has gone wrong and Origen and the simulator do not agree on the current cycle number, it is not possible to resolve the actual data'
-          else
-            diffs = []
-            errors.each do |error|
-              if c = read_reg_cycles[error[:cycle]]
-                if p = c[simulator.pins_by_rtl_name[error[:pin_name]]]
-                  if p[:position]
-                    diffs << [p[:position], error[:recieved], error[:expected]]
+        if simulator.error_count > error_count
+          if @supports_transactions
+            actual_data_available = true
+            if exceeded_max_errors
+              Origen.log.warning 'The number of errors in this transaction exceeded the capture buffer, the actual data reported here may not be accurate'
+            end
+            out_of_sync = cycle_count != simulator.cycle_count
+            if out_of_sync
+              Origen.log.warning 'Something has gone wrong and Origen and the simulator do not agree on the current cycle number, it is not possible to resolve the actual data'
+              actual_data_available = false
+            else
+              diffs = []
+              errors.each do |error|
+                if c = read_reg_cycles[error[:cycle]]
+                  if p = c[simulator.pins_by_rtl_name[error[:pin_name]]]
+                    if p[:position]
+                      diffs << [p[:position], error[:recieved], error[:expected]]
+                    end
                   end
                 end
               end
+              if diffs.empty?
+                Origen.log.warning 'The errors could not be mapped to an actual register value, your current read register driver probably does not provide the necessary meta-data when reading pins'
+                actual_data_available = false
+              end
             end
+          else
+            Origen.log.warning 'Your DUT needs to be compiled with a newer version of OrigenSim to support reporting of the actual read data from this failed transaction'
+            actual_data_available = false
           end
 
+          # If a register object has been supplied...
           if read_flags
             Origen.log.error "Errors occurred reading register #{reg_or_val.path}:"
-            actual = nil
-            reg_or_val.preserve_flags do
-              reg_or_val.each_with_index do |bit, i|
-                bit.read if read_flags[i]
-              end
-
-              diffs.each do |position, received, expected|
-                reg_or_val[position].data = received
-              end
-
-              actual = reg_or_val.named_bits.map do |name, bits|
-                if bits.is_to_be_read?
-                  [name, bits.status_str(:read)]
+            if actual_data_available
+              actual = nil
+              reg_or_val.preserve_flags do
+                reg_or_val.each_with_index do |bit, i|
+                  bit.read if read_flags[i]
                 end
-              end.compact
 
-              # Put the data back so the application behaves as it would if generating
-              # for a non-simulation tester target
-              diffs.each do |position, received, expected|
-                reg_or_val[position].data = expected
+                diffs.each do |position, received, expected|
+                  reg_or_val[position].data = received
+                end
+
+                actual = reg_or_val.named_bits.map do |name, bits|
+                  if bits.is_to_be_read?
+                    [name, bits.status_str(:read)]
+                  end
+                end.compact
+
+                # Put the data back so the application behaves as it would if generating
+                # for a non-simulation tester target
+                diffs.each do |position, received, expected|
+                  reg_or_val[position].data = expected
+                end
               end
             end
 
             expected.each do |name, expected|
               msg = "#{reg_or_val.path}.#{name}: expected #{expected}"
-              unless out_of_sync
+              if actual_data_available
                 actual.each do |aname, received|
                   msg += " received #{received}" if name == aname
                 end
@@ -328,9 +349,20 @@ module OrigenSim
 
           else
             Origen.log.error 'Errors occurred while reading a register:'
-            msg = "expected #{reg_or_val_copy}"
-            unless out_of_sync
-              msg += " received #{reg_or_val.bits(name).status_str(:write)}"
+            msg = "expected #{reg_or_val.to_s(16).upcase}"
+            if actual_data_available
+              actual = reg_or_val
+              diffs.each do |position, received, expected|
+                if received == 1
+                  actual |= (1 << position)
+                else
+                  lower = actual[(position - 1)..0]
+                  actual = actual >> (position + 1)
+                  actual = actual << (position + 1)
+                  actual |= lower
+                end
+              end
+              msg += " received #{actual.to_s(16).upcase}"
             end
             Origen.log.error msg
           end

@@ -56,6 +56,8 @@ typedef struct Miscompare {
 static Miscompare miscompares[MAX_TRANSACTION_ERRORS];
 static int transaction_error_count = 0;
 static bool transaction_open = false;
+static int match_loop_error_count = 0;
+static bool match_loop_open = false;
 static uint64_t period_in_simtime_units;
 static unsigned long repeat = 0;
 static Pin pins[MAX_NUMBER_PINS];
@@ -71,6 +73,7 @@ static int error_count = 0;
 static int max_errors = 100;
 static unsigned long long cycle_count = 0;
 static bool max_errors_exceeded = false;
+static bool max_errors_exceeded_during_transaction = false;
 
 static void set_period(char*);
 static void define_pin(char*, char*, char*, char*);
@@ -91,6 +94,7 @@ static void clear_waves_and_pins(void);
 static bool is_drive_whole_cycle(Pin*);
 static void origen_log(int, const char*, ...);
 static void end_simulation(void);
+static void on_max_errors_exceeded(void);
 
 static void define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * compare_wave_ix) {
   int index = atoi(pin_ix);
@@ -558,7 +562,7 @@ PLI_INT32 bridge_init() {
 ///
 ///    origen_log(LOG_ERROR, "Wanted to disable drive on pin %i, but its drive wave has no active pins!", (*pin).index);
 ///    origen_log(LOG_INFO, "Something to tell you about");
-void origen_log(int type, const char * fmt, ...) {
+static void origen_log(int type, const char * fmt, ...) {
   s_vpi_time now;
   int max_msg_len = 2048;
   char msg[max_msg_len];
@@ -614,10 +618,13 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
     opcode = strtok(msg, "^");
 
     if (!max_errors_exceeded || (max_errors_exceeded && (
-      // When max_errors_exceeded, only continue to process the following opcodes to enable a
-      // controlled shutdown driven by the main Origen process:
+      // When max_errors_exceeded, only continue to process the following opcodes.
+      // These are the ones required to enable a controlled shutdown driven by the main Origen process
+      // and also any that return data to Origen so that the main process does not get blocked:
       //     Sync-up           End Simulation    Peek              Flush               Log
-            *opcode == '7' || *opcode == '8' || *opcode == '9' || *opcode == 'j' || *opcode == 'k'
+            *opcode == '7' || *opcode == '8' || *opcode == '9' || *opcode == 'j' || *opcode == 'k' ||
+      //     Get version      Get timescale     Read reg trans   Get cycle count
+            *opcode == 'i' || *opcode == 'l' || *opcode == 'n' || *opcode == 'o'
       ))) {
       switch(*opcode) {
         // Define pin
@@ -858,39 +865,57 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           arg1 = strtok(NULL, "^");
           max_errors = atoi(arg1);
           break;
-        // Start read reg transaction
-        //   n^
+        // Read reg transaction
+        //   n^1   - Start transaction
+        //   n^0   - Stop transaction
         case 'n' :
-          transaction_error_count = 0;
-          transaction_open = true;
-          break;
-        // Stop read reg transaction
-        //   o^
-        case 'o' :
-          // Send Origen the error data
-          sprintf(msg, "%d,%d\n", transaction_error_count, MAX_TRANSACTION_ERRORS);
-          client_put(msg);
-          for (int i = 0; i < transaction_error_count; i++) {
-            Miscompare *m = &miscompares[i];
-
-            sprintf(msg, "%s,%llu,%d,%d\n", (*m).pin_name, (*m).cycle, (*m).expected, (*m).received);
+          arg1 = strtok(NULL, "^");
+          
+          if (*arg1 == '1') {
+            transaction_error_count = 0;
+            transaction_open = true;
+          } else {
+            // Send Origen the error data
+            sprintf(msg, "%d,%d\n", transaction_error_count, MAX_TRANSACTION_ERRORS);
             client_put(msg);
+            for (int i = 0; i < transaction_error_count; i++) {
+              Miscompare *m = &miscompares[i];
 
-            free((*m).pin_name);
+              sprintf(msg, "%s,%llu,%d,%d\n", (*m).pin_name, (*m).cycle, (*m).expected, (*m).received);
+              client_put(msg);
+
+              free((*m).pin_name);
+            }
+            transaction_open = false;
+            if (max_errors_exceeded_during_transaction) {
+              on_max_errors_exceeded();
+            }
           }
-          transaction_open = false;
           break;
         // Get cycle count
-        //   p^
-        case 'p' :
+        //   o^
+        case 'o' :
           sprintf(msg, "%llu\n", cycle_count);
           client_put(msg);
           break;
         // Set cycle count
-        //   q^100
-        case 'q' :
+        //   p^100
+        case 'p' :
           arg1 = strtok(NULL, "^");
           cycle_count = atoll(arg1);
+          break;
+        // Match loop
+        //   q^1    - Start match loop
+        //   q^0    - Stop match loop
+        case 'q' :
+          arg1 = strtok(NULL, "^");
+          
+          if (*arg1 == '1') {
+            match_loop_error_count = 0;
+            match_loop_open = true;
+          } else {
+            match_loop_open = false;
+          }
           break;
         default :
           origen_log(LOG_ERROR, "Illegal message received from Origen: %s", orig_msg);
@@ -909,7 +934,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
 }
 
 
-void end_simulation() {
+static void end_simulation() {
   vpiHandle handle;
   s_vpi_value v;
 
@@ -919,7 +944,7 @@ void end_simulation() {
   v.value.str = "1";
   vpi_put_value(handle, &v, NULL, vpiNoDelay);
   // Corner case during testing, the timeset may not have been set yet
-  set_period("1000");
+  set_period("1");
   // Do a cycle so that the simulation sees the edge on origen.finish
   cycle();
 }
@@ -963,18 +988,11 @@ static void cycle() {
   register_wave_events();
 }
 
-
-/// Called every time the error counter is incremented.
-/// This will abort the simulation if the error count has exceeded max_errors.
-PLI_INT32 bridge_on_error(PLI_BYTE8 * user_dat) {
-  error_count++;
-  if (error_count > max_errors) {
-    // This will cause the simulation to stop processing messages from Origen
-    max_errors_exceeded = true;
-    // And this let's the Origen process know that we have stopped processing
-    origen_log(LOG_ERROR, "!MAX_ERROR_ABORT!");
-  }
-  return 0;
+static void on_max_errors_exceeded() {
+  // This will cause the simulation to stop processing messages from Origen
+  max_errors_exceeded = true;
+  // And this let's the Origen process know that we have stopped processing
+  origen_log(LOG_ERROR, "!MAX_ERROR_ABORT!");
 }
 
 /// Called every time a miscompare event occurs, 3 args will be passed in:
@@ -983,43 +1001,71 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
   char *pin_name;
   int expected;
   int received;
-
-  vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
-  vpiHandle argv = vpi_iterate(vpiArgument, callh);
-  vpiHandle arg;
   s_vpi_value val;
+  vpiHandle handle;
 
-  arg = vpi_scan(argv);
-  val.format = vpiStringVal;
-  vpi_get_value(arg, &val);
-  pin_name = val.value.str;
+  if (match_loop_open) {
+    match_loop_error_count++;
 
-  arg = vpi_scan(argv);
-  val.format = vpiIntVal;
-  vpi_get_value(arg, &val);
-  expected = val.value.integer;
+    handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.match_errors"), NULL);
+    val.format = vpiIntVal;
+    val.value.integer = match_loop_error_count;
+    vpi_put_value(handle, &val, NULL, vpiNoDelay);
 
-  arg = vpi_scan(argv);
-  val.format = vpiIntVal;
-  vpi_get_value(arg, &val);
-  received = val.value.integer;
+  } else {
+    vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
+    vpiHandle argv = vpi_iterate(vpiArgument, callh);
+    vpiHandle arg;
 
-  vpi_free_object(argv);
+    arg = vpi_scan(argv);
+    val.format = vpiStringVal;
+    vpi_get_value(arg, &val);
+    pin_name = val.value.str;
 
-  origen_log(LOG_ERROR, "Miscompare on pin %s, expected %d received %d", pin_name, expected, received);
+    arg = vpi_scan(argv);
+    val.format = vpiIntVal;
+    vpi_get_value(arg, &val);
+    expected = val.value.integer;
 
-  // Store all errors during a transaction
-  if (transaction_open) {
-    if (transaction_error_count < MAX_TRANSACTION_ERRORS) {
-      Miscompare *miscompare = &miscompares[transaction_error_count];
+    arg = vpi_scan(argv);
+    val.format = vpiIntVal;
+    vpi_get_value(arg, &val);
+    received = val.value.integer;
 
-      (*miscompare).pin_name = malloc(strlen(pin_name) + 1);
-      strcpy((*miscompare).pin_name, pin_name);
-      (*miscompare).cycle = cycle_count;
-      (*miscompare).expected = expected;
-      (*miscompare).received = received;
+    vpi_free_object(argv);
+
+    origen_log(LOG_ERROR, "Miscompare on pin %s, expected %d received %d", pin_name, expected, received);
+
+    error_count++;
+
+    handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.errors"), NULL);
+    val.format = vpiIntVal;
+    val.value.integer = error_count;
+    vpi_put_value(handle, &val, NULL, vpiNoDelay);
+
+    if (error_count > max_errors) {
+      // If a transaction is currently open hold off aborting until after that has completed
+      // to enable a proper error message to be generated for it
+      if (transaction_open) {
+        max_errors_exceeded_during_transaction = true;
+      } else {
+        on_max_errors_exceeded();
+      }
     }
-    transaction_error_count++;
+
+    // Store all errors during a transaction
+    if (transaction_open) {
+      if (transaction_error_count < MAX_TRANSACTION_ERRORS) {
+        Miscompare *miscompare = &miscompares[transaction_error_count];
+
+        (*miscompare).pin_name = malloc(strlen(pin_name) + 1);
+        strcpy((*miscompare).pin_name, pin_name);
+        (*miscompare).cycle = cycle_count;
+        (*miscompare).expected = expected;
+        (*miscompare).received = received;
+      }
+      transaction_error_count++;
+    }
   }
   return 0;
 }
@@ -1027,12 +1073,6 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
 /// Defines which functions are callable from Verilog as system tasks
 void bridge_register_system_tasks() {
   s_vpi_systf_data tf_data;
-
-  tf_data.type = vpiSysTask;
-  tf_data.tfname = "$bridge_on_error";
-  tf_data.calltf = bridge_on_error;
-  tf_data.compiletf = 0;
-  vpi_register_systf(&tf_data);
 
   tf_data.type = vpiSysTask;
   tf_data.tfname = "$bridge_on_miscompare";

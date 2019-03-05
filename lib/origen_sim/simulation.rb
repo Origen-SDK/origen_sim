@@ -187,7 +187,7 @@ module OrigenSim
         # That's all status info done until the simulation process ends, start a thread
         # to wait for that in case it ends before the VPI starts
         Thread.new do
-          Origen.log.debug @status.gets.chomp  # This will block until something is received
+          @status.gets.chomp  # This will block until something is received
           abort_connection
         end
         Origen.log.debug 'Waiting for Origen VPI to start...'

@@ -607,9 +607,11 @@ module OrigenSim
       # do that before generating any vectors.
       put('1^0')  # Set period to 0 so that time does not advance
       cycle(1)
-      # Put cycle counter back to 0
-      put('q^0')
-      put("m^#{max_errors}")
+      if dut_version > '0.15.0'
+        # Put cycle counter back to 0
+        put('p^0')
+        put("m^#{max_errors}")
+      end
       # Intercept all log messages until the end of the simulation so that they can be synced to
       # simulation time
       @log_intercept_id = Origen.log.start_intercepting do |msg, type, options, original|
@@ -1075,14 +1077,24 @@ module OrigenSim
     # rather than the errors counter.
     # The match_errors counter will be returned to 0 at the end.
     def match_loop
-      poke("#{testbench_top}.pins.match_loop", 1)
-      yield
-      poke("#{testbench_top}.pins.match_loop", 0)
-      poke("#{testbench_top}.pins.match_errors", 0)
+      if dut_version > '0.15.0'
+        put('q^1')
+        yield
+        put('q^0')
+      else
+        poke("#{testbench_top}.pins.match_loop", 1)
+        yield
+        poke("#{testbench_top}.pins.match_loop", 0)
+        poke("#{testbench_top}.pins.match_errors", 0)
+      end
     end
 
     def match_errors
-      peek("#{testbench_top}.pins.match_errors").to_i
+      if dut_version > '0.15.0'
+        peek("#{testbench_top}.debug.match_errors").to_i
+      else
+        peek("#{testbench_top}.pins.match_errors").to_i
+      end
     end
 
     def peek_str(signal)
@@ -1112,11 +1124,11 @@ module OrigenSim
     end
 
     def start_read_reg_transaction
-      put('n^')
+      put('n^1')
     end
 
     def stop_read_reg_transaction
-      put('o^')
+      put('n^0')
       data = get
       error_count, max_errors = *(data.strip.split(',').map(&:to_i))
       if error_count > 0
@@ -1133,7 +1145,7 @@ module OrigenSim
     # Returns the simulator cycle count, this should be the same as tester.cycle_count but this
     # gives the simulators count instead of Origen's
     def cycle_count
-      put('p^')
+      put('o^')
       get.strip.to_i
     end
 
