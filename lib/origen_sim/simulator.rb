@@ -611,14 +611,14 @@ module OrigenSim
         # Put cycle counter back to 0
         put('p^0')
         put("m^#{max_errors}")
-      end
-      # Intercept all log messages until the end of the simulation so that they can be synced to
-      # simulation time
-      @log_intercept_id = Origen.log.start_intercepting do |msg, type, options, original|
-        if options[:from_origen_sim]
-          original.call(msg, type, options)
-        else
-          log(msg, type)
+        # Intercept all log messages until the end of the simulation so that they can be synced to
+        # simulation time
+        @log_intercept_id = Origen.log.start_intercepting do |msg, type, options, original|
+          if options[:from_origen_sim]
+            original.call(msg, type, options)
+          else
+            log(msg, type)
+          end
         end
       end
       Origen.listeners_for(:simulation_startup).each(&:simulation_startup)
