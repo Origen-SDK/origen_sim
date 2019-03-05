@@ -205,7 +205,7 @@ module origen;
 %       pin.primary_group.each_with_index do |pin, i|
       <%= pin.id %><%= i == (pin.primary_group.size - 1) ? '' : ',' %>
 %       end
-    })<%= i == (dut.rtl_pins.size - 1) ? '' : ',' %>
+    })<%= (i + pin.primary_group.size) == dut.rtl_pins.size ? '' : ',' %>
 %       seen_groups << pin.primary_group
 %     end
 %   else
