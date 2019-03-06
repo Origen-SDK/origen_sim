@@ -35,6 +35,7 @@ module OrigenSim
       @logged_errors = false
       @ended = false
       @error_count = 0
+      @cycle_count = 0
       @socket_ids = {}
       @log_files = []
       @max_errors_exceeded = false
@@ -269,6 +270,15 @@ module OrigenSim
 
     def socket_id(type = nil)
       @socket_ids[type] ||= "#{OrigenSim.socket_dir || '/tmp'}/#{socket_number}#{type}.sock"
+    end
+
+    # Returns the current cycle count, this is Origen's local count
+    def cycle_count
+      @cycle_count
+    end
+
+    def cycle(number_of_cycles)
+      @cycle_count += number_of_cycles
     end
 
     private

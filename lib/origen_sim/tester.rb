@@ -19,11 +19,6 @@ module OrigenSim
       super()
     end
 
-    # Returns the current cycle count
-    def cycle_count
-      @cycle_count || 0
-    end
-
     def simulator
       OrigenSim.simulator
     end
@@ -90,8 +85,6 @@ module OrigenSim
         end
         flush_comments unless @comment_buffer.empty?
         simulator.cycle(options[:repeat] || 1)
-        @cycle_count ||= 0
-        @cycle_count += options[:repeat] || 1
         if @after_next_vector
           @after_next_vector.call(@after_next_vector_args)
           @after_next_vector = nil
@@ -145,7 +138,7 @@ module OrigenSim
           end
         end
       end
-      if simulator.sync_active?
+      if simulator.sync_active? && @sync_cycles
         @sync_cycles += 1
         pins.each do |pin|
           @sync_pins << pin unless @sync_pins.include?(pin)
@@ -284,7 +277,7 @@ module OrigenSim
             if exceeded_max_errors
               Origen.log.warning 'The number of errors in this transaction exceeded the capture buffer, the actual data reported here may not be accurate'
             end
-            out_of_sync = cycle_count != simulator.cycle_count
+            out_of_sync = simulator.simulation.cycle_count != simulator.cycle_count
             if out_of_sync
               Origen.log.warning 'Something has gone wrong and Origen and the simulator do not agree on the current cycle number, it is not possible to resolve the actual data'
               actual_data_available = false
@@ -383,6 +376,10 @@ module OrigenSim
 
     def read_reg_cycles
       @read_reg_cycles
+    end
+
+    def cycle_count
+      simulator.simulation.cycle_count
     end
 
     private

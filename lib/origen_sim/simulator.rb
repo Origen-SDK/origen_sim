@@ -610,6 +610,7 @@ module OrigenSim
       if dut_version > '0.15.0'
         # Put cycle counter back to 0
         put('p^0')
+        simulation.cycle(-1)
         put("m^#{max_errors}")
         # Intercept all log messages until the end of the simulation so that they can be synced to
         # simulation time
@@ -693,6 +694,7 @@ module OrigenSim
         # If running a flow, give the user some feedback about pass/fail status after
         # each individual pattern has completed
         if @pattern_count > 0 && OrigenSim.flow
+          simulation.error_count = error_count
           simulation.log_results(true)
           # Require each pattern to set this upon successful completion
           simulation.completed_cleanly = false unless @flow_running
@@ -814,6 +816,7 @@ module OrigenSim
 
     def cycle(number_of_cycles)
       put("3^#{number_of_cycles}")
+      simulation.cycle(number_of_cycles)
     end
 
     # Blocks the Origen process until the simulator indicates that it has
@@ -1116,7 +1119,7 @@ module OrigenSim
 
     # Returns the number of errors that are allowed before a aborting a simulation
     def max_errors
-      config[:max_errors] || 100
+      OrigenSim.max_errors || config[:max_errors] || 100
     end
 
     def marker=(val)

@@ -19,8 +19,8 @@ module Origen
       end
 
       alias_method :_orig_set_state, :set_state
-      def set_state(state, options = {})
-        ret = _orig_set_state(state, options)
+      def set_state(state)
+        ret = _orig_set_state(state)
         update_simulation if simulation_running?
         ret
       end
