@@ -57,9 +57,9 @@ module OrigenSim
     end
 
     # Flush any buffered simulation output, this should cause live waveviewers to
-    # reflect the latest state
-    def flush
-      simulator.flush
+    # reflect the latest state and the console and log files to update
+    def flush(*args)
+      simulator.flush(*args)
     end
 
     def set_timeset(name, period_in_ns)
@@ -228,7 +228,10 @@ module OrigenSim
 
     def wait(*args)
       super
-      flush if Origen.running_interactively? && dut_version > '0.12.1'
+      if Origen.running_interactively? ||
+         (defined?(Byebug) && Byebug.try(:mode) == :attached)
+        flush quiet: true
+      end
     end
 
     def log_file_written(path)
@@ -380,6 +383,10 @@ module OrigenSim
 
     def cycle_count
       simulator.simulation.cycle_count
+    end
+
+    def log_stop_job
+      Origen.log.stop_job
     end
 
     private

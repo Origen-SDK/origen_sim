@@ -719,6 +719,8 @@ module OrigenSim
         log '#' * 100
         log '#' * 100
         simulation.completed_cleanly = true unless @flow_running
+        # Ensure that everything is flushed to the log before it is closed
+        flush quiet: true
       end
     end
     alias_method :complete_simulation, :pattern_generated
@@ -830,13 +832,30 @@ module OrigenSim
     end
 
     # Flush any buffered simulation output, this should cause live wave viewers to
-    # reflect the latest state
-    def flush
+    # reflect the latest state.
+    def flush(options = {})
       if dut_version > '0.12.0'
+        sync_up
         put('j^')
         sync_up
+        # By now, the simulator has generated all log output up to this point and flushed it out,
+        # however it may not be in the Origen log output yet because the main Origen thread has not
+        # given the stdout/err reader threads a chance to process it.
+        # This will now sleep the main Origen thread to allow that to get a chance to happen and we
+        # will proceed once it has been > 100ms since a log message was processed, at that point we
+        # can safely assume that they are all done and nothing is left in the buffer.
+        w = false
+        while !w || simulation.time_since_last_log < 0.1
+          w = true
+          sleep 0.1
+        end
+        # Finally, make sure the message are not now sitting in an IO buffer
+        Origen.log.flush
+        nil  # Keep the console clean if this is called interactively
       else
-        OrigenSim.error "Use of flush requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
+        unless options[:quiet]
+          OrigenSim.error "Use of flush requires a DUT model compiled with OrigenSim version > 0.12.0, the current dut was compiled with #{dut_version}"
+        end
       end
     end
 

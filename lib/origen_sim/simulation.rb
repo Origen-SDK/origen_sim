@@ -165,6 +165,11 @@ module OrigenSim
       end
     end
 
+    def time_since_last_log
+      [@stdout_reader.time_since_last_message,
+       @stderr_reader.time_since_last_message].min
+    end
+
     # Open the communication channels with the simulator
     def open(monitor_pid, timeout)
       @monitor_pid = monitor_pid
@@ -175,6 +180,8 @@ module OrigenSim
         @status = @server_status.accept
         @stdout_reader = StdoutReader.new(@stdout, simulator)
         @stderr_reader = StderrReader.new(@stderr)
+        @stdout_reader.priority = 1
+        @stderr_reader.priority = 2
 
         Origen.log.debug 'The simulation monitor has started'
         Origen.log.debug @status.gets.chomp  # Starting simulator

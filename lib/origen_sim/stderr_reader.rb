@@ -7,6 +7,7 @@ module OrigenSim
       @socket = socket
       @continue = true
       @logged_errors = false
+      @last_message_at = Time.now
       super do
         begin
           while @continue
@@ -23,6 +24,7 @@ module OrigenSim
               else
                 Origen.log.debug line
               end
+              @last_message_at = Time.now
             end
           end
         rescue IOError => e
@@ -35,6 +37,10 @@ module OrigenSim
 
     def stop
       @continue = false
+    end
+
+    def time_since_last_message
+      Time.now - @last_message_at
     end
   end
 end
