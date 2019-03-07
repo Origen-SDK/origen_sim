@@ -54,6 +54,8 @@ module OrigenSim
     end
 
     def failed?(in_progress = false)
+      # Exit cleanly when the simulator didn't even start, e.g. because no compiled DUT existed
+      return true unless @stderr_reader
       failed = stderr_logged_errors || logged_errors || failed_to_start || error_count > 0
       if in_progress
         failed
