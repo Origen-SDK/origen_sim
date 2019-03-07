@@ -251,14 +251,16 @@ module OrigenSim
         end
 
         if reg_or_val.respond_to?(:named_bits)
-          expected = reg_or_val.named_bits.map do |name, bits|
+          bit_names = reg_or_val.named_bits.map { |name, bits| name }.uniq
+          expected = bit_names.map do |name|
+            bits = reg_or_val.bits(name)
             if bits.is_to_be_read?
               [name, bits.status_str(:read)]
             end
           end.compact
 
-          # Save which bits are being read for later, the driver performing the read will clear the
-          # register flags
+          # Save which bits are being read for later, the driver performing the read will
+          # clear the register flags
           read_flags = reg_or_val.map(&:is_to_be_read?)
         end
 
@@ -319,7 +321,8 @@ module OrigenSim
                   reg_or_val[position].data = received
                 end
 
-                actual = reg_or_val.named_bits.map do |name, bits|
+                actual = bit_names.map do |name|
+                  bits = reg_or_val.bits(name)
                   if bits.is_to_be_read?
                     [name, bits.status_str(:read)]
                   end
@@ -336,13 +339,22 @@ module OrigenSim
             expected.each do |name, expected|
               msg = "#{reg_or_val.path}.#{name}: expected #{expected}"
               if actual_data_available
-                actual.each do |aname, received|
-                  msg += " received #{received}" if name == aname
+                received_ = nil
+                actual.each do |name2, received|
+                  if name == name2
+                    received_ = received
+                    msg += " received #{received}"
+                  end
                 end
+                if expected == received_
+                  Origen.log.info msg
+                else
+                  Origen.log.error msg
+                end
+              else
+                Origen.log.error msg
               end
-              Origen.log.error msg
             end
-
           else
             Origen.log.error 'Errors occurred while reading a register:'
             msg = "expected #{reg_or_val.to_s(16).upcase}"

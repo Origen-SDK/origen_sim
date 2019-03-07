@@ -1203,7 +1203,7 @@ module OrigenSim
           OrigenSim.error(msg)
           exit 1
         end
-        "1e#{t + 9}".to_f
+        "1e#{-9 - t}".to_f.to_i
       end
     end
 
