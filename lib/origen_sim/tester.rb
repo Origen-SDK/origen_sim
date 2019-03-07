@@ -385,10 +385,6 @@ module OrigenSim
       simulator.simulation.cycle_count
     end
 
-    def log_stop_job
-      Origen.log.stop_job
-    end
-
     private
 
     def flush_comments

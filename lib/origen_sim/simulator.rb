@@ -583,6 +583,8 @@ module OrigenSim
 
       Origen.log.debug 'Starting the simulation monitor...'
 
+      Origen.log.flush # Required to stop any existing buffered log data being copied into this new process
+
       monitor_pid = spawn("ruby -e \"#{launch_simulator}\"")
       Process.detach(monitor_pid)
 
@@ -849,7 +851,7 @@ module OrigenSim
           w = true
           sleep 0.1
         end
-        # Finally, make sure the message are not now sitting in an IO buffer
+        # Finally, make sure the messages are not now sitting in an IO buffer
         Origen.log.flush
         nil  # Keep the console clean if this is called interactively
       else
