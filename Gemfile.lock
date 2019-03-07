@@ -1,5 +1,7 @@
-PATH
-  remote: ../origen
+GIT
+  remote: https://github.com/Origen-SDK/origen.git
+  revision: c79c7d08acb66f16676cee8a38d2ea7ce209805b
+  branch: sim_hooks
   specs:
     origen (0.42.1)
       activesupport (~> 4.1)
@@ -37,13 +39,6 @@ PATH
       origen_testers
       origen_verilog (>= 0.5.2)
 
-PATH
-  remote: ../origen_jtag
-  specs:
-    origen_jtag (0.19.1)
-      origen (~> 0.7, >= 0.7.35)
-      origen_testers (>= 0.13.2)
-
 GEM
   remote: https://rubygems.org/
   specs:
@@ -60,7 +55,7 @@ GEM
       ast (~> 2)
       origen (>= 0.2.3)
       sexpistol (~> 0.0)
-    bootsnap (1.4.0)
+    bootsnap (1.4.1)
       msgpack (~> 1.0)
     builder (3.2.3)
     byebug (9.1.0)
@@ -103,7 +98,7 @@ GEM
     mime-types-data (3.2018.0812)
     mini_portile2 (2.4.0)
     minitest (5.11.3)
-    msgpack (1.2.6)
+    msgpack (1.2.7)
     multi_xml (0.6.0)
     multipart-post (2.0.0)
     nanoc (3.7.5)
@@ -114,6 +109,9 @@ GEM
       mini_portile2 (~> 2.4.0)
     origen_doc_helpers (0.8.0)
       origen (>= 0.7.15)
+    origen_jtag (0.20.0)
+      origen (~> 0.7, >= 0.7.35)
+      origen_testers (>= 0.13.2)
     origen_testers (0.19.3)
       atp (~> 1.1, >= 1.1.2)
       origen (>= 0.26.0)
@@ -194,7 +192,7 @@ DEPENDENCIES
   coveralls
   origen!
   origen_doc_helpers
-  origen_jtag!
+  origen_jtag (~> 0.20)
   origen_sim!
   rake-compiler
   rspec-autotest
