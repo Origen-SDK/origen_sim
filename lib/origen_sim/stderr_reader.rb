@@ -18,11 +18,11 @@ module OrigenSim
                  !OrigenSim.stderr_string_exceptions.any? { |s| s.is_a?(Regexp) ? s.match?(line) : line =~ /#{s}/i }
                 # We're failing on stderr, so print its results and log as errors if its not an exception.
                 @logged_errors = true
-                Origen.log.error "(STDERR): #{line}"
+                Origen.log.error "(STDERR): #{line}", from_origen_sim: true
               elsif OrigenSim.verbose?
-                Origen.log.info line
+                Origen.log.info line, from_origen_sim: true
               else
-                Origen.log.debug line
+                Origen.log.debug line, from_origen_sim: true
               end
               @last_message_at = Time.now
             end

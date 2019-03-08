@@ -37,12 +37,9 @@ OrigenSim.cadence do |sim|
   # simulation will be abandoned and considered failed. If a particular simulation is known to be slow to start,
   # the timeout can be extended as shown in this example (5 minutes):
   sim.startup_timeout 5 * 60
-  # Sometimes due to different Verilog timescale references, the time specified by Origen may not align to what
-  # is seen in the simulation. For example, your Origen application might define a cycle period of 40ns but in
-  # the simulation this manifests as 400ns. Such differences can be fixed by specifying this time factor which
-  # will be multiplied with all time advancements defined by Origen. This can be any value like 0.01, 0.1, 10,
-  # 100, 1000, etc. to make the cycle period seen in simulation bigger or smaller.
-  sim.time_factor 100
+  # Abort the simulation when this number of errors is reached (defaults to 100).
+  # This can also be overridden at runtime via the --max_errors switch.
+  sim.max_errors = 50
 end
 ~~~
 
