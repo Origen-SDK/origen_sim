@@ -1,21 +1,30 @@
 # The requested command is passed in here as @command
 case @command
 
-when 'generate'
+when 'generate', 'program'
   $use_fast_probe_depth = false
   @application_options << ["--fast", "Fast simulation, minimum probe depth"]
   $use_fast_probe_depth = ARGV.include?('--fast')
 
-  @application_options << ["--sim_capture", "Update sim captures (ignored when not running a simulation)"]
-  Origen.app!.update_sim_captures = ARGV.include?('--sim_capture')
+  @application_options << ["--sim_capture", "Update sim captures (ignored when not running a simulation)", ->(options) {
+    Origen.app!.update_sim_captures = true
+  }]
 
-  @application_options << ["--flow NAME", "Simulate multiple patterns back-back within a single simulation with the given name", ->(options, name) { OrigenSim.flow = name }]
+  unless @command == 'program'
+    @application_options << ["--flow NAME", "Simulate multiple patterns back-back within a single simulation with the given name", ->(options, name) {
+      OrigenSim.flow = name
+    }]
+  end
 
   @application_options << ["--socket_dir PATH", "Specify the directory to be used for creating the Origen -> simulator communication socket (/tmp by default) ", ->(options, path) {
     FileUtils.mkdir_p(path) unless File.exist?(path)
     path = Pathname.new(path)
     path = path.realpath.to_s
     OrigenSim.socket_dir = path
+  }]
+
+  @application_options << ["--max_errors VALUE", Integer, "Override the maximum number of errors allowed in a simulation before aborting ", ->(options, value) {
+    OrigenSim.max_errors = value
   }]
 
 when "sim:ci", "origen_sim:ci"
@@ -36,6 +45,10 @@ when "sim:unpack"
   OrigenSim::Commands::Pack.unpack
   exit 0
 
+when "sim:run"
+  OrigenSim.run_source(ARGV[0])
+  exit 0
+  
 #when "sim:list"
 #  require "#{Origen.root!}/lib/origen_sim/commands/pack"
 #  OrigenSim::Commands::Pack.list

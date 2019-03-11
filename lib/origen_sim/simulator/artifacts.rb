@@ -74,6 +74,10 @@ module OrigenSim
       alias_method :pop_method, :populate_method
 
       def populate
+        unless Dir.exist?(run_target.dirname)
+          FileUtils.mkdir_p(run_target.dirname)
+        end
+
         if populate_method == :symlink
           File.symlink(target, run_target)
         elsif populate_method == :copy

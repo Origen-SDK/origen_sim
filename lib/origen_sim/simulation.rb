@@ -18,6 +18,14 @@ module OrigenSim
     # Returns the communication socket used for sending commands to the Origen VPI running
     # in the simulation process
     attr_reader :socket
+    # Returns false when the simulation is running and will be set to true once all instructions
+    # have been sent and executed by the simulator and immediately before the end_simulation
+    # instruction is sent to the simulator.
+    attr_accessor :ended
+
+    attr_reader :log_files
+
+    attr_accessor :max_errors_exceeded
 
     def initialize(id, view_wave_command)
       @id = id
@@ -25,8 +33,12 @@ module OrigenSim
       @completed_cleanly = false
       @failed_to_start = false
       @logged_errors = false
+      @ended = false
       @error_count = 0
+      @cycle_count = 0
       @socket_ids = {}
+      @log_files = []
+      @max_errors_exceeded = false
 
       # Socket used to send Origen -> Verilog commands
       @server = UNIXServer.new(socket_id)
@@ -42,6 +54,8 @@ module OrigenSim
     end
 
     def failed?(in_progress = false)
+      # Exit cleanly when the simulator didn't even start, e.g. because no compiled DUT existed
+      return true unless @stderr_reader
       failed = stderr_logged_errors || logged_errors || failed_to_start || error_count > 0
       if in_progress
         failed
@@ -68,9 +82,10 @@ module OrigenSim
           end
         else
           if in_progress
-            Origen.log.error "The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!" if error_count > 0
+            simulator.log("The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!", :error) if error_count > 0
           else
             Origen.log.error "The simulation failed with #{error_count} errors!" if error_count > 0
+            Origen.log.error "The simulation was aborted due to exceeding #{simulator.max_errors} errors!" if max_errors_exceeded
           end
           Origen.log.error 'The simulation log reported errors!' if logged_errors
           Origen.log.error 'The simulation stderr reported errors!' if stderr_logged_errors
@@ -78,10 +93,28 @@ module OrigenSim
         end
       else
         if in_progress
-          Origen.log.success 'The simulation is passing!'
+          simulator.log 'The simulation is passing!', :success
         else
           Origen.log.success 'The simulation passed!'
         end
+      end
+    end
+
+    def ended=(val)
+      # If running the heartbeat from a fork we need to communicate to it that the simulation has
+      # ended by writing to a file
+      if val == true && !Heartbeat::THREADSAFE
+        FileUtils.touch(ended_file)
+      else
+        @ended = val
+      end
+    end
+
+    def ended_file
+      @ended_file ||= begin
+        dir = Origen.root.join('tmp', 'origen_sim', 'ended')
+        FileUtils.mkdir_p(dir.to_s)
+        dir.join(socket_number).to_s
       end
     end
 
@@ -92,20 +125,25 @@ module OrigenSim
     def start_heartbeat
       @heartbeat = @server_heartbeat.accept
       if Heartbeat::THREADSAFE
-        @heartbeat_thread = Heartbeat.new(@heartbeat)
+        @heartbeat_thread = Heartbeat.new(self, @heartbeat)
       else
+        ended_file # Cache this file name before forking
         @heartbeat_pid = fork do
           loop do
             begin
               @heartbeat.write("OK\n")
             rescue Errno::EPIPE => e
-              if monitor_running?
-                Origen.log.error 'Communication with the simulation monitor has been lost (though it seems to still be running)!'
+              if File.exist?(ended_file)
+                FileUtils.rm_f(ended_file)
+                exit 0
               else
-                Origen.log.error 'The simulation monitor has stopped unexpectedly!'
+                if monitor_running?
+                  Origen.log.error 'Communication with the simulation monitor has been lost (though it seems to still be running)!'
+                else
+                  Origen.log.error 'The simulation monitor has stopped unexpectedly!'
+                end
+                exit 1
               end
-              sleep 2 # To make sure that any log output from the simulator is captured before we pull the plug
-              exit 1
             end
             sleep 5
           end
@@ -125,7 +163,13 @@ module OrigenSim
         rescue Errno::ECHILD
           # Heartbeat process has already stopped, so ignore this.
         end
+        FileUtils.rm_f(ended_file) if File.exist?(ended_file)
       end
+    end
+
+    def time_since_last_log
+      [@stdout_reader.time_since_last_message,
+       @stderr_reader.time_since_last_message].min
     end
 
     # Open the communication channels with the simulator
@@ -136,8 +180,10 @@ module OrigenSim
         @stdout = @server_stdout.accept
         @stderr = @server_stderr.accept
         @status = @server_status.accept
-        @stdout_reader = StdoutReader.new(@stdout)
+        @stdout_reader = StdoutReader.new(@stdout, simulator)
         @stderr_reader = StderrReader.new(@stderr)
+        @stdout_reader.priority = 1
+        @stderr_reader.priority = 2
 
         Origen.log.debug 'The simulation monitor has started'
         Origen.log.debug @status.gets.chomp  # Starting simulator
@@ -151,7 +197,7 @@ module OrigenSim
         # That's all status info done until the simulation process ends, start a thread
         # to wait for that in case it ends before the VPI starts
         Thread.new do
-          Origen.log.debug @status.gets.chomp  # This will block until something is received
+          @status.gets.chomp  # This will block until something is received
           abort_connection
         end
         Origen.log.debug 'Waiting for Origen VPI to start...'
@@ -235,7 +281,20 @@ module OrigenSim
       @socket_ids[type] ||= "#{OrigenSim.socket_dir || '/tmp'}/#{socket_number}#{type}.sock"
     end
 
+    # Returns the current cycle count, this is Origen's local count
+    def cycle_count
+      @cycle_count
+    end
+
+    def cycle(number_of_cycles)
+      @cycle_count += number_of_cycles
+    end
+
     private
+
+    def simulator
+      tester.simulator
+    end
 
     def socket_number
       @socket_number ||= (Process.pid.to_s + Time.now.to_f.to_s).sub('.', '')

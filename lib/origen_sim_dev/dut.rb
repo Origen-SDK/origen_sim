@@ -124,37 +124,39 @@ module OrigenSimDev
 
     def read_register(reg, options = {})
       PatSeq.serialize :jtag do
-        # Special read for this register to test sync'ing over a parallel
-        if reg.id == :parallel_read
-          pins = []
-          reg.shift_out_with_index do |bit, i|
-            if bit.is_to_be_stored?
-              pins << dut.pins(:dout)[i]
+        tester.read_register(reg, options) do
+          # Special read for this register to test sync'ing over a parallel port
+          if reg.id == :parallel_read
+            pins = []
+            reg.shift_out_with_index do |bit, i|
+              if bit.is_to_be_stored?
+                pins << dut.pins(:dout)[i]
+              end
             end
-          end
-          tester.store_next_cycle(*pins.reverse)
-          1.cycle
-          dut.pins(:dout).dont_care
-        else
-          if reg.path =~ /ip(\d)/
-            ir_val = 0b0100 | Regexp.last_match(1).to_i
-            jtag.write_ir(ir_val, size: 4)
-            ip = reg.parent
-            ip.dr.bits(:write).write(0)
-            ip.dr.bits(:address).write(reg.address)
-            ip.dr.bits(:data).write(0)
-            jtag.write_dr(ip.dr)
-            ip.dr.bits(:data).copy_all(reg)
-            jtag.read_dr(ip.dr)
+            tester.store_next_cycle(*pins.reverse)
+            1.cycle
+            dut.pins(:dout).dont_care
           else
-            jtag.write_ir(0x8, size: 4)
-            dr.rg_enable.write(1)
-            dr.rg_read.write(1)
-            dr.rg_addr.write(reg.address)
-            jtag.write_dr(dr)
-            dr.rg_enable.write(0)
-            dr.rg_data.copy_all(reg)
-            jtag.read_dr(dr)
+            if reg.path =~ /ip(\d)/
+              ir_val = 0b0100 | Regexp.last_match(1).to_i
+              jtag.write_ir(ir_val, size: 4)
+              ip = reg.parent
+              ip.dr.bits(:write).write(0)
+              ip.dr.bits(:address).write(reg.address)
+              ip.dr.bits(:data).write(0)
+              jtag.write_dr(ip.dr)
+              ip.dr.bits(:data).copy_all(reg)
+              jtag.read_dr(ip.dr)
+            else
+              jtag.write_ir(0x8, size: 4)
+              dr.rg_enable.write(1)
+              dr.rg_read.write(1)
+              dr.rg_addr.write(reg.address)
+              jtag.write_dr(dr)
+              dr.rg_enable.write(0)
+              dr.rg_data.copy_all(reg)
+              jtag.read_dr(dr)
+            end
           end
         end
       end

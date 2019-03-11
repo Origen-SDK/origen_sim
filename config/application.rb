@@ -42,7 +42,7 @@ class OrigenSimApplication < Origen::Application
         section.page :flows, heading: "Simulating Flows"
         section.page :log, heading: "Simulator Log Output"
         section.page :artifacts, heading: "Artifacts"
-        section.page :debugging, heading: "Interactive Debugging"
+        section.page :debugging, heading: "Debugging"
       end
     end
   }

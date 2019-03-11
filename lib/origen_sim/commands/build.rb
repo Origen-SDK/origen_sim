@@ -3,7 +3,7 @@ require 'origen_sim'
 require_relative '../../../config/version'
 require 'origen_verilog'
 
-options = { source_dirs: [], testbench_name: 'origen', defines: [] }
+options = { incl_files: [], source_dirs: [], testbench_name: 'origen', defines: [], user_details: {}, initial_pin_states: {}, verilog_top_output_name: 'origen' }
 
 # App options are options that the application can supply to extend this command
 app_options = @application_options || []
@@ -22,8 +22,42 @@ Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
   opts.on('-s', '--source_dir PATH', 'Directories to look for include files in (the directory containing the top-level is already considered)') do |path|
     options[:source_dirs] << path
   end
+  opts.on('--sv', 'Generate a .sv file instead of a .v file.') { |t| options[:sv] = t }
+  opts.on('--verilog_top_output_name NAME', 'Renames the output filename from origen.v to NAME.v') do |name|
+    options[:verilog_top_output_name] = name
+  end
   opts.on('--define MACRO', 'Specify a compiler define') do |macro|
     options[:defines] << macro
+  end
+  opts.on('--init_pin_state PIN_AND_STATE', 'Specify how the pins should be initialized.') do |pin_and_state|
+    name, state = pin_and_state.split(':')
+
+    # Make sure that we recognize the pin state option before building.
+    unless OrigenSim::INIT_PIN_STATE_MAPPING.include?(state)
+      fail "Provide state '#{state}' to --init_pin_state pin_and_state not recognized!"
+    end
+    (options[:initial_pin_states])[name.to_sym] = OrigenSim::INIT_PIN_STATE_MAPPING[state]
+  end
+  opts.on('--include FILE' 'Specify files to include in the top verilog file.') { |f| options[:incl_files] << f }
+
+  # Specifying snapshot details
+  opts.on('--device_name NAME', '(Snapshot Detail) Specify a device name') { |n| options[:device_name] = n }
+  opts.on('--testbench_version VER', '(Snapshot Detail) Specify a version of the testbench this snapshot was built from') { |v| options[:testbench_version] = v }
+  opts.on('--revision REV', '(Snapshot Detail) Specify a revision of the snapshot') { |r| options[:revision] = r }
+  opts.on('--revision_note REV_NOTE', '(Snapshot Detail) Specify a brief note on this revision of the snapshot') { |n| options[:revision_note] = n }
+  opts.on('--author AUTHOR', '(Snapshot Detail) Specify the author of the snapshot (default is just Origen.current_user)') { |a| options[:author] = a }
+
+  # User-defined snapshot details
+  opts.on('--USER_DETAIL NAME_AND_VALUE', 'Specify custom user-defined details to build into the snapshot details. Format as NAME:VALUE, e.g.: \'--USER_DETAIL BUILD_TYPE:RTL\'') do |name_and_value|
+    name, value = name_and_value.split(':')
+
+    unless name.upcase == name
+      Origen.log.warning "Non-capitalized user detail '#{name}' was given!"
+      Origen.log.warning 'OrigenSim forces the Verilog practice that parameters should be capitalized.'
+      Origen.log.warning "The parameter '#{name.upcase}' will be used instead"
+      name.upcase!
+    end
+    (options[:user_details])[name] = value
   end
   opts.on('-d', '--debugger', 'Enable the debugger') {  options[:debugger] = true }
   app_options.each do |app_option|
@@ -82,19 +116,37 @@ rtl_top_module = mod.name
 
 mod.to_top_level # Creates dut
 
+# Update the pins with any setings from the command line
+options[:initial_pin_states].each do |pin, state|
+  dut.pins(pin).meta[:origen_sim_init_pin_state] = state
+end
+
 if $_testing_build_return_dut_
   dut
 
 else
 
   output_directory = options[:output] || Origen.config.output_directory
+  output_name = options[:sv] ? "#{options[:verilog_top_output_name]}.sv" : "#{options[:verilog_top_output_name]}.v"
 
   Origen.app.runner.launch action:            :compile,
                            files:             "#{Origen.root!}/templates/rtl_v/origen.v.erb",
+                           output_file_name:  output_name,
                            output:            output_directory,
                            check_for_changes: false,
                            quiet:             true,
-                           options:           { vendor: :cadence, top: dut.name, incl: options[:incl_files] }
+                           preserve_target:   true,
+                           options:           {
+                             vendor:            :cadence,
+                             top:               dut.name,
+                             incl:              options[:incl_files],
+                             device_name:       options[:device_name],
+                             revision:          options[:revision],
+                             revision_note:     options[:revision_note],
+                             parent_tb_version: options[:testbench_version],
+                             user_details:      options[:user_details],
+                             author:            options[:author]
+                           }
 
   Origen.app.runner.launch action:            :compile,
                            files:             "#{Origen.root!}/ext",
@@ -113,7 +165,7 @@ else
   puts
   puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
   puts
-  puts "  #{output_directory}/origen.v \\"
+  puts "  #{output_directory}/#{output_name} \\"
   puts "  #{output_directory}/*.c \\"
   puts '  -ccargs "-std=c99" \\'
   puts '  -top origen \\'
@@ -124,7 +176,7 @@ else
   puts
   puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
   puts
-  puts "  #{ENV['ORIGEN_SIM_IRUN'] || 'irun'} #{rtl_top} #{output_directory}/origen.v #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
+  puts "  #{ENV['ORIGEN_SIM_IRUN'] || 'irun'} #{rtl_top} #{output_directory}/#{output_name} #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
   puts
   puts 'Copy the following directory (produced by irun) to simulation/<target>/cadence/. within your Origen application:'
   puts
@@ -136,7 +188,7 @@ else
   puts
   puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
   puts
-  puts "  #{output_directory}/origen.v \\"
+  puts "  #{output_directory}/#{output_name} \\"
   puts "  #{output_directory}/bridge.c \\"
   puts "  #{output_directory}/client.c \\"
   puts '  -CFLAGS "-std=c99" \\'
@@ -149,7 +201,7 @@ else
   puts
   puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
   puts
-  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/origen.v #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi #{output_directory}/origen.c -timescale=1ns/1ns  +define+ORIGEN_VPD=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all -PP"
+  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/#{output_name} #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi #{output_directory}/origen.c -timescale=1ns/1ns  +define+ORIGEN_VPD=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all -PP"
   puts
   puts 'Copy the following files (produced by vcs) to simulation/<target>/synopsys/. within your Origen application:'
   puts
@@ -166,13 +218,13 @@ else
   puts
   puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
   puts
-  puts "  #{output_directory}/origen.v \\"
+  puts "  #{output_directory}/#{output_name} \\"
   puts '  -o origen.vvp \\'
   puts '  -DORIGEN_VCD'
   puts
   puts 'Here is an example which may work for the file you just parsed (add additional source dirs with more -I options at the end if required):'
   puts
-  puts "  #{ENV['ORIGEN_SIM_IVERILOG'] || 'iverilog'} #{rtl_top} #{output_directory}/origen.v -o origen.vvp -DORIGEN_VCD -I #{Pathname.new(rtl_top).dirname}"
+  puts "  #{ENV['ORIGEN_SIM_IVERILOG'] || 'iverilog'} #{rtl_top} #{output_directory}/#{output_name} -o origen.vvp -DORIGEN_VCD -I #{Pathname.new(rtl_top).dirname}"
   puts
   puts 'Copy the following files (produced by iverilog) to simulation/<target>/icarus/. within your Origen application:'
   puts
@@ -185,8 +237,8 @@ else
   puts
   puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
   puts
-  puts "  #{output_directory}/origen.v \\"
-  puts "  #{output_directory}/bridge.c \\"
+  puts "  #{output_directory}/#{output_name} \\"
+  puts "  #{output_directory}/brdige.c \\"
   puts "  #{output_directory}/client.c \\"
   puts '  -CFLAGS "-std=c99" \\'
   puts '  +vpi \\'
@@ -202,7 +254,7 @@ else
   puts
   puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
   puts
-  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/origen.v #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi #{output_directory}/origen.c +define+ORIGEN_FSDB=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all +lint=all,noVCDE,noIWU,noVNGS,noCAWM-L,noPORTFRC,noZERO,noNS -PP -timescale=1ns/100ps -full64 -lca -kdb"
+  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/#{output_name} #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi #{output_directory}/origen.c +define+ORIGEN_FSDB=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all +lint=all,noVCDE,noIWU,noVNGS,noCAWM-L,noPORTFRC,noZERO,noNS -PP -timescale=1ns/100ps -full64 -lca -kdb"
   puts
   puts 'Copy the following files (produced by vcs) to simulation/<target>/verdi/. within your Origen application:'
   puts

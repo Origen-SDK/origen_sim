@@ -19,6 +19,44 @@ module OrigenSim
   autoload :Tester, 'origen_sim/tester'
   autoload :Generator, 'origen_sim/generator'
 
+  # Include a mapping for various sematics.
+  INIT_PIN_STATE_MAPPING = {
+    # Drive Low Options
+    'drive_lo'       => 0,
+    'drive-lo'       => 0,
+    'drive_low'      => 0,
+    'drive-low'      => 0,
+    'lo'             => 0,
+    'low'            => 0,
+    '0'              => 0,
+
+    # Drive High Options
+    'drive_hi'       => 1,
+    'drive-hi'       => 1,
+    'drive_high'     => 1,
+    'drive-high'     => 1,
+    'hi'             => 1,
+    'high'           => 1,
+    '1'              => 1,
+
+    # High Impedance Options
+    'z'              => 2,
+    'high_z'         => 2,
+    'high-z'         => 2,
+    'hi_z'           => 2,
+    'hi-z'           => 2,
+    'high_impedance' => 2,
+    'high-impedance' => 2,
+    '2'              => 2,
+
+    # Disable Options
+    '-1'             => -1,
+    'disable'        => -1,
+    'disabled'       => -1,
+    'no_action'      => -1,
+    'no-action'      => -1
+  }
+
   def self.__instantiate_simulator__
     @simulator ||= Simulator.new
   end
@@ -49,7 +87,7 @@ module OrigenSim
   end
 
   def self.verbose?
-    !!(@verbose || Origen.debugger_enabled? || Origen.running_remotely?)
+    !!(@verbose || Origen.log.log_level == :verbose || Origen.running_remotely?)
   end
 
   def self.flow=(val)
@@ -142,8 +180,35 @@ module OrigenSim
     defined?(@fail_on_stderr) ? @fail_on_stderr : true
   end
 
+  # Setting the max_errors here will override the value in the simulator environment
+  def self.max_errors=(val)
+    @max_errors = val
+  end
+
+  def self.max_errors
+    @max_errors
+  end
+
   def self.error(message)
     simulator.error(message)
+  end
+
+  def self.run(name, options = {}, &block)
+    # Load up the application and target
+    Origen.load_application
+    Origen.app.load_target!
+
+    # Start up the simulator and run whatever's in the target block.
+    # After the block completes, shutdown the simulator
+    tester.simulator.setup_simulation(name)
+    yield
+    tester.simulator.complete_simulation(name)
+  end
+
+  def self.run_source(source, options = {})
+    OrigenSim.run(source) do
+      OrigenTesters::Decompiler.decompile(source).execute
+    end
   end
 end
 OrigenSim.__instantiate_simulator__

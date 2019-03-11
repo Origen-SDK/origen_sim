@@ -19,8 +19,8 @@ module Origen
       end
 
       alias_method :_orig_set_state, :set_state
-      def set_state(val)
-        ret = _orig_set_state(val)
+      def set_state(state)
+        ret = _orig_set_state(state)
         update_simulation if simulation_running?
         ret
       end
@@ -67,6 +67,10 @@ module Origen
             @simulator_value = value
             simulator.put("2^#{simulation_index}^#{value}")
           when :compare
+            if tester.read_reg_open?
+              tester.read_reg_cycles[tester.cycle_count + 1] ||= {}
+              tester.read_reg_cycles[tester.cycle_count + 1][self] = state_meta
+            end
             @simulator_state = :compare
             @simulator_value = value
             simulator.put("4^#{simulation_index}^#{value}")
