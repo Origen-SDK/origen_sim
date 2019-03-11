@@ -4,6 +4,14 @@ For user documentation see - [http://origen-sdk.org/origen/guides/simulation/int
 
 Here is some OrigenSim developer information...
 
+
+### How To Build a Simulation Object From a Pre-release Version of OrigenSim
+
+* Clone and checkout the desired version of OrigenSim to a workspace
+* From the workspace run: `origen sim:build /path/to/your/top.v`
+* The testbench and artifacts will be in the `output` directory, make them available to your design compile step as required
+
+
 ### How To Create a Simulation Object For Development of OrigenSim
 
 From an OrigenSim workspace:
