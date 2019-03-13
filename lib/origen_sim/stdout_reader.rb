@@ -24,7 +24,7 @@ module OrigenSim
                   # Messages sent from the Origen testbench already have a timestamp in ns
                   time_in_ns = Regexp.last_match(4).to_i
                 end
-                msg = "#{time_in_ns}".rjust(11) + ' ns: ' + Regexp.last_match(6)
+                msg = "#{time_in_ns}".rjust(11) + ' ns: ' + Regexp.last_match(5)
 
                 Origen.log.send(Simulator::LOG_CODES_[Regexp.last_match(1).to_i], msg, from_origen_sim: true)
 
