@@ -575,7 +575,7 @@ static void origen_log(int type, const char * fmt, ...) {
   vsprintf(msg, fmt, aptr);
   va_end(aptr);
 
-  vpi_printf("!%d![%d,%d] %s\n", type, now.high, now.low, msg);
+  vpi_printf("!%d![%u,%u] %s\n", type, now.high, now.low, msg);
 };
 
 

@@ -15,8 +15,8 @@ module OrigenSim
             if line
               line = line.chomp
               # If line has been sent from Origen for logging
-              # https://rubular.com/r/xTrRbwb65g230K
-              if line =~ /^!(\d)!\[((\s|\d)+,)?((\s|\d)+)\]\s*(.*)/
+              # https://rubular.com/r/1czQZnlhBq9YtK
+              if line =~ /^!(\d)!\[\s*((\d+),)?\s*(\d+)\]\s*(.*)/
                 if Regexp.last_match(3)
                   time_in_sim_units = (Regexp.last_match(3).to_i << 32) | Regexp.last_match(4).to_i
                   time_in_ns = simulator.send(:simtime_units_to_ns, time_in_sim_units)
