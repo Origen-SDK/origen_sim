@@ -39,9 +39,9 @@ module OrigenSim
       end
       @sync_pins.map do |pin|
         if @sync_cycles.size == 1
-          simulator.peek("origen.pins.#{pin.id}.sync_memory[0]")
+          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory[0]")
         else
-          simulator.peek("origen.pins.#{pin.id}.sync_memory[#{@sync_cycles - 1}:0]")
+          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory[#{@sync_cycles - 1}:0]")
         end
       end
     end
@@ -97,6 +97,7 @@ module OrigenSim
 
     def c1(msg, options = {})
       if @step_comment_on
+        msg = "[#{PatSeq.thread.id}] #{msg}" if PatSeq.thread
         simulator.log msg
         @comment_buffer << msg
       end
