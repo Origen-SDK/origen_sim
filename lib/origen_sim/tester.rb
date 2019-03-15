@@ -94,7 +94,6 @@ module OrigenSim
 
     def c1(msg, options = {})
       if @step_comment_on
-        msg = "[#{PatSeq.thread.id}] #{msg}" if PatSeq.thread
         simulator.log msg
         @comment_buffer << msg
       end
