@@ -243,6 +243,7 @@ module OrigenSim
       if read_reg_open?
         yield
       else
+        @read_reg_meta_supplied = false
         @read_reg_open = true
         @read_reg_cycles = {}
         unless @supports_transactions_set
@@ -298,7 +299,11 @@ module OrigenSim
                 end
               end
               if diffs.empty?
-                Origen.log.warning 'The errors could not be mapped to an actual register value, your current read register driver probably does not provide the necessary meta-data when reading pins'
+                if @read_reg_meta_supplied
+                  Origen.log.warning 'It looks like the miscompare(s) occurred on pins/cycles that are not associated with register data'
+                else
+                  Origen.log.warning 'It looks like your current read register driver does not provide the necessary meta-data to map these errors to an actual register value'
+                end
                 actual_data_available = false
               end
             end
@@ -352,6 +357,7 @@ module OrigenSim
                   Origen.log.error msg
                 end
               else
+                msg += " received #{expected}" if @read_reg_meta_supplied
                 Origen.log.error msg
               end
             end
@@ -371,6 +377,8 @@ module OrigenSim
                 end
               end
               msg += " received #{actual.to_s(16).upcase}"
+            else
+              msg += " received #{reg_or_val.to_s(16).upcase}" if @read_reg_meta_supplied
             end
             Origen.log.error msg
           end
@@ -395,6 +403,10 @@ module OrigenSim
 
     def cycle_count
       simulator.simulation.cycle_count
+    end
+
+    def read_reg_meta_supplied=(val)
+      @read_reg_meta_supplied = val
     end
 
     private
