@@ -1,4 +1,12 @@
 PATH
+  remote: .
+  specs:
+    origen_sim (0.16.0)
+      origen (>= 0.43.0)
+      origen_testers
+      origen_verilog (>= 0.5.2)
+
+PATH
   remote: ../origen_testers
   specs:
     origen_testers (0.20.0)
@@ -39,14 +47,6 @@ PATH
       sinatra (~> 1)
       thor (~> 0.19)
       yard (~> 0.8)
-
-PATH
-  remote: .
-  specs:
-    origen_sim (0.16.0.pre1)
-      origen (>= 0.43.0)
-      origen_testers
-      origen_verilog (>= 0.5.2)
 
 GEM
   remote: https://rubygems.org/

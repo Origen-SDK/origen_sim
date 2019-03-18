@@ -193,6 +193,17 @@ module OrigenSim
     simulator.error(message)
   end
 
+  # Change where sim_delay and sim_capture records are stored
+  def self.capture_dir=(val)
+    @capture_dir = val
+  end
+
+  # Returns where sim_delay and sim_capture records are stored, if not set then
+  # Origen.root/pattern/org/<target name> will be used by default
+  def self.capture_dir
+    @capture_dir ||= Origen.root.join('pattern', 'org', Origen.target.name)
+  end
+
   def self.run(name, options = {}, &block)
     # Load up the application and target
     Origen.load_application

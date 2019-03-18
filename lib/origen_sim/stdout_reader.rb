@@ -15,8 +15,8 @@ module OrigenSim
             if line
               line = line.chomp
               # If line has been sent from Origen for logging
-              # https://rubular.com/r/xTrRbwb65g230K
-              if line =~ /^!(\d)!\[((\s|\d)+,)?((\s|\d)+)\]\s*(.*)/
+              # https://rubular.com/r/1czQZnlhBq9YtK
+              if line =~ /^!(\d)!\[\s*((\d+),)?\s*(\d+)\]\s*(.*)/
                 if Regexp.last_match(3)
                   time_in_sim_units = (Regexp.last_match(3).to_i << 32) | Regexp.last_match(4).to_i
                   time_in_ns = simulator.send(:simtime_units_to_ns, time_in_sim_units)
@@ -24,7 +24,7 @@ module OrigenSim
                   # Messages sent from the Origen testbench already have a timestamp in ns
                   time_in_ns = Regexp.last_match(4).to_i
                 end
-                msg = "#{time_in_ns}".rjust(11) + ' ns: ' + Regexp.last_match(6)
+                msg = "#{time_in_ns}".rjust(11) + ' ns: ' + Regexp.last_match(5)
 
                 Origen.log.send(Simulator::LOG_CODES_[Regexp.last_match(1).to_i], msg, from_origen_sim: true)
 

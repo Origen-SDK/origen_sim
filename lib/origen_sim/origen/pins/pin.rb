@@ -70,6 +70,7 @@ module Origen
             if tester.read_reg_open?
               tester.read_reg_cycles[tester.cycle_count + 1] ||= {}
               tester.read_reg_cycles[tester.cycle_count + 1][self] = state_meta
+              tester.read_reg_meta_supplied = true if state_meta[:position]
             end
             @simulator_state = :compare
             @simulator_value = value
