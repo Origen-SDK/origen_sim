@@ -14,6 +14,8 @@ static void init() {
   register_callback(cbStartOfSimulation, origen_startup);
 
   register_callback(cbEndOfSimulation, origen_shutdown);
+
+  bridge_register_system_tasks();
 }
 
 

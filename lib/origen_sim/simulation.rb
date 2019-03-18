@@ -23,6 +23,10 @@ module OrigenSim
     # instruction is sent to the simulator.
     attr_accessor :ended
 
+    attr_reader :log_files
+
+    attr_accessor :max_errors_exceeded
+
     def initialize(id, view_wave_command)
       @id = id
       @view_wave_command = view_wave_command
@@ -31,7 +35,10 @@ module OrigenSim
       @logged_errors = false
       @ended = false
       @error_count = 0
+      @cycle_count = 0
       @socket_ids = {}
+      @log_files = []
+      @max_errors_exceeded = false
 
       # Socket used to send Origen -> Verilog commands
       @server = UNIXServer.new(socket_id)
@@ -47,6 +54,8 @@ module OrigenSim
     end
 
     def failed?(in_progress = false)
+      # Exit cleanly when the simulator didn't even start, e.g. because no compiled DUT existed
+      return true unless @stderr_reader
       failed = stderr_logged_errors || logged_errors || failed_to_start || error_count > 0
       if in_progress
         failed
@@ -73,9 +82,10 @@ module OrigenSim
           end
         else
           if in_progress
-            Origen.log.error "The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!" if error_count > 0
+            simulator.log("The simulation has #{error_count} error#{error_count > 1 ? 's' : ''}!", :error) if error_count > 0
           else
             Origen.log.error "The simulation failed with #{error_count} errors!" if error_count > 0
+            Origen.log.error "The simulation was aborted due to exceeding #{simulator.max_errors} errors!" if max_errors_exceeded
           end
           Origen.log.error 'The simulation log reported errors!' if logged_errors
           Origen.log.error 'The simulation stderr reported errors!' if stderr_logged_errors
@@ -83,7 +93,7 @@ module OrigenSim
         end
       else
         if in_progress
-          Origen.log.success 'The simulation is passing!'
+          simulator.log 'The simulation is passing!', :success
         else
           Origen.log.success 'The simulation passed!'
         end
@@ -157,6 +167,11 @@ module OrigenSim
       end
     end
 
+    def time_since_last_log
+      [@stdout_reader.time_since_last_message,
+       @stderr_reader.time_since_last_message].min
+    end
+
     # Open the communication channels with the simulator
     def open(monitor_pid, timeout)
       @monitor_pid = monitor_pid
@@ -165,8 +180,10 @@ module OrigenSim
         @stdout = @server_stdout.accept
         @stderr = @server_stderr.accept
         @status = @server_status.accept
-        @stdout_reader = StdoutReader.new(@stdout)
+        @stdout_reader = StdoutReader.new(@stdout, simulator)
         @stderr_reader = StderrReader.new(@stderr)
+        @stdout_reader.priority = 1
+        @stderr_reader.priority = 2
 
         Origen.log.debug 'The simulation monitor has started'
         Origen.log.debug @status.gets.chomp  # Starting simulator
@@ -180,7 +197,7 @@ module OrigenSim
         # That's all status info done until the simulation process ends, start a thread
         # to wait for that in case it ends before the VPI starts
         Thread.new do
-          Origen.log.debug @status.gets.chomp  # This will block until something is received
+          @status.gets.chomp  # This will block until something is received
           abort_connection
         end
         Origen.log.debug 'Waiting for Origen VPI to start...'
@@ -264,7 +281,20 @@ module OrigenSim
       @socket_ids[type] ||= "#{OrigenSim.socket_dir || '/tmp'}/#{socket_number}#{type}.sock"
     end
 
+    # Returns the current cycle count, this is Origen's local count
+    def cycle_count
+      @cycle_count
+    end
+
+    def cycle(number_of_cycles)
+      @cycle_count += number_of_cycles
+    end
+
     private
+
+    def simulator
+      tester.simulator
+    end
 
     def socket_number
       @socket_number ||= (Process.pid.to_s + Time.now.to_f.to_s).sub('.', '')

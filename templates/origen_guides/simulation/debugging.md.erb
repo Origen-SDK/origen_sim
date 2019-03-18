@@ -1,14 +1,131 @@
 % render "layouts/guides.html" do
 
+This guide describes some features that are useful for debugging a failing simulation
+or when running
+[an interactive ad-hoc simulation from the console.](<%= path "guides/simulation/app/#Starting_the_Simulator_in_an_Interactive_Session" %>)
+
+#### Identifying Points in Time
+
+All [major step comments](<%= path "guides/pattern/documenting/#Documenting_Major_Steps" %>) in pattern
+source code will be simulation time-stamped and output to the console as shown below:
+
+~~~ruby
+ss "Test basic 2-pin match loop"
+
+# ...
+
+ss "Test a block match loop"
+
+# ...
+~~~
+
+The above will produce this output where the simulation time when each operation occurs is given in ns:
+
+~~~text
+[INFO]       6.710[0.000]    ||      991700 ns: ===========================================================
+[INFO]       6.710[0.001]    ||      991700 ns: Test basic 2-pin match loop
+[INFO]       6.711[0.001]    ||      991700 ns: ===========================================================
+[INFO]       6.711[0.001]    ||     1207500 ns: ===========================================================
+[INFO]       6.712[0.000]    ||     1207500 ns: Test a block match loop
+[INFO]       6.712[0.000]    ||     1207500 ns: ===========================================================
+~~~
+
+All [log output](<%= path "guides/misc/logger" %>) created by application code will also be simulation
+time-stamped and synchronized to simulator progress:
+
+~~~ruby
+Origen.log.info "Something important is happening!"
+~~~
+
+~~~text
+[INFO]       6.712[0.000]    ||    24210200 ns: Something important is happening!
+~~~
+
+
+**Note that applications should avoid the use of `puts` to output debug or status information to the console
+because that will occur immediately and will not be time-stamped or synchronized with the simulator.**
+
+Additionally, the Origen testbench contains a register that can be used to mark events like this:
+
+~~~ruby
+tester.marker = 0x1234
+~~~
+
+You can then view signal `origen.debug.marker` in a wave viewer and search for the appropriate value to
+locate the specific point in time when the mark was applied.
+
+When generating for non-simulation tester targets that statement will do nothing and it can be
+safely left in production code.
+
+
+#### Failed Register Reads
+
+The following information is logged whenever a pin mis-compare occurs within a register read transaction:
+
+* The path (name) of the register
+* Expected data
+* Received (actual) data - requires support from the physical driver, see below
+* Application stack trace to identify where in the application code the read originated
+
+Here is an example:
+
+~~~ruby
+ss "Now try and read and write a register"
+dut.cmd.write!(0x1234_5678)
+dut.cmd.read!(0x1234_5078)  # Note that we just wrote ..567.. but are now expecting ..507..
+~~~
+
+~~~text
+[INFO]       4.098[0.000]    ||       86500 ns: ======================================================================
+[INFO]       4.098[0.001]    ||       86500 ns: Now try and read and write a register
+[INFO]       4.099[0.001]    ||       86500 ns: ======================================================================
+[ERROR]      4.100[0.001]    ||      117400 ns: Miscompare on pin tdo, expected 0 received 1
+[ERROR]      4.101[0.001]    ||      117600 ns: Miscompare on pin tdo, expected 0 received 1
+[ERROR]      4.102[0.001]    ||      129100 ns: Errors occurred reading register cmd:
+[ERROR]      4.102[0.001]    ||      129100 ns: cmd.d: expected 12345078 received 12345678
+[ERROR]      4.103[0.001]    ||      129100 ns:
+[ERROR]      4.104[0.001]    ||      129100 ns: /home/stephen/Code/github/origen_sim/pattern/test.rb:39:in `block in <top (required)>'
+[ERROR]      4.110[0.006]    ||      129100 ns: /home/stephen/Code/github/origen_sim/pattern/test.rb:1:in `<top (required)>'
+~~~
+
+The received data resolution does depend on the physical protocol driver supplying meta-data when
+creating pin assertions (reads) that correspond to register bits, like this:
+
+~~~ruby
+pin(:tdo).assert(bit.data, meta: { position: bit.position })
+~~~
+
+For reference, here is the update that was made to the JTAG driver to support this feature -
+[OrigenJTAG - Add meta data for OrigenSim](https://github.com/Origen-SDK/origen_jtag/pull/10/files)
+
+If the driver has not provided this then a warning will be output and no received data will be given.
+
+This feature will automatically be enabled for any reads launched via the register object itself, e.g.
+`my_reg.read!`, but not for reads launched by calling the `read_register` method manually,
+e.g. `dut.read_register(my_reg)`.
+
+If your application has a tendency to do the latter, then the following modification can be made to your
+`read_register` method to make OrigenSim aware of such transactions:
+
+~~~ruby
+def read_register(reg_or_value, options = {})
+  # Make OrigenSim aware of all transactions to enable failed transaction reporting
+  tester.read_register(reg_or_value, options) do
+
+    # Existing implementation here
+
+  end
+end
+~~~
+
+This feature will also work in the case of the read object being a value rather than a register object.
+
+
+#### Interactive Debugging
+
 The execution of an Origen simulation is fully controlled by Origen/Ruby, this means that if you
 insert a regular Ruby debugger breakpoint into your application code then you can step through the
 simulation in real time.
-
-This guide describes some features that are useful for interacting with the DUT from a simulation
-breakpoint, or when running
-[an interactive ad-hoc simulation from the console.](<%= path "guides/simulation/app/#Starting_the_Simulator_in_an_Interactive_Session" %>)
-
-#### Syncing & Flushing
 
 When a simulation is running most of the communication is one-way, Origen tells the simulator what to do,
 and for performance reasons there is no handshake between Origen and the simulator at every instruction. Instead,

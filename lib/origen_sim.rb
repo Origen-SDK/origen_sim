@@ -87,7 +87,7 @@ module OrigenSim
   end
 
   def self.verbose?
-    !!(@verbose || Origen.debugger_enabled? || Origen.running_remotely?)
+    !!(@verbose || Origen.log.log_level == :verbose || Origen.running_remotely?)
   end
 
   def self.flow=(val)
@@ -178,6 +178,15 @@ module OrigenSim
 
   def self.fail_on_stderr
     defined?(@fail_on_stderr) ? @fail_on_stderr : true
+  end
+
+  # Setting the max_errors here will override the value in the simulator environment
+  def self.max_errors=(val)
+    @max_errors = val
+  end
+
+  def self.max_errors
+    @max_errors
   end
 
   def self.error(message)

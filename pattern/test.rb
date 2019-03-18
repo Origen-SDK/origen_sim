@@ -35,6 +35,7 @@ Pattern.create do
 
   ss "Now try and read and write a register"
   dut.cmd.write!(0x1234_5678)
+  tester.marker = 1
   dut.cmd.read!(0x1234_5678)
 
   if tester.sim?
@@ -44,6 +45,7 @@ Pattern.create do
 
   ss "Test storing a register"
   dut.cmd.write!(0x2244_6688)
+  Origen.log.info "Should be within 'Test storing a register'"
   dut.cmd.store!
 
   if tester.sim?

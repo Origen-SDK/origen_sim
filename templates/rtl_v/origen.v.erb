@@ -17,15 +17,14 @@
 // 1 - Initialize drive and assign to 1
 // 2 - Don't initialize drive and assign to Z (default)
 // -1 - Don't initialize drive or assign. Pin will be left unknown
-module pin_driver(error, pin, sync, match_loop);
+module pin_driver(pin, sync);
   parameter init_drive = 2; // Which means don't drive initially, set to 0 or 1 to drive
   parameter pin_name = "undefined_name";
 
-  output reg error;
   inout pin;
   input sync;
-  input match_loop;
 
+  reg error;
   reg [1:0] data = 0;
   reg [1:0] force_data = 0;
   reg compare = 0;
@@ -52,9 +51,8 @@ module pin_driver(error, pin, sync, match_loop);
 
   // pin compare failure logger
   always @(posedge error) begin
-    if (match_loop != 1) begin
-      $display("OrigenSim Error: miscompare on pin %s, expected %d received %d at %t", pin_name, data[0], pin, $time);
-    end
+    //$display("!4![%t] Miscompare on pin %s, expected %d received %d", $time, pin_name, data[0], pin);
+    $bridge_on_miscompare(pin_name, data[0], pin);
   end
   
   // SMcG - needs more work, causes non-genuine fails in OrigenSim test case
@@ -77,7 +75,7 @@ module pin_driver(error, pin, sync, match_loop);
 
   initial begin
     // Set the timescale to ns (-9) with 0 decimal place precision, 20 chars
-    $timeformat(-9, 0, " ns", 20);
+    //$timeformat(-9, 0, "", 20);
     if (init_drive == 1) begin
       drive = 1;
       data[0] = 1;
@@ -89,39 +87,16 @@ module pin_driver(error, pin, sync, match_loop);
 
 endmodule
 
-module pin_drivers(errors, <%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>);
+module pin_drivers(<%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>);
 
 % dut.rtl_pins.each do |name, pin, options|
   output <%= pin.id %>_o;
 % end
 
-% dut.rtl_pins.each do |name, pin, options|
-  wire <%= pin.id %>_err;
-% end
-
-  output reg [31:0] errors = 0;
   reg sync = 0;
-  reg [31:0] match_errors = 0;
-  reg match_loop = 0;
-
-  always @(
-
-% dut.rtl_pins.each_with_index do |(name, pin, options), i|
-%   if i == 0
-    posedge <%= pin.id %>_err
-%   else
-    or posedge <%= pin.id %>_err
-%   end
-% end
-  ) begin
-    if (match_loop == 1)
-      match_errors[31:0] = match_errors[31:0] + 1;
-    else
-      errors[31:0] = errors[31:0] + 1;
-  end
 
 % dut.rtl_pins.each do |name, pin, options|
-  pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .error(<%= pin.id %>_err), .sync(sync), .match_loop(match_loop));
+  pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .sync(sync));
 % end
 
 
@@ -157,8 +132,10 @@ module snapshot_details;
 
 endmodule
 
-module debug(errors);
-  input [31:0] errors;
+module debug;
+  reg [31:0] errors = 0;
+  reg [15:0] marker = 0;
+  reg [31:0] match_errors = 0;
 
   reg [1023:0] pattern = 0;
 % OrigenSim::NUMBER_OF_COMMENT_LINES.times do |i|
@@ -179,13 +156,10 @@ module origen;
   wire <%= pin.id %>;
 % end
 
-  wire [31:0] errors;
-
   pin_drivers pins (
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
-    .<%= pin.id %>_o(<%= pin.id %>),
+  .<%= pin.id %>_o(<%= pin.id %>)<%= i == dut.rtl_pins.size - 1 ? '' : ',' %>
 % end
-    .errors(errors)
   );
 
   // Instantiate the DUT
@@ -214,17 +188,11 @@ module origen;
 % end
   );
 
-  debug debug (
-    .errors(errors)
-  );
+  debug debug ();
 
 `ifdef ORIGEN_VCD 
   initial
   begin
-    //$display("********************************");
-    //$display("Creating origen.vcd...");
-    //$display("********************************");
-    //$dumpfile("origen.vcd");
     $dumpvars(0,origen);
   end
 `endif
@@ -248,9 +216,6 @@ module origen;
 
 
   always @(posedge finish) begin
-    //$display("********************************");
-    //$display("Finishing simulation...");
-    //$display("********************************");
     $finish(2);
   end
 
