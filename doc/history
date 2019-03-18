@@ -1,3 +1,44 @@
+<a class="anchor release_tag" name="v0_16_0"></a>
+<h1><a href="#v0_16_0">Tag: v0.16.0</a></h1>
+
+##### Branch: 'master'
+
+##### by Stephen McGinty on 18-Mar-2019 09:56AM
+
+
+* All pattern major step comments are now output to the console and timestamped to simulation time.
+  This gives a much better overview of progress and identification of where pin miscompares have
+  originated from.
+* All `Origen.log` output from the application code is similarly timestamped and synchronized with
+  the simulation. Apps are encouraged not to use puts to output debug/status information to the
+  console as that will occur immediately and will not be synchronized.
+* Miscompares that occur during register read transactions will now be automatically translated
+  into register actual data in the failure log.
+* Added a register to the testbench called `origen.debug.marker` which can be set in application
+  code via `tester.marker = 0x1234`. This then gives you something to search for in a wave viewer
+  if you want to identify a specific point in the code.
+* Change to how the verbose logging (show all simulator output) is enabled. Someway along the line
+  it became such that running with `-d(ebug)` meant that verbose logging was enabled, when in fact
+  all other Origen commands require the `-verbose` switch to enable this. OrigenSim now aligns with
+  this convention. If you prefer the old behavior you can enable it at app-level via:
+
+~~~ruby
+Origen.log.level = :verbose if Origen.debugger\_enabled?
+~~~
+
+* The `:time\_factor` simulation config option has been removed, OrigenSim will now automatically
+  adjust if the simulation is using a timescale of 1ps instead of 1ns (for example).
+* Added a :max\_errors simulation config option which defaults to 100. This can also be overridden
+  at runtime via the `--max\_errors` switch. When exceeded, the simulation will abort immediately.
+* Simulating a list of patterns in a flow, e.g. `origen g pat1 pat2 pat1 --flow eng` will now run
+  all duplicate patterns, i.e. the second pat1 in this example will now execute twice as you would
+  expect, whereas until now only the first occurrence would be executed.
+* Various clean-up/refactoring of the VPI extension and significant test bench simplification. All
+  error generation and handling is now done in the C code and the testbench is now only the DUT
+  with a pin driver on each pin and all connections between pin drivers has been removed.
+* Added ability for applications to change the capture storage location used by `sim\_capture` and
+  `sim\_delay`.
+
 <a class="anchor release_tag" name="v0_15_0"></a>
 <h1><a href="#v0_15_0">Tag: v0.15.0</a></h1>
 
