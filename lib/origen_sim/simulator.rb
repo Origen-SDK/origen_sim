@@ -486,6 +486,7 @@ module OrigenSim
     # Starts up the simulator process
     def start
       @simulation_open = true
+      @pattern_starting_error_count = nil
       @simulation = Simulation.new(wave_file_basename, view_wave_command)
       simulations << @simulation
 
@@ -624,6 +625,7 @@ module OrigenSim
           end
         end
       end
+      sync_up # Make sure the simulation is underway before proceeding
       Origen.listeners_for(:simulation_startup).each(&:simulation_startup)
     end
 
@@ -691,7 +693,7 @@ module OrigenSim
         log '#' * 100
         log '#' * 100
         @running_pattern_name = name
-        @pattern_starting_error_count = error_count
+        @pattern_starting_error_count = @pattern_starting_error_count ? error_count : 0
         @pattern_count ||= 0
         # If running a flow, give the user some feedback about pass/fail status after
         # each individual pattern has completed
