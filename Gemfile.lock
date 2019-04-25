@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    origen_sim (0.16.0)
+    origen_sim (0.16.1)
       origen (>= 0.43.0)
       origen_testers
       origen_verilog (>= 0.5.2)
