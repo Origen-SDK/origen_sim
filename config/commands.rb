@@ -19,6 +19,9 @@ when "sim:build_example"
   Dir.chdir(Origen.root) do
     cmd = "origen sim:build  #{Origen.app.remotes_dir}/example_rtl/dut1/dut1.v"
     cmd += ' ' + ARGV.join(' ') unless ARGV.empty?
+    if ARGV.include?('-ams') || ARGV.include?('--ams')
+      cmd += '  --define ORIGEN_WREAL'
+    end
     output = `#{cmd}`
     puts output
     Origen.load_target

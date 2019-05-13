@@ -57,7 +57,7 @@ module Origen
 
       alias_method :_orig_drive, :drive
       def drive(*args)
-        if type == :analog && simulation_running? && tester.simulator.wreal?
+        if _analog_pin_? && simulation_running? && tester.simulator.wreal?
           tester.poke("#{driver_net}.drive_en", 1)
           tester.force("#{driver_net}.drive", args.first + 0.0)
         else
@@ -68,7 +68,7 @@ module Origen
 
       alias_method :_orig_assert, :assert
       def assert(*args)
-        if type == :analog && simulation_running? && tester.simulator.wreal?
+        if _analog_pin_? && simulation_running? && tester.simulator.wreal?
           drive_enabled = tester.peek("#{driver_net}.drive_en").to_i
           if drive_enabled == 1
             tester.poke("#{driver_net}.drive_en", 0)
@@ -84,6 +84,10 @@ module Origen
       alias_method :expect, :assert
       alias_method :read, :assert
       alias_method :measure, :assert
+
+      def _analog_pin_?
+        type == :analog || is_a?(Origen::Pins::PowerPin) || is_a?(Origen::Pins::GroundPin)
+      end
 
       def apply_force
         if force

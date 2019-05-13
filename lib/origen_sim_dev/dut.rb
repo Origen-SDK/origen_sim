@@ -26,7 +26,7 @@ module OrigenSimDev
       add_pin :v2, rtl_name: :nc
       add_pin :done
       add_pin :not_present
-      add_pin :vdd, type: :analog
+      add_power_pin :vdd
       add_pin :ana, type: :analog
 
       timeset :func do |t|

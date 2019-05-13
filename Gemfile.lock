@@ -7,7 +7,7 @@ PATH
       origen_verilog (>= 0.5.2)
 
 PATH
-  remote: ../origen_verilog
+  remote: ../../../../../home/nxa21353/Code/github/origen_verilog
   specs:
     origen_verilog (0.5.2)
       ast (~> 2)

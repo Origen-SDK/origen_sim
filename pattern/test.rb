@@ -115,7 +115,7 @@ Pattern.create do
       v = 0
       until v >= 1.25
         v += 0.05
-        dut.pin(:vdd).drive!(v)
+        dut.power_pin(:vdd).drive!(v)
       end
       peek("dut.vdd_valid", 1)
       100.cycles
