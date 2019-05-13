@@ -1206,10 +1206,10 @@ module OrigenSim
     # Returns true if the snapshot has been compiled with WREAL support
     def wreal?
       return @wreal if defined?(@wreal)
-      @wreal = !!(dut_version > '0.19.0' &&
-                  snapshot_details.available_details.include?('WREAL_ENABLED') &&
-                  snapshot_details.wreal_enabled == 'true')
+      @wreal = (dut_version > '0.19.0' &&
+                peek("#{testbench_top}.debug.wreal_enabled").to_i == 1)
     end
+    alias_method :wreal_enabled?, :wreal?
 
     private
 

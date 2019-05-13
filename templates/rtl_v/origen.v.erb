@@ -114,11 +114,7 @@ endmodule
 module ana_pin_driver(pin);
   inout pin;
 
-`ifdef __ICARUS__
-  wire real pin;
-`else
   wreal pin;
-`endif
 
   reg drive_en = 0;
   real drive = 0.0;      // Value that will be driven on pin when drive is enabled
@@ -153,11 +149,7 @@ module pin_drivers(<%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>)
 
 `ifdef ORIGEN_WREAL 
 % dut.rtl_pins(type: :analog).each do |name, pin, options|
-`ifdef __ICARUS__
-  wire real <%= pin.id %>_o;
-`else
   wreal <%= pin.id %>_o;
-`endif
 % end
 `endif
 
@@ -199,7 +191,7 @@ endmodule
 module snapshot_details;
   // Add a parameter that lists the available parameters. OrigenSim can use this known parameter to query any others that are
   // added here.
-  parameter _AVAILABLE_DETAILS_ = "ORIGEN_SIM_VERSION,COMPILATION_TIME_STAMP,COMPILATION_PATH,DEVICE_NAME,REVISION,REVISION_NOTE,TESTBENCH_VERSION,AUTHOR,WREAL_ENABLED";
+  parameter _AVAILABLE_DETAILS_ = "ORIGEN_SIM_VERSION,COMPILATION_TIME_STAMP,COMPILATION_PATH,DEVICE_NAME,REVISION,REVISION_NOTE,TESTBENCH_VERSION,AUTHOR";
   
   parameter ORIGEN_SIM_VERSION = "<%= OrigenSim::VERSION %>";
   parameter COMPILATION_TIME_STAMP = "<%= Time.now %>";
@@ -209,11 +201,6 @@ module snapshot_details;
   parameter REVISION_NOTE = "<%= options[:revision_note] || 'No --revision_note specified' %>";
   parameter TESTBENCH_VERSION = "<%= options[:parent_tb_version] || 'No --testbench_version specified' %>";
   parameter AUTHOR = "<%= options[:author] || Origen.current_user.username %>";
-`ifdef ORIGEN_WREAL 
-  parameter WREAL_ENABLED =  "true";
-`else
-  parameter WREAL_ENABLED =  "false";
-`endif
   
   user_details user_details();
 
@@ -243,6 +230,12 @@ module debug;
   reg handshake;
 
   snapshot_details snapshot_details();
+
+`ifdef ORIGEN_WREAL 
+  reg wreal_enabled = 1;
+`else
+  reg wreal_enabled = 0;
+`endif
   
 endmodule
 
@@ -262,11 +255,7 @@ module origen;
 % dut.rtl_pins.each do |name, pin, options|
 %   if pin.type == :analog
 `ifdef ORIGEN_WREAL 
-`ifdef __ICARUS__
-  wire real <%= pin.id %>;
-`else
   wreal <%= pin.id %>;
-`endif
 `else
   wire <%= pin.id %>;
 `endif
