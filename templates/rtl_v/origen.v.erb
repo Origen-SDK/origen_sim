@@ -1,7 +1,17 @@
 %#`include "<%= options[:top] %>"
 
+// To create the big fonts - http://patorjk.com/software/taag/#p=display&f=Big
+
 `timescale 1ns/1ns
 
+//  _____  _       _ _        _   _____ _         _____       _                
+// |  __ \(_)     (_) |      | | |  __ (_)       |  __ \     (_)               
+// | |  | |_  __ _ _| |_ __ _| | | |__) | _ __   | |  | |_ __ ___   _____ _ __ 
+// | |  | | |/ _` | | __/ _` | | |  ___/ | '_ \  | |  | | '__| \ \ / / _ \ '__|
+// | |__| | | (_| | | || (_| | | | |   | | | | | | |__| | |  | |\ V /  __/ |   
+// |_____/|_|\__, |_|\__\__,_|_| |_|   |_|_| |_| |_____/|_|  |_| \_/ \___|_|   
+//            __/ |                                                            
+//           |___/                                                             
 // 0 - Data
 // 1 - Reserved 
 //
@@ -87,21 +97,93 @@ module pin_driver(pin, sync);
 
 endmodule
 
+
+`ifdef ORIGEN_WREAL 
+//                       _               _____ _         _____       _                
+//     /\               | |             |  __ (_)       |  __ \     (_)               
+//    /  \   _ __   __ _| | ___   __ _  | |__) | _ __   | |  | |_ __ ___   _____ _ __ 
+//   / /\ \ | '_ \ / _` | |/ _ \ / _` | |  ___/ | '_ \  | |  | | '__| \ \ / / _ \ '__|
+//  / ____ \| | | | (_| | | (_) | (_| | | |   | | | | | | |__| | |  | |\ V /  __/ |   
+// /_/    \_\_| |_|\__,_|_|\___/ \__, | |_|   |_|_| |_| |_____/|_|  |_| \_/ \___|_|   
+//                                __/ |                                               
+//                               |___/                                                
+
+// A simple WREAL pin driver that can drive real value on a pin or else hi-Z, when the driver is in
+// hi-Z mode the value applied by any other driver connected to the pin can be measured by peeking
+// the value on pin
+module ana_pin_driver(pin);
+  inout pin;
+
+`ifdef __ICARUS__
+  wire real pin;
+`else
+  wreal pin;
+`endif
+
+  reg drive_en = 0;
+  real drive = 0.0;      // Value that will be driven on pin when drive is enabled
+
+  assign pin = drive_en ? drive : `wrealZState;
+endmodule
+`endif
+
+
+//  _____ _             __  __           _       _      
+// |  __ (_)           |  \/  |         | |     | |     
+// | |__) | _ __  ___  | \  / | ___   __| |_   _| | ___ 
+// |  ___/ | '_ \/ __| | |\/| |/ _ \ / _` | | | | |/ _ \
+// | |   | | | | \__ \ | |  | | (_) | (_| | |_| | |  __/
+// |_|   |_|_| |_|___/ |_|  |_|\___/ \__,_|\__,_|_|\___|
+
+// This module groups all pin drivers together and will be instantiated as origen.pins, individual pin
+// drivers are therefore accessible via origen.pins.my_pin_name
 module pin_drivers(<%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>);
 
 % dut.rtl_pins.each do |name, pin, options|
+%   if pin.type == :analog
+`ifdef ORIGEN_WREAL 
+  inout <%= pin.id %>_o;
+`else
   output <%= pin.id %>_o;
+`endif
+%   else
+  output <%= pin.id %>_o;
+%   end
 % end
+
+`ifdef ORIGEN_WREAL 
+% dut.rtl_pins(type: :analog).each do |name, pin, options|
+`ifdef __ICARUS__
+  wire real <%= pin.id %>_o;
+`else
+  wreal <%= pin.id %>_o;
+`endif
+% end
+`endif
 
   reg sync = 0;
 
 % dut.rtl_pins.each do |name, pin, options|
+%   if pin.type == :analog
+`ifdef ORIGEN_WREAL 
+  ana_pin_driver <%= pin.id %>(.pin(<%= pin.id %>_o));
+`else
   pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .sync(sync));
+`endif
+%   else
+  pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .sync(sync));
+%   end
 % end
-
 
 endmodule
 
+//  __  __      _            _       _        
+// |  \/  |    | |          | |     | |       
+// | \  / | ___| |_ __ _  __| | __ _| |_ __ _ 
+// | |\/| |/ _ \ __/ _` |/ _` |/ _` | __/ _` |
+// | |  | |  __/ || (_| | (_| | (_| | || (_| |
+// |_|  |_|\___|\__\__,_|\__,_|\__,_|\__\__,_|
+                                            
 // Placeholder for user notes. This will be an empty module if no notes were given
 module user_details;
   parameter _AVAILABLE_DETAILS_ = "<%= options[:user_details].empty? ? "" : options[:user_details].keys.join(',') %>";
@@ -117,7 +199,7 @@ endmodule
 module snapshot_details;
   // Add a parameter that lists the available parameters. OrigenSim can use this known parameter to query any others that are
   // added here.
-  parameter _AVAILABLE_DETAILS_ = "ORIGEN_SIM_VERSION,COMPILATION_TIME_STAMP,COMPILATION_PATH,DEVICE_NAME,REVISION,REVISION_NOTE,TESTBENCH_VERSION,AUTHOR";
+  parameter _AVAILABLE_DETAILS_ = "ORIGEN_SIM_VERSION,COMPILATION_TIME_STAMP,COMPILATION_PATH,DEVICE_NAME,REVISION,REVISION_NOTE,TESTBENCH_VERSION,AUTHOR,WREAL_ENABLED";
   
   parameter ORIGEN_SIM_VERSION = "<%= OrigenSim::VERSION %>";
   parameter COMPILATION_TIME_STAMP = "<%= Time.now %>";
@@ -127,11 +209,27 @@ module snapshot_details;
   parameter REVISION_NOTE = "<%= options[:revision_note] || 'No --revision_note specified' %>";
   parameter TESTBENCH_VERSION = "<%= options[:parent_tb_version] || 'No --testbench_version specified' %>";
   parameter AUTHOR = "<%= options[:author] || Origen.current_user.username %>";
+`ifdef ORIGEN_WREAL 
+  parameter WREAL_ENABLED =  "true";
+`else
+  parameter WREAL_ENABLED =  "false";
+`endif
   
   user_details user_details();
 
 endmodule
 
+//  _____       _                 
+// |  __ \     | |                
+// | |  | | ___| |__  _   _  __ _ 
+// | |  | |/ _ \ '_ \| | | |/ _` |
+// | |__| |  __/ |_) | |_| | (_| |
+// |_____/ \___|_.__/ \__,_|\__, |
+//                           __/ |
+//                          |___/ 
+
+// Instantiated as origen.debug, this module contains the error count, current pattern name and comments,
+// metadata associated with the snapshot build, and other debug information
 module debug;
   reg [31:0] errors = 0;
   reg [15:0] marker = 0;
@@ -148,12 +246,33 @@ module debug;
   
 endmodule
 
+//  _______                _                    _   _______ ____  
+// |__   __|              | |                  | | |__   __|  _ \ 
+//    | | ___  _ __ ______| |     _____   _____| |    | |  | |_) |
+//    | |/ _ \| '_ \______| |    / _ \ \ / / _ \ |    | |  |  _ < 
+//    | | (_) | |_) |     | |___|  __/\ V /  __/ |    | |  | |_) |
+//    |_|\___/| .__/      |______\___| \_/ \___|_|    |_|  |____/ 
+//            | |                                                 
+//            |_|                                                 
+
 module origen;
 
   reg finish = 0;
 
 % dut.rtl_pins.each do |name, pin, options|
+%   if pin.type == :analog
+`ifdef ORIGEN_WREAL 
+`ifdef __ICARUS__
+  wire real <%= pin.id %>;
+`else
+  wreal <%= pin.id %>;
+`endif
+`else
   wire <%= pin.id %>;
+`endif
+%   else
+  wire <%= pin.id %>;
+%   end
 % end
 
   pin_drivers pins (

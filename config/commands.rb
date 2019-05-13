@@ -17,7 +17,9 @@ case @command
 # in here or you can require an external file if preferred.
 when "sim:build_example"
   Dir.chdir(Origen.root) do
-    output = `origen sim:build  #{Origen.app.remotes_dir}/example_rtl/dut1/dut1.v`
+    cmd = "origen sim:build  #{Origen.app.remotes_dir}/example_rtl/dut1/dut1.v"
+    cmd += ' ' + ARGV.join(' ') unless ARGV.empty?
+    output = `#{cmd}`
     puts output
     Origen.load_target
     dir = "simulation/default/#{tester.simulator.config[:vendor]}"

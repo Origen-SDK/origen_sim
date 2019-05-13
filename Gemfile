@@ -15,7 +15,7 @@ gem 'origen_jtag', '~>0.20'
 #gem "origen", git: "https://github.com/Origen-SDK/origen.git", branch: "sim_hooks"
 #gem "origen", git: "https://github.com/Origen-SDK/origen.git"
 #gem "origen_testers", path: "~/Code/github/origen_testers"
-#gem "origen_verilog", path: "~/Code/github/origen_verilog"
+gem "origen_verilog", path: "~/Code/github/origen_verilog"
 
 # Specify your gem's runtime dependencies in origen_sim.gemspec
 # THIS LINE SHOULD BE LEFT AT THE END

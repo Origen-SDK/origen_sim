@@ -778,7 +778,7 @@ module OrigenSim
     # set up internal handles to efficiently access them
     def define_pins
       @pins_by_rtl_name = {}
-      dut.rtl_pins.each_with_index do |(name, pin), i|
+      dut.rtl_pins(type: :digital).each_with_index do |(name, pin), i|
         @pins_by_rtl_name[pin.rtl_name] = pin
         pin.simulation_index = i
         put("0^#{pin.rtl_name}^#{i}^#{pin.drive_wave.index}^#{pin.compare_wave.index}")
@@ -865,6 +865,7 @@ module OrigenSim
 
     def error(message)
       simulation.logged_errors = true
+      poke "#{testbench_top}.debug.errors", error_count + 1
       log message, :error
     end
 
@@ -877,37 +878,51 @@ module OrigenSim
     # resolve to a valid node
     #
     # The value is returned as an instance of Origen::Value
-    def peek(net)
-      # The Verilog spec does not specify that underlying VPI put method should
-      # handle a part select, so some simulators do not handle it. Therefore we
-      # deal with it here to ensure cross simulator compatibility.
-
-      # http://rubular.com/r/eTVGzrYmXQ
-      if net =~ /(.*)\[(\d+):?(\.\.)?(\d*)\]$/
-        net = Regexp.last_match(1)
-        msb = Regexp.last_match(2).to_i
-        lsb = Regexp.last_match(4)
-        lsb = lsb.empty? ? nil : lsb.to_i
-      end
-
+    def peek(net, real = false)
       sync_up
-      put("9^#{clean(net)}")
-      m = get.strip
-
-      if m == 'FAIL'
-        return nil
-      else
-        if msb
-          # Setting a range of bits
-          if lsb
-            Origen::Value.new('b' + m[(m.size - 1 - msb)..(m.size - 1 - lsb)])
-          else
-            Origen::Value.new('b' + m[m.size - 1 - msb])
-          end
+      if real
+        put("9^#{clean(net)}^f")
+        m = get.strip
+        if m == 'FAIL'
+          return nil
         else
-          Origen::Value.new('b' + m)
+          m.to_f
+        end
+      else
+        # The Verilog spec does not specify that underlying VPI put method should
+        # handle a part select, so some simulators do not handle it. Therefore we
+        # deal with it here to ensure cross simulator compatibility.
+
+        # http://rubular.com/r/eTVGzrYmXQ
+        if net =~ /(.*)\[(\d+):?(\.\.)?(\d*)\]$/
+          net = Regexp.last_match(1)
+          msb = Regexp.last_match(2).to_i
+          lsb = Regexp.last_match(4)
+          lsb = lsb.empty? ? nil : lsb.to_i
+        end
+
+        put("9^#{clean(net)}^i")
+        m = get.strip
+
+        if m == 'FAIL'
+          return nil
+        else
+          if msb
+            # Setting a range of bits
+            if lsb
+              Origen::Value.new('b' + m[(m.size - 1 - msb)..(m.size - 1 - lsb)])
+            else
+              Origen::Value.new('b' + m[m.size - 1 - msb])
+            end
+          else
+            Origen::Value.new('b' + m)
+          end
         end
       end
+    end
+
+    def peek_real(net)
+      peek(net, true)
     end
 
     # Forces the given value to the given net.
@@ -915,49 +930,66 @@ module OrigenSim
     # net is supplied. The user should follow up with a peek if they want to verify that
     # the poke was applied.
     def poke(net, value)
-      # The Verilog spec does not specify that underlying VPI put method should
-      # handle a part select, so some simulators do not handle it. Therefore we
-      # deal with it here to ensure cross simulator compatibility.
-
-      # http://rubular.com/r/eTVGzrYmXQ
-      if !config[:vendor] == :synopsys && net =~ /(.*)\[(\d+):?(\.\.)?(\d*)\]$/
-        path = Regexp.last_match(1)
-        msb = Regexp.last_match(2).to_i
-        lsb = Regexp.last_match(4)
-        lsb = lsb.empty? ? nil : lsb.to_i
-
-        v = peek(path)
-        return nil unless v
-        # Setting a range of bits
-        if lsb
-          upper = v >> (msb + 1)
-          # Make sure value does not overflow
-          value = value[(msb - lsb)..0]
-          if lsb == 0
-            value = (upper << (msb + 1)) | value
-          else
-            lower = v[(lsb - 1)..0]
-            value = (upper << (msb + 1)) |
-                    (value << lsb) | lower
-          end
-
-        # Setting a single bit
-        else
-          if msb == 0
-            upper = v >> 1
-            value = (upper << 1) | value[0]
-          else
-            lower = v[(msb - 1)..0]
-            upper = v >> (msb + 1)
-            value = (upper << (msb + 1)) |
-                    (value[0] << msb) | lower
-          end
-        end
-        net = path
-      end
-
       sync_up
-      put("b^#{clean(net)}^#{value}")
+      if value.is_a?(Integer)
+        # The Verilog spec does not specify that underlying VPI put method should
+        # handle a part select, so some simulators do not handle it. Therefore we
+        # deal with it here to ensure cross simulator compatibility.
+
+        # http://rubular.com/r/eTVGzrYmXQ
+        if !config[:vendor] == :synopsys && net =~ /(.*)\[(\d+):?(\.\.)?(\d*)\]$/
+          path = Regexp.last_match(1)
+          msb = Regexp.last_match(2).to_i
+          lsb = Regexp.last_match(4)
+          lsb = lsb.empty? ? nil : lsb.to_i
+
+          v = peek(path)
+          return nil unless v
+          # Setting a range of bits
+          if lsb
+            upper = v >> (msb + 1)
+            # Make sure value does not overflow
+            value = value[(msb - lsb)..0]
+            if lsb == 0
+              value = (upper << (msb + 1)) | value
+            else
+              lower = v[(lsb - 1)..0]
+              value = (upper << (msb + 1)) |
+                      (value << lsb) | lower
+            end
+
+          # Setting a single bit
+          else
+            if msb == 0
+              upper = v >> 1
+              value = (upper << 1) | value[0]
+            else
+              lower = v[(msb - 1)..0]
+              upper = v >> (msb + 1)
+              value = (upper << (msb + 1)) |
+                      (value[0] << msb) | lower
+            end
+          end
+          net = path
+        end
+        put("b^#{clean(net)}^i^#{value}")
+      else
+        put("b^#{clean(net)}^f^#{value}")
+      end
+    end
+
+    def force(net, value)
+      sync_up
+      if value.is_a?(Integer)
+        put("r^#{clean(net)}^i^#{value}")
+      else
+        put("r^#{clean(net)}^f^#{value}")
+      end
+    end
+
+    def release(net)
+      sync_up
+      put("s^#{clean(net)}")
     end
 
     def interactive_shutdown
@@ -1124,17 +1156,13 @@ module OrigenSim
     end
 
     def peek_str(signal)
-      val = tester.simulator.peek(signal)
+      val = peek(signal)
       unless val.nil?
-        puts val
-        puts val.class
         # All zeros seems to be what an empty string is returned from the VPI,
         # Otherwise, break the string up into 8-bit chunks and decode the ASCII>
         val = (val.to_s == 'b00000000' ? '' : val.to_s[1..-1].scan(/.{1,8}/).collect { |char| char.to_i(2).chr }.join)
       end
       val
-      # puts "Peaking #{signal}: #{a}: #{a.class}"
-      # tester.simulator.peek(signal).to_s[1..-1].scan(/.{1,8}/).collect { |char| char.to_i(2).chr }.join
     end
     alias_method :str_peek, :peek_str
     alias_method :peek_string, :peek_str
@@ -1173,6 +1201,14 @@ module OrigenSim
     def cycle_count
       put('o^')
       get.strip.to_i
+    end
+
+    # Returns true if the snapshot has been compiled with WREAL support
+    def wreal?
+      return @wreal if defined?(@wreal)
+      @wreal = !!(dut_version > '0.19.0' &&
+                  snapshot_details.available_details.include?('WREAL_ENABLED') &&
+                  snapshot_details.wreal_enabled == 'true')
     end
 
     private

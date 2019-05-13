@@ -409,6 +409,31 @@ module OrigenSim
       @read_reg_meta_supplied = val
     end
 
+    # Shorthand for simulator.poke
+    def poke(*args)
+      simulator.poke(*args)
+    end
+
+    # Shorthand for simulator.peek
+    def peek(*args)
+      simulator.peek(*args)
+    end
+
+    # Shorthand for simulator.peek_real
+    def peek_real(*args)
+      simulator.peek_real(*args)
+    end
+
+    # Shorthand for simulator.force
+    def force(*args)
+      simulator.force(*args)
+    end
+
+    # Shorthand for simulator.release
+    def release(*args)
+      simulator.release(*args)
+    end
+
     private
 
     def flush_comments

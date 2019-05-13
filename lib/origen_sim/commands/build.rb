@@ -5,6 +5,12 @@ require 'origen_verilog'
 
 options = { incl_files: [], source_dirs: [], testbench_name: 'origen', defines: [], user_details: {}, initial_pin_states: {}, verilog_top_output_name: 'origen' }
 
+# Allow -ams and --ams since most vendor tools work with -ams
+if ARGV.include?('-ams')
+  ARGV.delete('-ams')
+  ARGV << '--ams'
+end
+
 # App options are options that the application can supply to extend this command
 app_options = @application_options || []
 opt_parser = OptionParser.new do |opts|
@@ -23,6 +29,7 @@ Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
     options[:source_dirs] << path
   end
   opts.on('--sv', 'Generate a .sv file instead of a .v file.') { |t| options[:sv] = t }
+  opts.on('--ams', 'Enable Analog Mixed-Signal support (varies by simulator)') { |t| options[:ams] = t }
   opts.on('--verilog_top_output_name NAME', 'Renames the output filename from origen.v to NAME.v') do |name|
     options[:verilog_top_output_name] = name
   end
@@ -172,11 +179,15 @@ else
   puts '  -elaborate  \\'
   puts '  -snapshot origen \\'
   puts '  -access +rw \\'
+  if options[:ams]
+    puts '  +define+ORIGEN_WREAL \\'
+    puts '  -ams \\'
+  end
   puts '  -timescale 1ns/1ns'
   puts
   puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
   puts
-  puts "  #{ENV['ORIGEN_SIM_IRUN'] || 'irun'} #{rtl_top} #{output_directory}/#{output_name} #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
+  puts "  #{ENV['ORIGEN_SIM_IRUN'] || 'irun'} #{rtl_top} #{output_directory}/#{output_name} #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw#{options[:ams] ? ' +define+ORIGEN_WREAL -ams' : ''} -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
   puts
   puts 'Copy the following directory (produced by irun) to simulation/<target>/cadence/. within your Origen application:'
   puts
