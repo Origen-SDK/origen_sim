@@ -18,10 +18,14 @@ case @command
 when "sim:build_example"
   Dir.chdir(Origen.root) do
     cmd = "origen sim:build  #{Origen.app.remotes_dir}/example_rtl/dut1/dut1.v"
-    cmd += ' ' + ARGV.join(' ') unless ARGV.empty?
-    if ARGV.include?('-ams') || ARGV.include?('--ams')
-      cmd += '  --define ORIGEN_WREAL'
+    if ARGV.include?('-e') || ARGV.include?('--environment')
+      index = ARGV.index('-e') || ARGV.index('--environment')
+      ARGV.delete_at(index)
+      Origen.environment.temporary = ARGV.delete_at(index)
     end
+    cmd += ' ' + ARGV.join(' ') unless ARGV.empty?
+    # Enable wreal pins in the DUT RTL
+    cmd += '  --define ORIGEN_WREAL' if ARGV.include?('--wreal')
     output = `#{cmd}`
     puts output
     Origen.load_target
@@ -43,7 +47,11 @@ when "sim:build_example"
       FileUtils.mv "INCA_libs", "simulation/default/cadence"
 
     when :synopsys
-      output =~ /\n(.*vcs .*)\n/
+      if tester.simulator.config[:verdi]
+        output =~ /\n(.*vcs .*ORIGEN_FSDB.*)\n/
+      else
+        output =~ /\n(.*vcs .*ORIGEN_VPD.*)\n/
+      end
       system $1
       FileUtils.mv "simv", "simulation/default/synopsys"
       FileUtils.mv "simv.daidir", "simulation/default/synopsys"

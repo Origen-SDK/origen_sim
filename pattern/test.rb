@@ -12,14 +12,14 @@ Pattern.create do
     if actual
       if expected.is_a?(Integer)
         actual = actual.to_i
-        actual_str = actual.to_hex
+        actual_str = actual.try(:to_hex) || 'nil'
         expected_str = expected.to_hex
       else
-        actual_str = actual.to_s
+        actual_str = actual ? actual.to_s : 'nil'
         expected_str = expected.to_s
       end
       unless actual == expected
-        OrigenSim.error "Expected to peek #{actual_str} from #{net}, got #{expected_str}!"
+        OrigenSim.error "Expected to peek #{expected_str} from #{net}, got #{actual_str}!"
       end
     else
       OrigenSim.error "Nothing returned from peek of #{net}!"
@@ -86,6 +86,18 @@ Pattern.create do
     tester.poke("dut.real_val", 1.25)
     10.cycles
 
+    ss "Verify that the memory can be accessed"
+    dut.mem(0x8000_0010).write!(0x1234_5678)
+    dut.mem(0x8000_0010).read!(0x1234_5678)
+
+    ss "Test poking a memory"
+    tester.poke("dut.ram[120]", 0x1111_2222)
+    dut.mem(0x8000_0078).read!(0x1111_2222)
+
+    #ss "Test peeking a memory"
+    #peek("dut.ram[16]", 0x1234_5678)
+    #peek("dut.ram[120]", 0x1111_2222)
+
     # Peek (or force?) a real value not working on Icarus
     unless tester.simulator.config[:vendor] == :icarus
       ss "Test peeking a real value"
@@ -111,8 +123,9 @@ Pattern.create do
 
     if tester.simulator.wreal?
       ss "Test analog pin API by ramping dut.vdd"
-      peek("dut.vdd_valid", 0)
       v = 0
+      dut.power_pin(:vdd).drive!(v)
+      peek("dut.vdd_valid", 0)
       until v >= 1.25
         v += 0.05
         dut.power_pin(:vdd).drive!(v)

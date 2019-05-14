@@ -428,8 +428,8 @@ module OrigenSim
         edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
         cmd = "cd #{edir} && "
         if configuration[:verdi]
-          unless ENV['VCS_HOME'] && ENV['LD_LIBRARY_PATH']
-            puts 'Please make sure the VCS_HOME and LD_LIBRARY PATH are setup correctly before using Verdi'
+          unless ENV['VCS_HOME']
+            Origen.log.warning "Your environment doesn't define VCS_HOME, you will probably need that to run Verdi"
           end
           edir = Pathname.new(wave_config_dir).relative_path_from(Pathname.pwd)
           cmd = "cd #{edir} && "

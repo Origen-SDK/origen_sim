@@ -3,20 +3,33 @@
 /// this extension into the simulation
 ///
 #include "origen.h"
+#include "defines.h"
 #include "bridge.h"
 #include "client.h"
 #include <string.h>
 
 static void register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data));
+
+// When true, Origen will be initialized by calling the $origen_init task from the testbench,
+// otherwise it will be initialized through VPI's startup routine registrations system
+#ifdef ORIGEN_VCS
+PLI_INT32 origen_init(PLI_BYTE8 * user_dat) {
+  register_callback(cbEndOfSimulation, origen_shutdown);
+  return origen_startup(user_dat);
+}
+#else
 static void init(void);
 
 static void init() {
   register_callback(cbStartOfSimulation, origen_startup);
-
   register_callback(cbEndOfSimulation, origen_shutdown);
-
   bridge_register_system_tasks();
 }
+
+void (*vlog_startup_routines[])(void) = { init, 0 };
+#endif
+
+
 
 
 /// Returns the value of the given argument, or NULL if not supplied.
@@ -87,15 +100,6 @@ PLI_INT32 origen_shutdown(p_cb_data data) {
   return 0;
 }
 
-/// Function to call the init PLI's init function
-/// Some toolchains will call this automatically, some will not
-/// Available here for those which do not automatically call init() for each PLI 
-PLI_INT32 bootstrap(p_cb_data data) {
-  vpi_printf("Origen Bootstrap Called!\n");
-  init();
-  return 0;
-}
-
 ///
 /// Registers a very basic VPI callback with reason and handler.
 ///
@@ -112,9 +116,3 @@ static void register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data
 
     vpi_free_object(vpi_register_cb(&call));
 }
-
-
-///
-/// Bootstrap vector, make the simulator execute init() on startup
-///
-void (*vlog_startup_routines[])(void) = { init, 0 };
