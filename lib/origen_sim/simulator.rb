@@ -880,16 +880,28 @@ module OrigenSim
     # The value is returned as an instance of Origen::Value
     def peek(net, real = false)
       sync_up
-      if real
-        put("9^#{clean(net)}^f")
-        m = get.strip
-        if m == 'FAIL'
-          return nil
+      if dut_version > '0.19.0'
+        if real
+          put("9^#{clean(net)}^f")
+          m = get.strip
+          if m == 'FAIL'
+            return nil
+          else
+            m.to_f
+          end
         else
-          m.to_f
+          put("9^#{clean(net)}^i")
+          m = get.strip
+
+          if m == 'FAIL'
+            Origen.log.warning "Peek of net #{net} failed to return any data!"
+            return nil
+          else
+            Origen::Value.new('b' + m)
+          end
         end
       else
-        put("9^#{clean(net)}^i")
+        put("9^#{clean(net)}")
         m = get.strip
 
         if m == 'FAIL'
@@ -911,25 +923,37 @@ module OrigenSim
     # the poke was applied.
     def poke(net, value)
       sync_up
-      if value.is_a?(Integer)
-        put("b^#{clean(net)}^i^#{value}")
+      if dut_version > '0.19.0'
+        if value.is_a?(Integer)
+          put("b^#{clean(net)}^i^#{value}")
+        else
+          put("b^#{clean(net)}^f^#{value}")
+        end
       else
-        put("b^#{clean(net)}^f^#{value}")
+        put("b^#{clean(net)}^#{value}")
       end
     end
 
     def force(net, value)
       sync_up
-      if value.is_a?(Integer)
-        put("r^#{clean(net)}^i^#{value}")
+      if dut_version > '0.19.0'
+        if value.is_a?(Integer)
+          put("r^#{clean(net)}^i^#{value}")
+        else
+          put("r^#{clean(net)}^f^#{value}")
+        end
       else
-        put("r^#{clean(net)}^f^#{value}")
+        OrigenSim.error 'Your DUT needs to be recompiled with OrigenSim >= 0.20.0 to support forcing, force not applied!'
       end
     end
 
     def release(net)
       sync_up
-      put("s^#{clean(net)}")
+      if dut_version > '0.19.0'
+        put("s^#{clean(net)}")
+      else
+        OrigenSim.error 'Your DUT needs to be recompiled with OrigenSim >= 0.20.0 to support releasing, force not released!'
+      end
     end
 
     def interactive_shutdown

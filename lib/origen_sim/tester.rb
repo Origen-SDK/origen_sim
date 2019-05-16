@@ -301,6 +301,7 @@ module OrigenSim
               if diffs.empty?
                 if @read_reg_meta_supplied
                   Origen.log.warning 'It looks like the miscompare(s) occurred on pins/cycles that are not associated with register data'
+                  non_data_miscompare = true
                 else
                   Origen.log.warning 'It looks like your current read register driver does not provide the necessary meta-data to map these errors to an actual register value'
                 end
@@ -362,7 +363,7 @@ module OrigenSim
                 end
               else
                 # This means that the correct data was read, but errors occurred on other pins/cycles during the transaction
-                msg += " received #{expected}" if @read_reg_meta_supplied
+                msg += " received #{expected}" if non_data_miscompare
                 Origen.log.error msg
               end
             end
@@ -391,7 +392,7 @@ module OrigenSim
               end
             else
               # This means that the correct data was read, but errors occurred on other pins/cycles during the transaction
-              msg += " received #{reg_or_val.to_s(16).upcase}" if @read_reg_meta_supplied
+              msg += " received #{reg_or_val.to_s(16).upcase}" if non_data_miscompare
             end
             Origen.log.error msg
           end
