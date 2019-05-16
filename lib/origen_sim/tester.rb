@@ -293,7 +293,7 @@ module OrigenSim
                 if c = read_reg_cycles[error[:cycle]]
                   if p = c[simulator.pins_by_rtl_name[error[:pin_name]]]
                     if p[:position]
-                      diffs << [p[:position], error[:recieved], error[:expected]]
+                      diffs << [p[:position], error[:received], error[:expected]]
                     end
                   end
                 end
@@ -323,7 +323,11 @@ module OrigenSim
                 end
 
                 diffs.each do |position, received, expected|
-                  reg_or_val[position].data = received
+                  if received == -1
+                    reg_or_val[position].unknown = true
+                  else
+                    reg_or_val[position].data = received
+                  end
                 end
 
                 actual = bit_names.map do |name|
@@ -357,6 +361,7 @@ module OrigenSim
                   Origen.log.error msg
                 end
               else
+                # This means that the correct data was read, but errors occurred on other pins/cycles during the transaction
                 msg += " received #{expected}" if @read_reg_meta_supplied
                 Origen.log.error msg
               end
@@ -367,7 +372,10 @@ module OrigenSim
             if actual_data_available
               actual = reg_or_val
               diffs.each do |position, received, expected|
-                if received == 1
+                if received == -1
+                  actual = '?' * reg_or_val.to_s(16).size
+                  break
+                elsif received == 1
                   actual |= (1 << position)
                 else
                   lower = actual[(position - 1)..0]
@@ -376,8 +384,13 @@ module OrigenSim
                   actual |= lower
                 end
               end
-              msg += " received #{actual.to_s(16).upcase}"
+              if actual.is_a?(String)
+                msg += " received #{actual}"
+              else
+                msg += " received #{actual.to_s(16).upcase}"
+              end
             else
+              # This means that the correct data was read, but errors occurred on other pins/cycles during the transaction
               msg += " received #{reg_or_val.to_s(16).upcase}" if @read_reg_meta_supplied
             end
             Origen.log.error msg

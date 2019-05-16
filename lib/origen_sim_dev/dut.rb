@@ -75,6 +75,15 @@ module OrigenSimDev
         reg.bits 2..0, :b6
       end
 
+      add_reg :ana_test, 0x1C do |reg|
+        reg.bit 0, :vdd_valid, access: :ro
+        reg.bit 1, :bgap_out
+        reg.bit 2, :osc_out
+        reg.bit 3, :vdd_div4
+      end
+
+      add_reg :x_reg, 0x20
+
       sub_block :ip1, class_name: 'IP'
       sub_block :ip2, class_name: 'IP'
     end
@@ -84,6 +93,10 @@ module OrigenSimDev
         tester.start
         startup
       end
+    end
+
+    def simulation_startup
+      power_pin(:vdd).drive(0)
     end
 
     def startup(options = {})
@@ -157,6 +170,7 @@ module OrigenSimDev
             jtag.read_dr(dr)
           end
         end
+        reg.clear_flags
       end
     end
   end

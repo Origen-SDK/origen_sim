@@ -889,34 +889,14 @@ module OrigenSim
           m.to_f
         end
       else
-        # The Verilog spec does not specify that underlying VPI put method should
-        # handle a part select, so some simulators do not handle it. Therefore we
-        # deal with it here to ensure cross simulator compatibility.
-
-        # http://rubular.com/r/eTVGzrYmXQ
-        if net =~ /(.*)\[(\d+):?(\.\.)?(\d*)\]$/
-          net = Regexp.last_match(1)
-          msb = Regexp.last_match(2).to_i
-          lsb = Regexp.last_match(4)
-          lsb = lsb.empty? ? nil : lsb.to_i
-        end
-
         put("9^#{clean(net)}^i")
         m = get.strip
 
         if m == 'FAIL'
+          Origen.log.warning "Peek of net #{net} failed to return any data!"
           return nil
         else
-          if msb
-            # Setting a range of bits
-            if lsb
-              Origen::Value.new('b' + m[(m.size - 1 - msb)..(m.size - 1 - lsb)])
-            else
-              Origen::Value.new('b' + m[m.size - 1 - msb])
-            end
-          else
-            Origen::Value.new('b' + m)
-          end
+          Origen::Value.new('b' + m)
         end
       end
     end
@@ -932,46 +912,6 @@ module OrigenSim
     def poke(net, value)
       sync_up
       if value.is_a?(Integer)
-        # The Verilog spec does not specify that underlying VPI put method should
-        # handle a part select, so some simulators do not handle it. Therefore we
-        # deal with it here to ensure cross simulator compatibility.
-
-        # http://rubular.com/r/eTVGzrYmXQ
-        if !config[:vendor] == :synopsys && net =~ /(.*)\[(\d+):?(\.\.)?(\d*)\]$/
-          path = Regexp.last_match(1)
-          msb = Regexp.last_match(2).to_i
-          lsb = Regexp.last_match(4)
-          lsb = lsb.empty? ? nil : lsb.to_i
-
-          v = peek(path)
-          return nil unless v
-          # Setting a range of bits
-          if lsb
-            upper = v >> (msb + 1)
-            # Make sure value does not overflow
-            value = value[(msb - lsb)..0]
-            if lsb == 0
-              value = (upper << (msb + 1)) | value
-            else
-              lower = v[(lsb - 1)..0]
-              value = (upper << (msb + 1)) |
-                      (value << lsb) | lower
-            end
-
-          # Setting a single bit
-          else
-            if msb == 0
-              upper = v >> 1
-              value = (upper << 1) | value[0]
-            else
-              lower = v[(msb - 1)..0]
-              upper = v >> (msb + 1)
-              value = (upper << (msb + 1)) |
-                      (value[0] << msb) | lower
-            end
-          end
-          net = path
-        end
         put("b^#{clean(net)}^i^#{value}")
       else
         put("b^#{clean(net)}^f^#{value}")
@@ -1189,8 +1129,8 @@ module OrigenSim
         errors = []
         error_count.times do |i|
           data = get  # => "tdo,648,1,0\n"
-          pin_name, cycle, expected, recieved = *(data.strip.split(','))
-          errors << { pin_name: pin_name, cycle: cycle.to_i, expected: expected.to_i, recieved: recieved.to_i }
+          pin_name, cycle, expected, received = *(data.strip.split(','))
+          errors << { pin_name: pin_name, cycle: cycle.to_i, expected: expected.to_i, received: received.to_i }
         end
         [true, error_count > max_errors, errors]
       end

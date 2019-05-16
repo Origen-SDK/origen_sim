@@ -87,16 +87,20 @@ Pattern.create do
     10.cycles
 
     ss "Verify that the memory can be accessed"
-    dut.mem(0x8000_0010).write!(0x1234_5678)
-    dut.mem(0x8000_0010).read!(0x1234_5678)
+    dut.mem(0x1000_0000).write!(0x1234_5678)
+    dut.mem(0x1000_0000).read!(0x1234_5678)
 
     ss "Test poking a memory"
-    tester.poke("dut.ram[120]", 0x1111_2222)
-    dut.mem(0x8000_0078).read!(0x1111_2222)
+    tester.poke("dut.mem[1]", 0x1111_2222)
+    dut.mem(0x1000_0004).read!(0x1111_2222)
 
-    #ss "Test peeking a memory"
-    #peek("dut.ram[16]", 0x1234_5678)
-    #peek("dut.ram[120]", 0x1111_2222)
+    ss "Test peeking a memory"
+    tester.poke("dut.mem[2]", 0x1111_2222)
+    peek("dut.mem[2]", 0x1111_2222)
+
+    ss "Test peeking and poking a wide memory"
+    tester.poke("dut.wide_mem[2]", 0x1FF_1111_2222_3333_4444_5555_6666_7777_8888)
+    peek("dut.wide_mem[2]", 0x1FF_1111_2222_3333_4444_5555_6666_7777_8888)
 
     # Peek (or force?) a real value not working on Icarus
     unless tester.simulator.config[:vendor] == :icarus
@@ -125,19 +129,31 @@ Pattern.create do
       ss "Test analog pin API by ramping dut.vdd"
       v = 0
       dut.power_pin(:vdd).drive!(v)
-      peek("dut.vdd_valid", 0)
+      dut.ana_test.vdd_valid.read!(0)
       until v >= 1.25
         v += 0.05
         dut.power_pin(:vdd).drive!(v)
       end
-      peek("dut.vdd_valid", 1)
+      dut.ana_test.vdd_valid.read!(1)
       100.cycles
 
       ss "Test analog pin measure API"
+      dut.ana_test.vdd_div4.write!(1)
       measured = dut.pin(:ana).measure
       if measured != 0.3125
         OrigenSim.error "Expected to measure 0.3125V from the ana pin, got #{measured}V!"
       end
+
+      ss "Test the different analog mux functions"
+      dut.ana_test.write(0)
+      dut.ana_test.vdd_div4.write!(1)
+      1000.cycles
+      dut.ana_test.write(0)
+      dut.ana_test.bgap_out.write!(1)
+      1000.cycles
+      dut.ana_test.write(0)
+      dut.ana_test.osc_out.write!(1)
+      1000.cycles
     end
   end
 
@@ -166,6 +182,9 @@ Pattern.create do
     unless dut.parallel_read.data == 0x7707_7077
       OrigenSim.error "PARALLEL_READ register did not sync from simulation"
     end
+
+    #ss "Test reading an X register value"
+    #dut.x_reg.read!(0)
   end
 
   ss "Do some operations with the counter, just for fun"
