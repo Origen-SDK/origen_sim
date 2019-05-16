@@ -196,12 +196,12 @@ else
   CADENCE_SWITCHES = %W(
     #{output_directory}/#{output_name}
     #{output_directory}/*.c
-    -ccargs "-std=c99"
-    -top origen
+    -ccargs\ "-std=c99"
+    -top\ origen
     -elaborate
-    -snapshot origen
-    -access +rw
-    -timescale 1ns/1ns
+    -snapshot\ origen
+    -access\ +rw
+    -timescale\ 1ns/1ns
   )
 
   if options[:wreal]

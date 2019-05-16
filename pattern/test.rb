@@ -102,7 +102,9 @@ Pattern.create do
     tester.poke("dut.wide_mem[2]", 0x1FF_1111_2222_3333_4444_5555_6666_7777_8888)
     peek("dut.wide_mem[2]", 0x1FF_1111_2222_3333_4444_5555_6666_7777_8888)
 
-    # Peek (or force?) a real value not working on Icarus
+    # Peek (or force?) a real value not working on Icarus, can't get it to work but not
+    # spending much time on it since this is mainly useful in a WREAL simulation and other
+    # things don't work that are blocking that anyway
     unless tester.simulator.config[:vendor] == :icarus
       ss "Test peeking a real value"
       peek("dut.real_val", 1.25)

@@ -38,9 +38,9 @@ module OrigenSim
       end
       @sync_pins.map do |pin|
         if @sync_cycles.size == 1
-          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory[0]")
+          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory")[0]
         else
-          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory[#{@sync_cycles - 1}:0]")
+          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory").to_i[(@sync_cycles - 1)..0]
         end
       end
     end
