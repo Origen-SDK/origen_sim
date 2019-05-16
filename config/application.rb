@@ -54,7 +54,6 @@ class OrigenSimApplication < Origen::Application
       version: "master",
       development: true,
       #path: "/home/stephen/Code/github/example_rtl"
-      path: "/home/nxa21353/Code/github/example_rtl"
     }
   ]
 
