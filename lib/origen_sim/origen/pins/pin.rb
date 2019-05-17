@@ -59,7 +59,7 @@ module Origen
       def drive(*args)
         if _analog_pin_? && simulation_running? && tester.simulator.wreal?
           tester.poke("#{driver_net}.drive_en", 1)
-          tester.force("#{driver_net}.drive", args.first + 0.0)
+          tester.poke("#{driver_net}.drive", args.first + 0.0)
         else
           _orig_drive(*args)
         end
