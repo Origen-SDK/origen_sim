@@ -142,7 +142,7 @@ Here is an example using the predecessor of the supported Cadence tool <code>iru
 OrigenSim.generic do |sim|
   sim.testbench_top 'na_origen'
   sim.generic_run_cmd do |s|
-    "ncsim na_origen -loadpli origen.so:bootstrap +socket+#{s.socket_id}"
+    "ncsim na_origen -loadpli origen.so:origen_init +socket+#{s.socket_id}"
   end
 end
 ~~~
