@@ -96,7 +96,7 @@ candidates = ast.top_level_modules
 candidates = ast.modules if candidates.empty?
 
 if candidates.size == 0
-  puts "Sorry, couldn't find any Verilog module declarations in that file"
+  puts "Sorry, couldn't find any Verilog module declarations in that file (this could be due to a parse error)"
   _exit_fail_
 elsif candidates.size > 1
   if options[:top_level_name]
