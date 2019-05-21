@@ -106,7 +106,7 @@ dut.pin(:ana).read     # => 0.7
 dut.pin(:ana).measure  # => 0.7
 ~~~
 
-The `peek`, `poke` and `force` methods from [the Simulation Only API](<%= path "guides/simulation/api" %>) are
+The `peek`, `poke` and `force` methods from [the Direct DUT Manipulation APIs](<%= path "guides/simulation/direct" %>) are
 also available to manipulate real valued nets during simulation.
 
 The analog pin APIs will not work correctly when generating a pattern for an ATE and the application code is 
