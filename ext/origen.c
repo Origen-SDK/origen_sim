@@ -9,15 +9,6 @@
 #include <string.h>
 
 static void register_callback(PLI_INT32 aReason, PLI_INT32 (*aHandler)(p_cb_data));
-
-// When true, Origen will be initialized by calling the $origen_init task from the testbench,
-// otherwise it will be initialized through VPI's startup routine registrations system
-#ifdef ORIGEN_VCS
-PLI_INT32 origen_init(PLI_BYTE8 * user_dat) {
-  register_callback(cbEndOfSimulation, origen_shutdown);
-  return origen_startup(user_dat);
-}
-#else
 static void init(void);
 
 static void init() {
@@ -26,11 +17,26 @@ static void init() {
   bridge_register_system_tasks();
 }
 
+// This function is provided as another way to initialize Origen, by calling this manually
+PLI_INT32 origen_init(p_cb_data data) {	
+  vpi_printf("Origen Initialized!\n");	
+  init();	
+  return 0;	
+}
+
+#ifdef ORIGEN_VCS
+// Origen will be initialized by calling the $origen_vcs_init task from the testbench, this is required
+// for VCS since it does not allow multiple definitions of vlog_startup_routine, which is the
+// conventional way of registering a VPI plugin.
+PLI_INT32 origen_vcs_init(PLI_BYTE8 * user_dat) {
+  register_callback(cbEndOfSimulation, origen_shutdown);
+  return origen_startup(user_dat);
+}
+#else
+// This is the standard way to initialize Origen, by registering this init function through the
+// vlog_startup_routines. The simulator will then call this init function at simulation startup
 void (*vlog_startup_routines[])(void) = { init, 0 };
 #endif
-
-
-
 
 /// Returns the value of the given argument, or NULL if not supplied.
 /// This example: 

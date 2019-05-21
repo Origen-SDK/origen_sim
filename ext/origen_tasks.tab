@@ -1,2 +1,2 @@
 $bridge_on_miscompare call=bridge_on_miscompare
-$origen_init call=origen_init
+$origen_vcs_init call=origen_vcs_init

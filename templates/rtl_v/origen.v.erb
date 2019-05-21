@@ -301,7 +301,7 @@ module origen;
   initial
   begin
 `ifdef ORIGEN_VCS
-    $origen_init;
+    $origen_vcs_init;
 `endif
 `ifdef ORIGEN_VCD 
     $dumpvars(0,origen);
