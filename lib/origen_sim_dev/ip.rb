@@ -33,14 +33,21 @@ module OrigenSimDev
 
     def execute_cmd(code)
       ss "Execute command #{code}"
-      # Verify that no command is currently running
-      status.read!(0)
+      PatSeq.reserve :jtag do
+        # This is redundant, but added as a test that if an embedded reservation is made to the same
+        # resource then the end of the inner block does not release the reservation before completion
+        # of the outer block
+        PatSeq.reserve :jtag do
+          # Verify that no command is currently running
+          status.read!(0)
+        end
 
-      cmd.write!(code)
-      10.cycles
-      # Verify that the command has started
+        cmd.write!(code)
+        10.cycles
+        # Verify that the command has started
 
-      status.busy.read!(1)
+        status.busy.read!(1)
+      end
 
       # Wait for the command to complete, a 'command' lasts for
       # 1000 cycles times the command code
