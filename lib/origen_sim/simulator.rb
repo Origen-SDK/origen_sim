@@ -17,7 +17,7 @@ module OrigenSim
     # Sending logs over VPI has a maximum size, some of which are collateral, leaving
     # the difference for the actual message.
     LOGGER_COLLATERAL_SIZE = 11
-    MULTIPART_LOGGER_TOKEN = '!<>!'
+    MULTIPART_LOGGER_TOKEN = '!k+!'
 
     # These config attributes are accepted by OrigenSim, but cannot be
     # 'Marshal-ed'.
