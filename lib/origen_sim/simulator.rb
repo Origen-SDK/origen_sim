@@ -16,7 +16,8 @@ module OrigenSim
 
     # Sending logs over VPI has a maximum size, some of which are collateral, leaving
     # the difference for the actual message.
-    LOGGER_COLLATERAL_SIZE = 7
+    LOGGER_COLLATERAL_SIZE = 11
+    MULTIPART_LOGGER_TOKEN = '!<>!'
 
     # These config attributes are accepted by OrigenSim, but cannot be
     # 'Marshal-ed'.
@@ -637,7 +638,7 @@ module OrigenSim
           else
             msg.chars.each_slice(config[:max_log_size] - LOGGER_COLLATERAL_SIZE) do |m|
               if m.size == config[:max_log_size] - LOGGER_COLLATERAL_SIZE
-                log(m.join, type, multipart: true)
+                log(m.join + MULTIPART_LOGGER_TOKEN, type, multipart: true)
               else
                 log(m.join, type, multipart: false)
               end
@@ -766,9 +767,7 @@ module OrigenSim
     # simulator rather than potentially being ahead of the simulator if Origen were to output them
     # immediately.
     def log(msg, type = :info, multipart: false)
-      if dut_version > '0.16.2'
-        put("k^#{LOG_CODES[type]}#{multipart ? '^1' : '^0'}^#{msg}")
-      elsif dut_version > '0.15.0'
+      if dut_version > '0.15.0'
         put("k^#{LOG_CODES[type]}^#{msg}")
       else
         Origen.log.send(type, msg)

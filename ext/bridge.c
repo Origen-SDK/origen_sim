@@ -92,7 +92,7 @@ static void enable_compare_wave(Pin*);
 static void disable_compare_wave(Pin*);
 static void clear_waves_and_pins(void);
 static bool is_drive_whole_cycle(Pin*);
-static void origen_log(int, bool, const char*, ...);
+static void origen_log(int, const char*, ...);
 static void end_simulation(void);
 static void on_max_errors_exceeded(void);
 
@@ -121,7 +121,7 @@ static void define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * 
   free(data);
 
   if (!(*pin).data) {
-    origen_log(LOG_WARNING, false, "Your DUT defines pin '%s', however it is not present in the testbench and will be ignored", (*pin).name);
+    origen_log(LOG_WARNING, "Your DUT defines pin '%s', however it is not present in the testbench and will be ignored", (*pin).name);
     (*pin).present = false;
   } else {
     (*pin).present = true;
@@ -248,7 +248,7 @@ static void disable_drive_wave(Pin * pin) {
   Wave *wave = &drive_waves[(*pin).drive_wave];
 
   if ((*wave).active_pin_count == 0) {
-    origen_log(LOG_ERROR, false, "Wanted to disable drive on pin %i, but its drive wave has no active pins!", (*pin).index);
+    origen_log(LOG_ERROR, "Wanted to disable drive on pin %i, but its drive wave has no active pins!", (*pin).index);
     end_simulation();
   }
 
@@ -450,7 +450,7 @@ PLI_INT32 apply_wave_event_cb(p_cb_data data) {
         d = 0;
         break;
       default :
-        origen_log(LOG_ERROR, false, "Unknown compare event: %c", (*wave).events[*event_ix].data);
+        origen_log(LOG_ERROR, "Unknown compare event: %c", (*wave).events[*event_ix].data);
         runtime_errors += 1;
         end_simulation();
         return 1;
@@ -492,7 +492,7 @@ PLI_INT32 apply_wave_event_cb(p_cb_data data) {
         on = 0;
         break;
       default :
-        origen_log(LOG_ERROR, false, "Unknown drive event: %c\n", (*wave).events[*event_ix].data);
+        origen_log(LOG_ERROR, "Unknown drive event: %c\n", (*wave).events[*event_ix].data);
         runtime_errors += 1;
         end_simulation();
         return 1;
@@ -562,7 +562,7 @@ PLI_INT32 bridge_init() {
 ///
 ///    origen_log(LOG_ERROR, "Wanted to disable drive on pin %i, but its drive wave has no active pins!", (*pin).index);
 ///    origen_log(LOG_INFO, "Something to tell you about");
-static void origen_log(int type, bool multipart, const char * fmt, ...) {
+static void origen_log(int type, const char * fmt, ...) {
   s_vpi_time now;
   int max_msg_len = 2048;
   char msg[max_msg_len];
@@ -575,11 +575,7 @@ static void origen_log(int type, bool multipart, const char * fmt, ...) {
   vsprintf(msg, fmt, aptr);
   va_end(aptr);
 
-  if (multipart) {
-    vpi_printf("!%d![%u,%u] %s!<>!\n", type, now.high, now.low, msg);
-  } else {
-    vpi_printf("!%d![%u,%u] %s\n", type, now.high, now.low, msg);
-  }
+  vpi_printf("!%d![%u,%u] %s\n", type, now.high, now.low, msg);
 };
 
 
@@ -831,13 +827,12 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           vpi_flush();
           break;
         // Log message
-        //   k^2^0^A message to output to the console/log
+        //   k^2^A message to output to the console/log
         case 'k' :
           arg1 = strtok(NULL, "^");
           arg2 = strtok(NULL, "^");
-          arg3 = strtok(NULL, "^");
           type = atoi(arg1);
-          origen_log(type, (bool) atoi(arg2), arg3); 
+          origen_log(type, arg2); 
           break;
         // Get timescale, returns a number that maps as follows:
         //      -15 - fs
@@ -923,7 +918,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           }
           break;
         default :
-          origen_log(LOG_ERROR, false, "Illegal message received from Origen: %s", orig_msg);
+          origen_log(LOG_ERROR, "Illegal message received from Origen: %s", orig_msg);
           runtime_errors += 1;
           end_simulation();
           return 1;
@@ -997,7 +992,7 @@ static void on_max_errors_exceeded() {
   // This will cause the simulation to stop processing messages from Origen
   max_errors_exceeded = true;
   // And this let's the Origen process know that we have stopped processing
-  origen_log(LOG_ERROR, false, "!MAX_ERROR_ABORT!");
+  origen_log(LOG_ERROR, "!MAX_ERROR_ABORT!");
 }
 
 /// Called every time a miscompare event occurs, 3 args will be passed in:
@@ -1039,7 +1034,7 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
 
     vpi_free_object(argv);
 
-    origen_log(LOG_ERROR, false, "Miscompare on pin %s, expected %d received %d", pin_name, expected, received);
+    origen_log(LOG_ERROR, "Miscompare on pin %s, expected %d received %d", pin_name, expected, received);
 
     error_count++;
 

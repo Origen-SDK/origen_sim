@@ -26,10 +26,10 @@ module OrigenSim
                 puts out.yellow.underline
               end
 
-              if out.chomp.end_with?('!<>!')
+              if out.chomp.end_with?(OrigenSim::Simulator::MULTIPART_LOGGER_TOKEN)
                 # Part of a multipart message. Add this to the current line
                 # and grab the next piece.
-                line += out.chomp.gsub('!<>!', '')
+                line += out.chomp.gsub(OrigenSim::Simulator::MULTIPART_LOGGER_TOKEN, '')
               else
                 # Either a single message or a the end of a multi-part message.
                 # Add this to the line break to print the output to the console.
