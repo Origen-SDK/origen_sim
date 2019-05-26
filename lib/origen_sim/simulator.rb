@@ -14,6 +14,14 @@ module OrigenSim
     LOG_CODES = { debug: 0, info: 1, warn: 2, warning: 2, success: 3, error: 4, deprecate: 5, deprecated: 5 }
     LOG_CODES_ = { 0 => :debug, 1 => :info, 2 => :warn, 3 => :success, 4 => :error, 5 => :deprecated }
 
+    # Sending logs over VPI has a maximum size, some of which are collateral, leaving
+    # the difference for the actual message.
+    LOGGER_COLLATERAL_SIZE = 7
+
+    # These config attributes are accepted by OrigenSim, but cannot be
+    # 'Marshal-ed'.
+    NON_DATA_CONFIG_ATTRIBUTES = [:post_process_run_cmd]
+
     TIMESCALES = { -15 => '1fs',
                    -14 => '10fs',
                    -13 => '100fs',
@@ -144,7 +152,11 @@ module OrigenSim
         fail "Unknown vendor #{options[:vendor]}, valid values are: #{VENDORS.map { |v| ':' + v.to_s }.join(', ')}"
       end
       @configuration = {
-        snapshot_details_options: {}
+        snapshot_details_options: {},
+
+        # The maximum message size the VPI can accept.
+        # Have this as a configuration parameter since this is VPI-implementation specific.
+        max_log_size:             1024
       }.merge(options)
       @tmp_dir = nil
 
@@ -316,7 +328,8 @@ module OrigenSim
                                    check_for_changes: false,
                                    quiet:             true,
                                    options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: :all },
-                                   output_file_name:  "#{wave_file_basename}.tcl"
+                                   output_file_name:  "#{wave_file_basename}.tcl",
+                                   preserve_target:   true
         end
         input_file_fast = "#{tmp_dir}/#{wave_file_basename}_fast.tcl"
         if !File.exist?(input_file_fast) || config_changed?
@@ -327,7 +340,8 @@ module OrigenSim
                                    check_for_changes: false,
                                    quiet:             true,
                                    options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: fast_probe_depth },
-                                   output_file_name:  "#{wave_file_basename}_fast.tcl"
+                                   output_file_name:  "#{wave_file_basename}_fast.tcl",
+                                   preserve_target:   true
         end
         save_config_signature
         wave_dir  # Ensure this exists since it won't be referenced above if the input file is already generated
@@ -621,7 +635,13 @@ module OrigenSim
           if options[:from_origen_sim]
             original.call(msg, type, options)
           else
-            log(msg, type)
+            msg.chars.each_slice(config[:max_log_size] - LOGGER_COLLATERAL_SIZE) do |m|
+              if m.size == config[:max_log_size] - LOGGER_COLLATERAL_SIZE
+                log(m.join, type, multipart: true)
+              else
+                log(m.join, type, multipart: false)
+              end
+            end
           end
         end
       end
@@ -745,8 +765,10 @@ module OrigenSim
     # the simulator. This ensures that the given log messages will be in sync with output from the
     # simulator rather than potentially being ahead of the simulator if Origen were to output them
     # immediately.
-    def log(msg, type = :info)
-      if dut_version > '0.15.0'
+    def log(msg, type = :info, multipart: false)
+      if dut_version > '0.16.2'
+        put("k^#{LOG_CODES[type]}#{multipart ? '^1' : '^0'}^#{msg}")
+      elsif dut_version > '0.15.0'
         put("k^#{LOG_CODES[type]}^#{msg}")
       else
         Origen.log.send(type, msg)
@@ -1054,13 +1076,13 @@ module OrigenSim
 
     # Returns true if the config has been changed since the last time we called save_config_signature
     def config_changed?
-      Origen.app.session.origen_sim["#{id}_config"] != config
+      Origen.app.session.origen_sim["#{id}_config"] != config.except(*NON_DATA_CONFIG_ATTRIBUTES)
     end
 
     # Locally saves a signature for the current config, this will cause config_changed? to return false
     # until its contents change
     def save_config_signature
-      Origen.app.session.origen_sim["#{id}_config"] = config
+      Origen.app.session.origen_sim["#{id}_config"] = config.except(*NON_DATA_CONFIG_ATTRIBUTES)
     end
 
     # Returns the version of Origen Sim that the current DUT object was compiled with
@@ -1173,6 +1195,14 @@ module OrigenSim
     def cycle_count
       put('o^')
       get.strip.to_i
+    end
+
+    def running?
+      if simulation
+        simulation.running?
+      else
+        false
+      end
     end
 
     private
