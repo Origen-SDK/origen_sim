@@ -24,6 +24,14 @@ PLI_INT32 origen_init(p_cb_data data) {
   return 0;	
 }
 
+// Some legacy simulators require this manual initialization function to be called bootstrap, but
+// otherwise equivalent to the origen_init() function
+PLI_INT32 bootstrap(p_cb_data data) {	
+  vpi_printf("Origen Initialized!\n");	
+  init();	
+  return 0;	
+}
+
 #ifdef ORIGEN_VCS
 // Origen will be initialized by calling the $origen_vcs_init task from the testbench, this is required
 // for VCS since it does not allow multiple definitions of vlog_startup_routine, which is the
