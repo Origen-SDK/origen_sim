@@ -36,6 +36,7 @@ when "sim:build_example"
       when :icarus
         output =~ /  (cd .*)\n/
         system $1.gsub('stub', 'dut1')
+        FileUtils.mv "#{Origen.config.output_directory}/origen.vpi", '.'
         output =~ /\n(.*iverilog .*)\n/
         system $1.gsub('stub', 'dut1')
 
