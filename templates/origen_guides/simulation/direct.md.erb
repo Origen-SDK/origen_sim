@@ -1,0 +1,112 @@
+% render "layouts/guides.html" do
+
+A number of methods exist to directly manipulate the state of the DUT during a simulation, in all
+cases these methods do not re-target to the ATE because they rely on being able to directly look inside
+and manipulate the DUT which is not possible in the physical world.
+
+The user is responsible for ensuring that the use of these APIs is safely handled when generating for
+an ATE or other non-simulation target, normally via one of these constructs:
+
+~~~ruby
+# Simply skip this unless simulating
+unless tester.sim?
+  tester.peek # ...
+end
+  
+# Implement differently for ATE
+if tester.sim?
+  tester.poke # ...
+else
+  dut.do_something
+end
+~~~
+
+#### Poke
+
+Poking is the term commonly given to changing the value of a register or other variable, i.e. poking a new
+value into an existing storage element.
+
+To use the `poke` method, supply the net path of the storage element to be changed and the value you want to
+change it to:
+
+~~~ruby
+# Poking a register
+tester.poke("dut.my_ip.user_regs.some_reg", 0x1111)
+
+# Poking a memory
+tester.poke("dut.my_ip.mem[15]", 0x1111_2222)
+~~~
+
+The poke method can be used on real variables too, in that case a float should be given as the second
+argument instead of an integer to indicate to Origen that a real value net is being poked. e.g. to poke
+the value `1` to a real value net then supply `1.0` as the value argument instead of `1`.
+
+~~~ruby
+tester.poke("dut.my_ip.my_real_var", 1.25)
+~~~
+
+#### Peek
+
+Peeking allows you to read the value of an internal register or other variable.
+
+The value returned from the `peek` method will be
+an instance of [Origen::Value](<%= path "api/Origen/Value.html" %>) which can also handle
+`X` or `Z` values.
+
+Normally, if you don't care about catching `Z` or `X` cases you can simply call `to_i` on the value
+returned from `peek`, here are some examples:
+
+~~~ruby
+# Peeking a register
+tester.peek("dut.my_ip.user_regs.some_reg").to_i   # => 0x1111
+
+# Peeking a memory
+tester.peek("dut.my_ip.mem[15]").to_i   # => 0x1111_2222
+~~~
+
+When peeking a real number, `X` or `Z` states are not supported and a float will be returned.
+
+You must indicate to Origen that you are peeking a real value by supplying a second argument of `true`,
+or for convenience calling `peek_real` instead:
+
+~~~ruby
+tester.peek("dut.my_ip.my_real_var", true)   # => 1.25
+
+tester.peek_real("dut.my_ip.my_real_var")    # => 1.25
+~~~
+
+#### Force
+
+When poking the DUT, you are changing the value
+of a reg or other variable which provides drive. i.e. as soon as the `poke` operation is done, the responsibility
+for maintaining and driving the new value is down to the DUT.
+For this reason, you cannot just poke any net, only those which can store/drive state. In Verilog terms, you can
+poke a register but you can't poke a wire.
+
+With a force, the simulator provides infinite drive/storage of the forced value and this will override any drive
+produced in the DUT.
+So when you force a value on a net, that will persist there for the entire simulation regardless of what goes on
+in the DUT until the force is released.
+
+The `force` method has the same arguments as the `peek` method:
+
+~~~ruby
+# Forcing a register
+tester.force("dut.my_ip.user_regs.some_reg", 0x1111)
+
+# Forcing a memory
+tester.force("dut.my_ip.mem[15]", 0x1111_2222)
+
+# Forcing a real value
+tester.force("dut.my_ip.my_real_var", 1.25)
+~~~
+
+A force can be released by calling the `release` method and supplying the net reference:
+
+~~~ruby
+# Releasing an existing force
+tester.release("dut.my_ip.user_regs.some_reg")
+~~~
+
+
+% end

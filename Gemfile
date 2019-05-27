@@ -12,8 +12,6 @@ gem 'origen_jtag', '~>0.20'
 #gem 'ruby-debug-ide'
 #gem 'debase'
 #gem "origen", path: "~/Code/github/origen"
-#gem "origen", path: "~/Code/github/origen"
-#gem "origen", git: "https://github.com/Origen-SDK/origen.git", branch: "sim_hooks"
 #gem "origen", git: "https://github.com/Origen-SDK/origen.git"
 #gem "origen_testers", path: "~/Code/github/origen_testers"
 #gem "origen_verilog", path: "~/Code/github/origen_verilog"

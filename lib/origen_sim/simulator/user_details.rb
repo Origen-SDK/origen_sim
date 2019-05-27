@@ -63,7 +63,6 @@ module OrigenSim
       #  to be defined. This should be a comma-separeted string of the available values.
       #  It will be assumed that each details will be defined in the snapshot.
       def fetch
-        puts 'FETCHING!'.cyan
         # Read the available details.
         # names = str_peek("#{debug_module}.PARAMETER_NAMES").split(',')
         names = @simulator.peek_str(detail_names_net)

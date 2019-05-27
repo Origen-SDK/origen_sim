@@ -115,9 +115,12 @@ OrigenSim.cadence do |sim|
 end
 ~~~
 
-#### Generic and Advanced Simulator Configuration
+#### Custom Simulator Configuration
 
-A generic simulator configuration allows you to use a tool that is not supported out of the box by <code>OrigenSim</code>. For these, it 
+A custom simulator configuration allows you to use a tool that is not supported out of the box by <code>OrigenSim</code>,
+or to setup a more advanced simulation run command such as that required to run an analog-digital co-simulation if your
+DUT contains full electrical models of some IPs.
+For these, it 
 is your responsibility to provide the command to start the simulation process, however, this allows for arbitrary commands to
 start the process and allows end users to still use <code>origen g</code> as if with a fully <code>OrigenSim</code> supported
 simulator configuration.
@@ -139,7 +142,7 @@ Here is an example using the predecessor of the supported Cadence tool <code>iru
 OrigenSim.generic do |sim|
   sim.testbench_top 'na_origen'
   sim.generic_run_cmd do |s|
-    "ncsim na_origen -loadpli origen.so:bootstrap +socket+#{s.socket_id}"
+    "ncsim na_origen -loadpli origen.so:origen_init +socket+#{s.socket_id}"
   end
 end
 ~~~

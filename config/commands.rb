@@ -17,33 +17,41 @@ case @command
 # in here or you can require an external file if preferred.
 when "sim:build_example"
   Dir.chdir(Origen.root) do
-    output = `origen sim:build  #{Origen.app.remotes_dir}/example_rtl/dut1/dut1.v`
+    cmd = "origen sim:build  #{Origen.app.remotes_dir}/example_rtl/dut1/stub.v"
+    if ARGV.include?('-e') || ARGV.include?('--environment')
+      index = ARGV.index('-e') || ARGV.index('--environment')
+      ARGV.delete_at(index)
+      Origen.environment.temporary = ARGV.delete_at(index)
+    end
+    cmd += ' ' + ARGV.join(' ') unless ARGV.empty?
+    # Enable wreal pins in the DUT RTL
+    cmd += '  --define ORIGEN_WREAL' if ARGV.include?('--wreal')
+    output = `#{cmd}`
     puts output
     Origen.load_target
     dir = "simulation/default/#{tester.simulator.config[:vendor]}"
-    FileUtils.rm_rf(dir) if File.exist?(dir)
     FileUtils.mkdir_p(dir)
-    case tester.simulator.config[:vendor]
-    when :icarus
-      output =~ /  (cd .*)\n/
-      system $1
-      FileUtils.mv "#{Origen.config.output_directory}/origen.vpi", "simulation/default/icarus"
-      output =~ /\n(.*iverilog .*)\n/
-      system $1
-      FileUtils.mv "origen.vvp", "simulation/default/icarus"
+    Dir.chdir dir do
+      case tester.simulator.config[:vendor]
+      when :icarus
+        output =~ /  (cd .*)\n/
+        system $1.gsub('stub', 'dut1')
+        output =~ /\n(.*iverilog .*)\n/
+        system $1.gsub('stub', 'dut1')
 
-    when :cadence
-      output =~ /\n(.*irun .*)\n/
-      system $1
-      FileUtils.mv "INCA_libs", "simulation/default/cadence"
+      when :cadence
+        output =~ /\n(.*irun .*)\n/
+        system $1.gsub('stub', 'dut1')
 
-    when :synopsys
-      output =~ /\n(.*vcs .*)\n/
-      system $1
-      FileUtils.mv "simv", "simulation/default/synopsys"
-      FileUtils.mv "simv.daidir", "simulation/default/synopsys"
-      FileUtils.rm_rf "csrc"
+      when :synopsys
+        if tester.simulator.config[:verdi]
+          output =~ /\n(.*vcs .*ORIGEN_FSDB.*)\n/
+        else
+          output =~ /\n(.*vcs .*ORIGEN_VPD.*)\n/
+        end
+        system $1.gsub('stub', 'dut1')
 
+      end
     end
 
     puts

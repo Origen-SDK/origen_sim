@@ -39,9 +39,9 @@ module OrigenSim
       end
       @sync_pins.map do |pin|
         if @sync_cycles.size == 1
-          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory[0]")
+          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory")[0]
         else
-          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory[#{@sync_cycles - 1}:0]")
+          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory").to_i[(@sync_cycles - 1)..0]
         end
       end
     end
@@ -297,7 +297,7 @@ module OrigenSim
                 if c = read_reg_cycles[error[:cycle]]
                   if p = c[simulator.pins_by_rtl_name[error[:pin_name]]]
                     if p[:position]
-                      diffs << [p[:position], error[:recieved], error[:expected]]
+                      diffs << [p[:position], error[:received], error[:expected]]
                     end
                   end
                 end
@@ -305,6 +305,7 @@ module OrigenSim
               if diffs.empty?
                 if @read_reg_meta_supplied
                   Origen.log.warning 'It looks like the miscompare(s) occurred on pins/cycles that are not associated with register data'
+                  non_data_miscompare = true
                 else
                   Origen.log.warning 'It looks like your current read register driver does not provide the necessary meta-data to map these errors to an actual register value'
                 end
@@ -327,7 +328,11 @@ module OrigenSim
                 end
 
                 diffs.each do |position, received, expected|
-                  reg_or_val[position].data = received
+                  if received == -1
+                    reg_or_val[position].unknown = true
+                  else
+                    reg_or_val[position].data = received
+                  end
                 end
 
                 actual = bit_names.map do |name|
@@ -361,7 +366,8 @@ module OrigenSim
                   Origen.log.error msg
                 end
               else
-                msg += " received #{expected}" if @read_reg_meta_supplied
+                # This means that the correct data was read, but errors occurred on other pins/cycles during the transaction
+                msg += " received #{expected}" if non_data_miscompare
                 Origen.log.error msg
               end
             end
@@ -371,7 +377,10 @@ module OrigenSim
             if actual_data_available
               actual = reg_or_val
               diffs.each do |position, received, expected|
-                if received == 1
+                if received == -1
+                  actual = '?' * reg_or_val.to_s(16).size
+                  break
+                elsif received == 1
                   actual |= (1 << position)
                 else
                   lower = actual[(position - 1)..0]
@@ -380,9 +389,14 @@ module OrigenSim
                   actual |= lower
                 end
               end
-              msg += " received #{actual.to_s(16).upcase}"
+              if actual.is_a?(String)
+                msg += " received #{actual}"
+              else
+                msg += " received #{actual.to_s(16).upcase}"
+              end
             else
-              msg += " received #{reg_or_val.to_s(16).upcase}" if @read_reg_meta_supplied
+              # This means that the correct data was read, but errors occurred on other pins/cycles during the transaction
+              msg += " received #{reg_or_val.to_s(16).upcase}" if non_data_miscompare
             end
             Origen.log.error msg
           end
@@ -411,6 +425,31 @@ module OrigenSim
 
     def read_reg_meta_supplied=(val)
       @read_reg_meta_supplied = val
+    end
+
+    # Shorthand for simulator.poke
+    def poke(*args)
+      simulator.poke(*args)
+    end
+
+    # Shorthand for simulator.peek
+    def peek(*args)
+      simulator.peek(*args)
+    end
+
+    # Shorthand for simulator.peek_real
+    def peek_real(*args)
+      simulator.peek_real(*args)
+    end
+
+    # Shorthand for simulator.force
+    def force(*args)
+      simulator.force(*args)
+    end
+
+    # Shorthand for simulator.release
+    def release(*args)
+      simulator.release(*args)
     end
 
     private

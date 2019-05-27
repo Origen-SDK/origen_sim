@@ -2,6 +2,30 @@ Pattern.create do
   IDCODE = 0b0010
   DEBUG  = 0b1000
 
+  # Peeks the given net and will fail if the returned value does not equal the expected
+  def peek(net, expected)
+    if expected.is_a?(Integer)
+      actual = tester.peek(net)
+    else
+      actual = tester.peek_real(net)
+    end
+    if actual
+      if expected.is_a?(Integer)
+        actual = actual.to_i
+        actual_str = actual.try(:to_hex) || 'nil'
+        expected_str = expected.to_hex
+      else
+        actual_str = actual ? actual.to_s : 'nil'
+        expected_str = expected.to_s
+      end
+      unless actual == expected
+        OrigenSim.error "Expected to peek #{expected_str} from #{net}, got #{actual_str}!"
+      end
+    else
+      OrigenSim.error "Nothing returned from peek of #{net}!"
+    end
+  end
+
   ss "Some basic shift operations to verify functionality"
   dut.jtag.write_ir(0x0, size: 4)
   dut.jtag.read_ir(0x0, size: 4)
@@ -39,26 +63,111 @@ Pattern.create do
   dut.cmd.read!(0x1234_5678)
 
   if tester.sim?
+    ss "Test poking a register value"
     tester.simulator.poke("dut.cmd", 0x1122_3344)
     dut.cmd.read!(0x1122_3344)
+
+    ss "Test peeking a register value"
+    peek("dut.cmd", 0x1122_3344)
+
+    ss "Test forcing a value"
+    tester.force("dut.cmd", 0x2222_3333)
+    dut.cmd.read!(0x2222_3333)
+    peek("dut.cmd", 0x2222_3333)
+    dut.cmd.write!(0x1234_5678)
+    dut.cmd.read!(0x2222_3333)
+
+    ss "Test releasing a forced value"
+    tester.release("dut.cmd")
+    dut.cmd.write!(0x1234_5678)
+    dut.cmd.read!(0x1234_5678)
+
+    ss "Test poking a real value"
+    tester.poke("dut.real_val", 1.25)
+    10.cycles
+
+    ss "Verify that the memory can be accessed"
+    dut.mem(0x1000_0000).write!(0x1234_5678)
+    dut.mem(0x1000_0000).read!(0x1234_5678)
+
+    ss "Test poking a memory"
+    tester.poke("dut.mem[1]", 0x1111_2222)
+    dut.mem(0x1000_0004).read!(0x1111_2222)
+
+    ss "Test peeking a memory"
+    tester.poke("dut.mem[2]", 0x1111_2222)
+    peek("dut.mem[2]", 0x1111_2222)
+
+    ss "Test peeking and poking a wide memory"
+    tester.poke("dut.wide_mem[2]", 0x1FF_1111_2222_3333_4444_5555_6666_7777_8888)
+    peek("dut.wide_mem[2]", 0x1FF_1111_2222_3333_4444_5555_6666_7777_8888)
+
+    # Peek (or force?) a real value not working on Icarus, can't get it to work but not
+    # spending much time on it since this is mainly useful in a WREAL simulation and other
+    # things don't work that are blocking that anyway
+    unless tester.simulator.config[:vendor] == :icarus
+      ss "Test peeking a real value"
+      peek("dut.real_val", 1.25)
+      10.cycles
+
+      ss "Test forcing a real value"
+      tester.force("dut.real_val", 2.25)
+      10.cycles
+      peek("dut.real_val", 2.25)
+
+      ss "Test releasing a forced real value"
+      tester.poke("dut.real_val", 1.25)
+      10.cycles
+      peek("dut.real_val", 2.25)
+      tester.release("dut.real_val")
+      10.cycles
+      peek("dut.real_val", 2.25)
+      tester.poke("dut.real_val", 1.25)
+      10.cycles
+      peek("dut.real_val", 1.25)
+    end
+
+    if tester.simulator.wreal?
+      ss "Test analog pin API by ramping dut.vdd"
+      v = 0
+      dut.power_pin(:vdd).drive!(v)
+      dut.ana_test.vdd_valid.read!(0)
+      until v >= 1.25
+        v += 0.05
+        dut.power_pin(:vdd).drive!(v)
+      end
+      dut.ana_test.vdd_valid.read!(1)
+      100.cycles
+
+      ss "Test analog pin measure API"
+      dut.ana_test.vdd_div4.write!(1)
+      measured = dut.pin(:ana).measure
+      if measured != 0.3125
+        OrigenSim.error "Expected to measure 0.3125V from the ana pin, got #{measured}V!"
+      end
+
+      ss "Test the different analog mux functions"
+      dut.ana_test.write(0)
+      dut.ana_test.vdd_div4.write!(1)
+      1000.cycles
+      dut.ana_test.write(0)
+      dut.ana_test.bgap_out.write!(1)
+      1000.cycles
+      dut.ana_test.write(0)
+      dut.ana_test.osc_out.write!(1)
+      1000.cycles
+    end
   end
 
   ss "Test storing a register"
   dut.cmd.write!(0x2244_6688)
   Origen.log.info "Should be within 'Test storing a register'"
   dut.cmd.store!
+  if tester.sim?
+    peek("origen.pins.tdo.memory", 0x11662244) # 0x2244_6688 reversed
+  end
 
   if tester.sim?
-    sim = tester.simulator
-    capture_value = sim.peek("origen.pins.tdo.memory").to_i[31..0]
-    unless capture_value == 0x11662244 # 0x2244_6688 reversed
-      if capture_value
-        OrigenSim.error "Captured #{capture_value.to_hex} instead of 0x11662244!"
-      else
-        OrigenSim.error "Nothing captured instead of 0x11662244!"
-      end
-    end
-
     ss "Test sync of a register"
     dut.cmd.write(0) # Make Origen forget the actual value
     dut.cmd.sync
@@ -75,6 +184,9 @@ Pattern.create do
     unless dut.parallel_read.data == 0x7707_7077
       OrigenSim.error "PARALLEL_READ register did not sync from simulation"
     end
+
+    #ss "Test reading an X register value"
+    #dut.x_reg.read!(0)
   end
 
   ss "Do some operations with the counter, just for fun"
