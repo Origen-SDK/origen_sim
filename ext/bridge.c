@@ -723,18 +723,25 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           end_simulation();
           return 0;
         // Peek
-        //   Returns the current value of the given net
+        //   Returns the current value of the given net, the 2nd argument specifies whether to
+        //   return an integer or a float/real value
         //
-        //   9^origen.debug.errors
+        //   9^origen.debug.errors^i
+        //   9^origen.dut.my_real_val^f
         case '9' :
           arg1 = strtok(NULL, "^");
+          arg2 = strtok(NULL, "^");
           handle = vpi_handle_by_name(arg1, NULL);
           if (handle) {
-            //v.format = vpiDecStrVal; // Seems important to set this before get
-            v.format = vpiBinStrVal;
-            vpi_get_value(handle, &v);
-            //DEBUG("%s\n", v.value.str);
-            sprintf(msg, "%s\n", v.value.str);
+            if (*arg2 == 'i') {
+              v.format = vpiBinStrVal;
+              vpi_get_value(handle, &v);
+              sprintf(msg, "%s\n", v.value.str);
+            } else {
+              v.format = vpiRealVal;
+              vpi_get_value(handle, &v);
+              sprintf(msg, "%f\n", v.value.real);
+            }
             client_put(msg);
           } else {
             client_put("FAIL\n");
@@ -751,17 +758,25 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           vpi_put_value(handle, &v, NULL, vpiNoDelay);
           break;
         // Poke
-        //   Sets the given value on the given net, the number should be
-        //   given as a decimal string
+        //   Sets the given value on the given net, the number should be given
+        //   as a decimal string, an integer or a float, and the 2nd argument specifies
+        //   which has been given
         //
-        //   b^origen.debug.errors^15
+        //   b^origen.debug.errors^i^15
+        //   b^origen.dut.my_real_val^f^1.12
         case 'b' :
           arg1 = strtok(NULL, "^");
           arg2 = strtok(NULL, "^");
+          arg3 = strtok(NULL, "^");
           handle = vpi_handle_by_name(arg1, NULL);
           if (handle) {
-            v.format = vpiDecStrVal;
-            v.value.str = arg2;
+            if (*arg2 == 'i') {
+              v.format = vpiDecStrVal;
+              v.value.str = arg3;
+            } else {
+              v.format = vpiRealVal;
+              v.value.real = strtof(arg3, NULL);
+            }
             vpi_put_value(handle, &v, NULL, vpiNoDelay);
           }
           break;
@@ -917,6 +932,41 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
             match_loop_open = false;
           }
           break;
+        // Force
+        //   Forces the given value on the given net, the number should be given
+        //   as a decimal string, an integer or a float, and the 2nd argument specifies
+        //   which has been given
+        //
+        //   r^origen.dut.some.net^i^1^
+        //   r^origen.dut.some.net^f^1.25
+        case 'r' :
+          arg1 = strtok(NULL, "^");
+          arg2 = strtok(NULL, "^");
+          arg3 = strtok(NULL, "^");
+          handle = vpi_handle_by_name(arg1, NULL);
+          if (handle) {
+            if (*arg2 == 'i') {
+              v.format = vpiDecStrVal;
+              v.value.str = arg3;
+            } else {
+              v.format = vpiRealVal;
+              v.value.real = strtof(arg3, NULL);
+            }
+            vpi_put_value(handle, &v, NULL, vpiForceFlag);
+          }
+          break;
+        // Release
+        //   Releases an existing force on the given net
+        //
+        //   s^origen.dut.some.net
+        //   s^origen.dut.some.net
+        case 's' :
+          arg1 = strtok(NULL, "^");
+          handle = vpi_handle_by_name(arg1, NULL);
+          if (handle) {
+            vpi_put_value(handle, &v, NULL, vpiReleaseFlag);
+          }
+          break;
         default :
           origen_log(LOG_ERROR, "Illegal message received from Origen: %s", orig_msg);
           runtime_errors += 1;
@@ -1034,7 +1084,11 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
 
     vpi_free_object(argv);
 
-    origen_log(LOG_ERROR, "Miscompare on pin %s, expected %d received %d", pin_name, expected, received);
+    if (received) {
+      origen_log(LOG_ERROR, "Miscompare on pin %s, expected %d received %d", pin_name, expected, received);
+    } else {
+      origen_log(LOG_ERROR, "Miscompare on pin %s, expected %d received X or Z", pin_name, expected);
+    }
 
     error_count++;
 
@@ -1062,7 +1116,11 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
         strcpy((*miscompare).pin_name, pin_name);
         (*miscompare).cycle = cycle_count;
         (*miscompare).expected = expected;
-        (*miscompare).received = received;
+        if (received) {
+          (*miscompare).received = received;
+        } else {
+          (*miscompare).received = -1;
+        }
       }
       transaction_error_count++;
     }

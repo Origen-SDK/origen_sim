@@ -51,6 +51,44 @@ module Origen
         @simulator_value = nil
       end
 
+      def driver_net
+        @driver_net ||= "#{tester.simulator.testbench_top}.pins.#{rtl_name}"
+      end
+
+      alias_method :_orig_drive, :drive
+      def drive(*args)
+        if _analog_pin_? && simulation_running? && tester.simulator.wreal?
+          tester.poke("#{driver_net}.drive_en", 1)
+          tester.poke("#{driver_net}.drive", args.first + 0.0)
+        else
+          _orig_drive(*args)
+        end
+      end
+      alias_method :write, :drive
+
+      alias_method :_orig_assert, :assert
+      def assert(*args)
+        if _analog_pin_? && simulation_running? && tester.simulator.wreal?
+          drive_enabled = tester.peek("#{driver_net}.drive_en").to_i
+          if drive_enabled == 1
+            tester.poke("#{driver_net}.drive_en", 0)
+            tester.cycle
+          end
+          measured = tester.peek("#{driver_net}.pin", true)
+          # Could implement checking/limits here in future
+        else
+          _orig_assert(*args)
+        end
+      end
+      alias_method :compare, :assert
+      alias_method :expect, :assert
+      alias_method :read, :assert
+      alias_method :measure, :assert
+
+      def _analog_pin_?
+        type == :analog || is_a?(Origen::Pins::PowerPin) || is_a?(Origen::Pins::GroundPin)
+      end
+
       def apply_force
         if force
           simulator.put("2^#{simulation_index}^#{force}")

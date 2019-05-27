@@ -217,12 +217,7 @@ unless tester.simulator.peek("origen.dut.path.to.net")[4].z?
 end
 ~~~
 
-It is also possible to force nets within the DUT via a corresponding `poke` method:
-
-~~~ruby
-if tester.sim?
-  test.simulator.poke "path.to.some.net[15:8]", 0x51
-end
-~~~
+See the [Direct DUT Manipulation](<%= path "guides/simulation/direct" %>) guide for more details on these
+APIs.
 
 % end

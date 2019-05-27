@@ -81,7 +81,55 @@ origen sim:build path/to/my_top_level.v
 top-level pin interface and reducing the amount of superfluous design code will reduce the chance
 of parse errors during this step.**
 
-Multiple files can be passed in, for example to include a defines file:
+For example, something like this is sufficient to be able to generate an Origen test bench:
+
+~~~verilog
+module my_dut(
+  input tck, tdi, tms, trstn,
+  input rstn,
+  input [31:0] din,
+  input p1,
+  input p2,
+  inout vdd,
+
+  output tdo,
+  output done,
+  output [15:0] test_bus,
+  output [31:0] dout,
+  output ana
+);
+
+endmodule
+~~~
+
+If you find that it does choke on your design files please do enter a ticket describing the code
+which failed to parse here - <https://github.com/Origen-SDK/origen_verilog/issues>
+
+In most cases any parse issues can be resolved by moving to a stub model like above or by simply removing the
+offending code to create a partial stub.
+
+The `sim:build` command does have some rudimentary support for evaluating and applying Verilog compiler
+directive rules, though at the time of writing it does not evaluate Verilog parameters.
+
+For example if your code contained something like this:
+
+~~~verilog
+output [`DATA_WIDTH-1:0] dout;
+~~~
+
+Then you can define it on the command line like this:
+
+~~~text
+origen sim:build path/to/my_dut.v --define DATA_WIDTH=8
+~~~
+
+Multiple defines should be specified like this:
+
+~~~text
+origen sim:build path/to/my_dut.v --define DATA_WIDTH=8 --define WREAL
+~~~
+
+Multiple files can be passed in, for example to include defines contained in a file rather than via the command line:
 
 ~~~text
 origen sim:build path/to/my_defines.v path/to/my_top_level.v
@@ -93,14 +141,11 @@ If you prefer, it also works by supplying the source file directory path(s) sepa
 origen sim:build my_defines.v my_top_level.v -s path/to
 ~~~
 
-The `sim:build` command does have some rudimentary support for evaluating and applying Verilog compiler
-directive rules, though at the time of writing it does not evaluate Verilog parameters.
+Run `origen sim:build -h` to see the additional switches that are supported.
 
-If you find that it does choke on your design files please do enter a ticket describing the code
-which failed to parse here - <https://github.com/Origen-SDK/origen_verilog/issues>
+Also refer to [AMS Support](<%= path "guides/simulation/ams" %>) for details on how to enable analog/mixed-signal support when
+building the testbench.
 
-In most cases any parse issues can be resolved by moving to a stub model or by simply removing the
-offending code to create a partial stub.
 
 Once you see a message like this, you are ready to move onto the next step:
 

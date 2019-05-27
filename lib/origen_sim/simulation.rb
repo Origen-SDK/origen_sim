@@ -78,7 +78,7 @@ module OrigenSim
           if Origen.debugger_enabled?
             Origen.log.error 'The simulation failed to get underway!'
           else
-            Origen.log.error 'The simulation failed to get underway! (run again with -d to see why)'
+            Origen.log.error 'The simulation failed to get underway! (run again with -verbose to see why)'
           end
         else
           if in_progress

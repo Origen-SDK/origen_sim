@@ -23,6 +23,7 @@ Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
     options[:source_dirs] << path
   end
   opts.on('--sv', 'Generate a .sv file instead of a .v file.') { |t| options[:sv] = t }
+  opts.on('--wreal', 'Enable real number modeling support on DUT pins defined as real wires (wreal)') { |t| options[:wreal] = t }
   opts.on('--verilog_top_output_name NAME', 'Renames the output filename from origen.v to NAME.v') do |name|
     options[:verilog_top_output_name] = name
   end
@@ -95,7 +96,7 @@ candidates = ast.top_level_modules
 candidates = ast.modules if candidates.empty?
 
 if candidates.size == 0
-  puts "Sorry, couldn't find any Verilog module declarations in that file"
+  puts "Sorry, couldn't find any Verilog module declarations in that file (this could be due to a parse error)"
   _exit_fail_
 elsif candidates.size > 1
   if options[:top_level_name]
@@ -116,7 +117,7 @@ rtl_top_module = mod.name
 
 mod.to_top_level # Creates dut
 
-# Update the pins with any setings from the command line
+# Update the pins with any settings from the command line
 options[:initial_pin_states].each do |pin, state|
   dut.pins(pin).meta[:origen_sim_init_pin_state] = state
 end
@@ -157,56 +158,60 @@ else
 
   dut.export(rtl_top_module, dir: "#{output_directory}", namespace: nil)
 
+  SYNOPSYS_SWITCHES = %W(
+    #{output_directory}/#{output_name}
+    #{output_directory}/bridge.c
+    #{output_directory}/client.c
+    -P\ #{output_directory}/origen_tasks.tab
+    -CFLAGS\ "-std=c99 -DORIGEN_VCS"
+    +vpi
+    #{output_directory}/origen.c
+    +define+ORIGEN_VCS
+    -debug_access+all
+    -timescale=1ns/1ns
+    -v2005
+    -full64
+  )
+
+  if options[:wreal]
+    SYNOPSYS_SWITCHES += %w(
+      +define+ORIGEN_WREAL
+      -realport
+      -sverilog
+      -wreal\ res_max
+    )
+  end
+
+  SYNOPSYS_DVE_SWITCHES = SYNOPSYS_SWITCHES + %w(
+    +define+ORIGEN_VPD
+  )
+
+  SYNOPSYS_VERDI_SWITCHES = SYNOPSYS_SWITCHES + %W(
+    +define+ORIGEN_FSDB
+    -kdb
+    -P\ #{ENV['VERDI_HOME'] || '$VERDI_HOME'}/share/PLI/VCS/LINUX64/novas.tab
+    #{ENV['VERDI_HOME'] || '$VERDI_HOME'}/share/PLI/VCS/LINUX64/pli.a
+  )
+
+  CADENCE_SWITCHES = %W(
+    #{output_directory}/#{output_name}
+    #{output_directory}/*.c
+    -ccargs\ "-std=c99"
+    -top\ origen
+    -elaborate
+    -snapshot\ origen
+    -access\ +rw
+    -timescale\ 1ns/1ns
+  )
+
+  if options[:wreal]
+    CADENCE_SWITCHES += %w(
+      +define+ORIGEN_WREAL
+      -ams
+    )
+  end
+
   puts
-  puts
-  puts '-----------------------------------------------------------'
-  puts 'Cadence Incisive (irun)'
-  puts '-----------------------------------------------------------'
-  puts
-  puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
-  puts
-  puts "  #{output_directory}/#{output_name} \\"
-  puts "  #{output_directory}/*.c \\"
-  puts '  -ccargs "-std=c99" \\'
-  puts '  -top origen \\'
-  puts '  -elaborate  \\'
-  puts '  -snapshot origen \\'
-  puts '  -access +rw \\'
-  puts '  -timescale 1ns/1ns'
-  puts
-  puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
-  puts
-  puts "  #{ENV['ORIGEN_SIM_IRUN'] || 'irun'} #{rtl_top} #{output_directory}/#{output_name} #{output_directory}/*.c -ccargs \"-std=c99\" -top origen -elaborate -snapshot origen -access +rw -timescale 1ns/1ns -incdir #{Pathname.new(rtl_top).dirname}"
-  puts
-  puts 'Copy the following directory (produced by irun) to simulation/<target>/cadence/. within your Origen application:'
-  puts
-  puts '  INCA_libs'
-  puts
-  puts '-----------------------------------------------------------'
-  puts 'Synopsys VCS'
-  puts '-----------------------------------------------------------'
-  puts
-  puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
-  puts
-  puts "  #{output_directory}/#{output_name} \\"
-  puts "  #{output_directory}/bridge.c \\"
-  puts "  #{output_directory}/client.c \\"
-  puts '  -CFLAGS "-std=c99" \\'
-  puts '  +vpi \\'
-  puts "  #{output_directory}/origen.c \\"
-  puts '  +define+ORIGEN_VPD=1 \\'
-  puts '  -debug_access+all \\'
-  puts '  -PP \\'
-  puts '  -timescale=1ns/1ns'
-  puts
-  puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
-  puts
-  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/#{output_name} #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi #{output_directory}/origen.c -timescale=1ns/1ns  +define+ORIGEN_VPD=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all -PP"
-  puts
-  puts 'Copy the following files (produced by vcs) to simulation/<target>/synopsys/. within your Origen application:'
-  puts
-  puts '  simv'
-  puts '  simv.daidir'
   puts
   puts '-----------------------------------------------------------'
   puts 'Icarus Verilog'
@@ -232,34 +237,60 @@ else
   puts '  origen.vvp'
   puts
   puts '-----------------------------------------------------------'
-  puts 'Verdi w/ Synopsys VCS'
+  puts 'Synopsys VCS w/ DVE Waveviewer'
   puts '-----------------------------------------------------------'
   puts
   puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
   puts
-  puts "  #{output_directory}/#{output_name} \\"
-  puts "  #{output_directory}/brdige.c \\"
-  puts "  #{output_directory}/client.c \\"
-  puts '  -CFLAGS "-std=c99" \\'
-  puts '  +vpi \\'
-  puts "  #{output_directory}/origen.c \\"
-  puts '  +define+ORIGEN_FSDB=1 \\'
-  puts '  -debug_access+all \\'
-  puts '  +lint=all,noVCDE,noIWU,noVNGS,noCAWM-L,noPORTFRC,noZERO,noNS \\'
-  puts '  -PP \\'
-  puts '  -timescale=1ns/100ps \\'
-  puts '  -full64 \\'
-  puts '  -lca \\'
-  puts '  -kdb \\'
+  SYNOPSYS_DVE_SWITCHES.each do |switch|
+    puts "  #{switch} \\"
+  end
   puts
-  puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
+  puts 'Here is an example which may work for the file you just parsed (add additional +incdir+ options at the end if required):'
   puts
-  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} #{output_directory}/#{output_name} #{output_directory}/bridge.c #{output_directory}/client.c -CFLAGS \"-std=c99\" +vpi #{output_directory}/origen.c +define+ORIGEN_FSDB=1 +incdir+#{Pathname.new(rtl_top).dirname} -debug_access+all +lint=all,noVCDE,noIWU,noVNGS,noCAWM-L,noPORTFRC,noZERO,noNS -PP -timescale=1ns/100ps -full64 -lca -kdb"
+  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} +incdir+#{Pathname.new(rtl_top).dirname} " + SYNOPSYS_DVE_SWITCHES.join(' ')
   puts
-  puts 'Copy the following files (produced by vcs) to simulation/<target>/verdi/. within your Origen application:'
+  puts 'Copy the following files (produced by vcs) to simulation/<target>/synopsys/. within your Origen application:'
   puts
   puts '  simv'
   puts '  simv.daidir'
+  puts
+  puts '-----------------------------------------------------------'
+  puts 'Synopsys VCS w/ Verdi Waveviewer'
+  puts '-----------------------------------------------------------'
+  puts
+  puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
+  puts
+  SYNOPSYS_VERDI_SWITCHES.each do |switch|
+    puts "  #{switch} \\"
+  end
+  puts
+  puts 'Here is an example which may work for the file you just parsed (add additional +incdir+ options at the end if required):'
+  puts
+  puts "  #{ENV['ORIGEN_SIM_VCS'] || 'vcs'} #{rtl_top} +incdir+#{Pathname.new(rtl_top).dirname} " + SYNOPSYS_VERDI_SWITCHES.join(' ')
+  puts
+  puts 'Copy the following files (produced by vcs) to simulation/<target>/synopsys/. within your Origen application:'
+  puts
+  puts '  simv'
+  puts '  simv.daidir'
+  puts
+  puts '-----------------------------------------------------------'
+  puts 'Cadence Incisive (irun)'
+  puts '-----------------------------------------------------------'
+  puts
+  puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
+  puts
+  CADENCE_SWITCHES.each do |switch|
+    puts "  #{switch} \\"
+  end
+  puts
+  puts 'Here is an example which may work for the file you just parsed (add additional -incdir options at the end if required):'
+  puts
+  puts "  #{ENV['ORIGEN_SIM_IRUN'] || 'irun'} #{rtl_top} -incdir #{Pathname.new(rtl_top).dirname} " + CADENCE_SWITCHES.join(' ')
+  puts
+  puts 'Copy the following directory (produced by irun) to simulation/<target>/cadence/. within your Origen application:'
+  puts
+  puts '  INCA_libs'
   puts
   puts '-----------------------------------------------------------'
   puts

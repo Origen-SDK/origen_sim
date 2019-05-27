@@ -23,7 +23,6 @@ module OrigenSim
                 # If there's already stuff in the current line,
                 # remove the VPI cruft and leave just the remainder of the message.
                 out = out.split(' ', 2)[-1]
-                puts out.yellow.underline
               end
 
               if out.chomp.end_with?(OrigenSim::Simulator::MULTIPART_LOGGER_TOKEN)

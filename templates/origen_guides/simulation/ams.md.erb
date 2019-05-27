@@ -1,0 +1,141 @@
+% render "layouts/guides.html" do
+
+OrigenSim supports analog/mixed-signal (AMS) simulations via real-number modeling (RNM), whereby
+top-level pins can be defined as real wire types (WREALs) and then Origen APIs can be used to drive
+and measure real number values from them.
+
+By default, OrigenSim's built in simulation setups will run a digital simulation, allowing such real number
+inputs to be used by behavioral models within that DUT which can themselves output real numbers to be
+observed on the DUT's pins by Origen APIs.
+
+The DUT could also contain full electical models which consume the real number inputs, in that 
+case a [custom simulation configuration](<%= path "guides/simulation/environment/#Custom_Simulator_Configuration" %>)
+will be required to define the run command to start the simulation.
+
+#### Building Support for AMS Simulation
+
+AMS support must be added in when building the testbench, this is done by adding the `--wreal` switch to the
+`sim:build` command:
+
+~~~text
+origen sim:build path/to/my_dut.v --wreal
+~~~
+
+By adding this switch, any pins which are defined as `wreal` types within the given top level will be assigned
+an analog pin driver by the testbench rather than a digital driver which is the default.
+
+Pins can be defined as a `wreal` type either by adding the `real` type to their definition:
+
+~~~verilog
+input real vddc,
+~~~
+
+or by adding a `wreal` wire within the module body:
+
+~~~verilog
+wreal vddc;
+~~~
+
+Here is an example which uses both approaches to declare the `vdd` and `ana` pins as analog pins whenever
+the `USE_WREAL` define is enabled:
+
+~~~verilog
+module my_dut(
+  input tck, tdi, tms, trstn,
+  input rstn,
+  input [31:0] din,
+  input p1,
+  input p2,
+  `ifdef USE_WREAL
+  inout real vdd,
+  `else
+  inout vdd,
+  `endif
+
+  output tdo,
+  output done,
+  output [15:0] test_bus,
+  output [31:0] dout,
+  output ana
+);
+
+`ifdef USE_WREAL
+  wreal ana;
+`endif
+endmodule
+~~~
+
+A digital testbench for this would be built via this command:
+
+~~~text
+origen sim:build path/to/my_dut.v
+~~~
+
+while AMS support would be added by running:
+
+~~~text
+origen sim:build path/to/my_dut.v --wreal --define USE_WREAL
+~~~
+
+#### Origen Application Configuration
+
+Within the corresponding Origen DUT model of the design, the wreal pins should be declared as either an
+analog, power or ground pins.
+
+From the above example, the wreal pins could be modeled like this:
+
+~~~ruby
+add_power_pin :vdd    # Could also be a regular analog pin too, if you prefer
+
+add_pin :ana, type: :analog
+~~~
+
+See the [Pins Guide](<%= path "guides/models/pins" %>) for more information on modeling pins in Origen.
+
+#### AMS APIs
+
+With all of the AMS configuration done, real values can now be driven and read from Origen application code
+during a simulation like this:
+
+~~~ruby
+dut.power_pin(:vdd).drive(1.25)
+
+dut.pin(:ana).read     # => 0.7
+
+# .measure is available as an alias of read for analog pins
+dut.pin(:ana).measure  # => 0.7
+~~~
+
+The `peek`, `poke` and `force` methods from [the Direct DUT Manipulation APIs](<%= path "guides/simulation/direct" %>) are
+also available to manipulate real valued nets during simulation.
+
+The analog pin APIs will not work correctly when generating a pattern for an ATE and the application code is 
+responsible for handling them safely, typically like this:
+
+~~~ruby
+# Example of a simulation-only assertion
+if tester.sim?
+  measured = dut.pin(:ana).measure
+  if measured != 0.3125
+    OrigenSim.error "Expected to measure 0.3125V from the ana pin, got #{measured}V!"
+  end
+end
+~~~
+
+It is easy to build more complex functionality in your application code from these simple APIs, for example to
+ramp a vdd pin:
+
+~~~ruby
+# Ramp up the power on VDD
+v = 0
+dut.power_pin(:vdd).drive!(v)
+until v >= 1.25
+  v += 0.05
+  dut.power_pin(:vdd).drive!(v)   # Note the use of drive! here which will generate a cycle
+end
+~~~
+
+It is hoped that the community will contribute plugins that contain higher-level functionality like this
+to make such functions available off-the-shelf in the future.
+
+% end
