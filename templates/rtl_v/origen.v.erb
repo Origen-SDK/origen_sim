@@ -156,14 +156,16 @@ module pin_drivers(<%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>)
   reg sync = 0;
 
 % dut.rtl_pins.each do |name, pin, options|
-%   if pin.type == :analog
+%   unless pin.meta[:origen_sim_init_pin_state] == -2
+%     if pin.type == :analog
 `ifdef ORIGEN_WREAL 
   ana_pin_driver <%= pin.id %>(.pin(<%= pin.id %>_o));
 `else
   pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .sync(sync));
 `endif
-%   else
+%     else
   pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .sync(sync));
+%     end
 %   end
 % end
 

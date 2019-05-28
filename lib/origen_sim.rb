@@ -54,7 +54,14 @@ module OrigenSim
     'disable'        => -1,
     'disabled'       => -1,
     'no_action'      => -1,
-    'no-action'      => -1
+    'no-action'      => -1,
+
+    # Disconnet/No-Connect Options
+    '-2'             => -2,
+    'no-connect'     => -2,
+    'no_connect'     => -2,
+    'disconnect'     => -2,
+    'disconnected'   => -2
   }
 
   def self.__instantiate_simulator__

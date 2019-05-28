@@ -197,8 +197,14 @@ module OrigenSim
         # That's all status info done until the simulation process ends, start a thread
         # to wait for that in case it ends before the VPI starts
         Thread.new do
-          @status.gets.chomp  # This will block until something is received
-          abort_connection
+          begin
+            @status.gets.chomp  # This will block until something is received
+          rescue Exception => e
+            Origen.log.error "Exception occurred while processing the monitor's status!"
+            raise e
+          ensure
+            abort_connection
+          end
         end
         Origen.log.debug 'Waiting for Origen VPI to start...'
 
@@ -252,6 +258,7 @@ module OrigenSim
       File.unlink(socket_id(:stderr)) if File.exist?(socket_id(:stderr))
       File.unlink(socket_id(:stdout)) if File.exist?(socket_id(:stdout))
       File.unlink(socket_id(:status)) if File.exist?(socket_id(:status))
+      @opened = false
     end
 
     # Returns true if the simulation is running
