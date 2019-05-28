@@ -636,12 +636,20 @@ module OrigenSim
           if options[:from_origen_sim]
             original.call(msg, type, options)
           else
-            msg.chars.each_slice(config[:max_log_size] - LOGGER_COLLATERAL_SIZE) do |m|
-              if m.size == config[:max_log_size] - LOGGER_COLLATERAL_SIZE
-                log(m.join + MULTIPART_LOGGER_TOKEN, type, multipart: true)
-              else
-                log(m.join, type, multipart: false)
+            # If the message would fit without the multi-line collateral, send it as normal.
+            # Note: this also avoids the pitfall of a message whose size is exactly
+            #   config[:max_log_size] - LOGGER_COLLATERAL_SIZE getting stuck until
+            #   something else is pushed.
+            if msg.size > config[:max_log_size] - (LOGGER_COLLATERAL_SIZE - MULTIPART_LOGGER_TOKEN.size)
+              msg.chars.each_slice(config[:max_log_size] - LOGGER_COLLATERAL_SIZE) do |m|
+                if m.size == config[:max_log_size] - LOGGER_COLLATERAL_SIZE
+                  log(m.join + MULTIPART_LOGGER_TOKEN, type, multipart: true)
+                else
+                  log(m.join, type, multipart: false)
+                end
               end
+            else
+              log(msg, type, multipart: false)
             end
           end
         end

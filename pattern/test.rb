@@ -360,4 +360,8 @@ Pattern.create do
   if (tester.cycle_count - e) < 1400
     OrigenSim.error "sim_delay padding was not applied!"
   end
+  
+  Origen.log.info("Testing that OrigenSim can send exceedingly long messages through the simulator...")
+  Origen.log.debug('OrigenSim'*1024)
+  Origen.log.success("If you see this, it worked!")
 end
