@@ -1,7 +1,7 @@
 module OrigenSim
   MAJOR = 0
   MINOR = 20
-  BUGFIX = 0
+  BUGFIX = 1
   DEV = nil
 
   VERSION = [MAJOR, MINOR, BUGFIX].join(".") + (DEV ? ".pre#{DEV}" : '')

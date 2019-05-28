@@ -1,3 +1,20 @@
+<a class="anchor release_tag" name="v0_20_1"></a>
+<h1><a href="#v0_20_1">Tag: v0.20.1</a></h1>
+
+##### Branch: 'master'
+
+##### by Corey Engelken on 28-May-2019 10:41AM
+
+
+Bugfixes for:
+
+* Excessively long logger messages crashing the VPI.
+* Reloading targets when creating probes for the Cadence vendor.
+* Using `post\_process\_sim\_cmd` when saving/comparing the configuration.
+
+Added 'disconnect' as an option for `init\_pin\_state` when running `sim:build`.
+
+
 <a class="anchor release_tag" name="v0_20_0"></a>
 <h1><a href="#v0_20_0">Tag: v0.20.0</a></h1>
 
