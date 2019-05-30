@@ -10,27 +10,25 @@ module OrigenSim
       @last_message_at = Time.now
       super do
         begin
-          line = ''
+          line = nil
           while @continue
             loop do
               out = @socket.gets
-              if out.nil?
-                line += ''
-                break
-              end
+              break if out.nil?
 
-              unless line.empty?
+              unless !line || line.empty?
                 # If there's already stuff in the current line,
                 # remove the VPI cruft and leave just the remainder of the message.
                 out = out.split(' ', 2)[-1]
               end
 
+              line ||= ''
               if out.chomp.end_with?(OrigenSim::Simulator::MULTIPART_LOGGER_TOKEN)
                 # Part of a multipart message. Add this to the current line
                 # and grab the next piece.
                 line += out.chomp.gsub(OrigenSim::Simulator::MULTIPART_LOGGER_TOKEN, '')
               else
-                # Either a single message or a the end of a multi-part message.
+                # Either a single message or the end of a multi-part message.
                 # Add this to the line break to print the output to the console.
                 line += out
                 break
@@ -71,7 +69,7 @@ module OrigenSim
                   end
                 end
               end
-              line = ''
+              line = nil
               @last_message_at = Time.now
             end
           end

@@ -328,7 +328,7 @@ module OrigenSim
                 end
 
                 diffs.each do |position, received, expected|
-                  if received == -1
+                  if received == -1 || received == -2
                     reg_or_val[position].unknown = true
                   else
                     reg_or_val[position].data = received
@@ -377,7 +377,7 @@ module OrigenSim
             if actual_data_available
               actual = reg_or_val
               diffs.each do |position, received, expected|
-                if received == -1
+                if received == -1 || received == -2
                   actual = '?' * reg_or_val.to_s(16).size
                   break
                 elsif received == 1
