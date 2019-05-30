@@ -1084,10 +1084,12 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
 
     vpi_free_object(argv);
 
-    if (received) {
+    if (received == 1 || received == 0) {
       origen_log(LOG_ERROR, "Miscompare on pin %s, expected %d received %d", pin_name, expected, received);
+    } else if (received == -2) {
+      origen_log(LOG_ERROR, "Miscompare on pin %s, expected %d received Z", pin_name, expected);
     } else {
-      origen_log(LOG_ERROR, "Miscompare on pin %s, expected %d received X or Z", pin_name, expected);
+      origen_log(LOG_ERROR, "Miscompare on pin %s, expected %d received X", pin_name, expected);
     }
 
     error_count++;
@@ -1116,11 +1118,7 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
         strcpy((*miscompare).pin_name, pin_name);
         (*miscompare).cycle = cycle_count;
         (*miscompare).expected = expected;
-        if (received) {
-          (*miscompare).received = received;
-        } else {
-          (*miscompare).received = -1;
-        }
+        (*miscompare).received = received;
       }
       transaction_error_count++;
     }

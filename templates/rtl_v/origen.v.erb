@@ -62,7 +62,12 @@ module pin_driver(pin, sync);
   // pin compare failure logger
   always @(posedge error) begin
     //$display("!4![%t] Miscompare on pin %s, expected %d received %d", $time, pin_name, data[0], pin);
-    $bridge_on_miscompare(pin_name, data[0], pin);
+    if (pin == 1'b0 || pin == 1'b1)
+      $bridge_on_miscompare(pin_name, data[0], pin);
+    else if (pin == 1'bz)
+      $bridge_on_miscompare(pin_name, data[0], -2);
+    else
+      $bridge_on_miscompare(pin_name, data[0], -1);
   end
   
   // SMcG - needs more work, causes non-genuine fails in OrigenSim test case

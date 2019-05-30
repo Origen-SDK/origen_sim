@@ -184,9 +184,6 @@ Pattern.create do
     unless dut.parallel_read.data == 0x7707_7077
       OrigenSim.error "PARALLEL_READ register did not sync from simulation"
     end
-
-    #ss "Test reading an X register value"
-    #dut.x_reg.read!(0)
   end
 
   ss "Do some operations with the counter, just for fun"
