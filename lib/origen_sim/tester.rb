@@ -297,7 +297,7 @@ module OrigenSim
                 if c = read_reg_cycles[error[:cycle]]
                   if p = c[simulator.pins_by_rtl_name[error[:pin_name]]]
                     if p[:position]
-                      diffs << [p[:position], error[:received], error[:expected]]
+                      diffs << [p[:position], error[:expected], error[:received]]
                     end
                   end
                 end
@@ -327,11 +327,11 @@ module OrigenSim
                   bit.read if read_flags[i]
                 end
 
-                diffs.each do |position, received, expected|
+                diffs.each do |position, expected, received|
                   if received == -1 || received == -2
                     reg_or_val[position].unknown = true
                   else
-                    reg_or_val[position].data = received
+                    reg_or_val[position].write(received, force: true)
                   end
                 end
 
@@ -344,8 +344,8 @@ module OrigenSim
 
                 # Put the data back so the application behaves as it would if generating
                 # for a non-simulation tester target
-                diffs.each do |position, received, expected|
-                  reg_or_val[position].data = expected
+                diffs.each do |position, expected, received|
+                  reg_or_val[position].write(expected, force: true)
                 end
               end
             end
@@ -376,7 +376,7 @@ module OrigenSim
             msg = "expected #{reg_or_val.to_s(16).upcase}"
             if actual_data_available
               actual = reg_or_val
-              diffs.each do |position, received, expected|
+              diffs.each do |position, expected, received|
                 if received == -1 || received == -2
                   actual = '?' * reg_or_val.to_s(16).size
                   break
