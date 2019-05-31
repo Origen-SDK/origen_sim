@@ -1,3 +1,13 @@
+<a class="anchor release_tag" name="v0_20_3"></a>
+<h1><a href="#v0_20_3">Tag: v0.20.3</a></h1>
+
+##### Branch: 'master'
+
+##### by Stephen McGinty on 31-May-2019 01:21AM
+
+
+Fixed bug in read transaction error reporting when read only bits failed
+
 <a class="anchor release_tag" name="v0_20_2"></a>
 <h1><a href="#v0_20_2">Tag: v0.20.2</a></h1>
 
