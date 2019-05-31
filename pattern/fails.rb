@@ -5,6 +5,10 @@ Pattern.create do
   dut.cmd.write!(0x1234_5678)
   dut.cmd.read!(0x1233_5678)
 
+  ss "Test a register-level miscompare with named bits"
+  dut.power_pin(:vdd).drive!(0)
+  dut.ana_test.read!(1)
+
   ss "Test a bit-level miscompare, expect 1"
   dut.ana_test.write!(0)
   dut.ana_test.bgap_out.read!(1)
