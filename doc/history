@@ -1,3 +1,13 @@
+<a class="anchor release_tag" name="v0_20_4"></a>
+<h1><a href="#v0_20_4">Tag: v0.20.4</a></h1>
+
+##### Branch: 'master'
+
+##### by Stephen McGinty on 06-Jun-2019 06:48AM
+
+
+Fixes bug when parsing Verilog pins with a real attribute
+
 <a class="anchor release_tag" name="v0_20_3"></a>
 <h1><a href="#v0_20_3">Tag: v0.20.3</a></h1>
 
