@@ -4,7 +4,7 @@ PATH
     origen_sim (0.20.3)
       origen (>= 0.44.0)
       origen_testers (>= 0.21.0)
-      origen_verilog (>= 0.6.0)
+      origen_verilog (>= 0.6.1)
 
 GEM
   remote: https://rubygems.org/
@@ -70,7 +70,7 @@ GEM
     net-ldap (0.16.1)
     nokogiri (1.10.3)
       mini_portile2 (~> 2.4.0)
-    origen (0.51.2)
+    origen (0.51.3)
       activesupport (~> 4.1)
       bundler (~> 1.7)
       coderay (~> 1.1)
@@ -111,7 +111,7 @@ GEM
       origen (>= 0.44.0)
       origen_stil (>= 0.2.1)
       require_all (~> 1)
-    origen_verilog (0.6.0)
+    origen_verilog (0.6.1)
       ast (~> 2)
       origen (>= 0.41.0)
       treetop
