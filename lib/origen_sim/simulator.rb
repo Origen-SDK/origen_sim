@@ -1204,13 +1204,62 @@ module OrigenSim
       end
     end
 
+    # Returns true if the snapshot has been compiled with some kind of REAL support.
+    # Not picky about what type of real support though.
+    def real?
+      @real ||= begin
+        if dut_version > '0.19.0' && dut_version < '0.20.3'
+          # These versions of OrigenSim only support WREAL
+          if wreal?
+            @real_type = :wreal
+            true
+          else
+            false
+          end
+        elsif dut_version >= '0.20.3'
+          # These versions support multiple REAL types.
+          @real_type = peek_str("#{testbench_top}.debug.real_type").to_sym
+          peek("#{testbench_top}.debug.real_enabled").to_i == 1
+        else
+          # Older version don't support REAL at all
+          @real_type = false
+          false
+        end
+      end
+    end
+    alias_method :real_enabled?, :real?
+    
+    # Returns the type of REAL support or <code>false</code> if no REAL support is enabled.
+    # @note Calling {#real?} will set the value of <code>real_type</code> appropriately
+    def real_type
+      @real_type || begin
+        real?
+        @real_type
+      end
+    end
+
     # Returns true if the snapshot has been compiled with WREAL support
     def wreal?
-      return @wreal if defined?(@wreal)
-      @wreal = (dut_version > '0.19.0' &&
-                peek("#{testbench_top}.debug.wreal_enabled").to_i == 1)
+      if dut_version > '0.19.0' && dut_version < '0.20.3'
+        @wreal ||= peek("#{testbench_top}.debug.wreal_enabled").to_i == 1
+      elsif dut_version >= '0.20.3'
+        (@real_type || begin
+          real?
+          @real_type
+        end) == :wreal
+      else  
+        false
+      end
     end
     alias_method :wreal_enabled?, :wreal?
+
+    def wrealavg?
+      (@real_type || begin
+        real?
+        @real_type
+      end) == :wrealavg
+    end
+    alias_method :wrealavg_enabled?, :wrealavg?
 
     private
 

@@ -1,4 +1,32 @@
-%#`include "<%= options[:top] %>"
+// This is an auto-generated file from OrigenSim
+//   (https://origen-sdk.org/origen/guides/simulation/introduction/)
+// This file was generated with this command:
+//   "<%= options[:build_cmd] %>"
+
+// Utility Macros
+// Cast define value as a string.
+`define ORIGEN_SIM_TO_S(s) `"s`"
+
+% if options[:vendor] == :cadence
+`define ORIGEN_SIM_CADENCE
+% elsif optons[:vendor] == :synopsis
+`define ORIGEN_SIM_SYNOPSIS
+% elsif options[:vendor] == :icarus
+`define ORIGEN_SIM_ICARUS
+% end
+
+`ifdef ORIGEN_WREAL
+  `define ORIGEN_USE_REAL
+  `define ORIGEN_REAL_TYPE wreal
+`elsif ORIGEN_WREALAVG
+  `define ORIGEN_USE_REAL
+  `define ORIGEN_REAL_TYPE wrealavg
+  `ifdef ORIGEN_SIM_CADENCE
+    import cds_rnm_pkg::*;
+  `elsif ORIGEN_SIM_SYNOPSIS
+    import snps_msv_nettype_pkg::*;
+  `endif
+`endif
 
 // To create the big fonts - http://patorjk.com/software/taag/#p=display&f=Big
 
@@ -103,7 +131,7 @@ module pin_driver(pin, sync);
 endmodule
 
 
-`ifdef ORIGEN_WREAL 
+`ifdef ORIGEN_USE_REAL
 //                       _               _____ _         _____       _                
 //     /\               | |             |  __ (_)       |  __ \     (_)               
 //    /  \   _ __   __ _| | ___   __ _  | |__) | _ __   | |  | |_ __ ___   _____ _ __ 
@@ -113,13 +141,13 @@ endmodule
 //                                __/ |                                               
 //                               |___/                                                
 
-// A simple WREAL pin driver that can drive real value on a pin or else hi-Z, when the driver is in
+// A simple WREAL/WREALAVG pin driver that can drive real value on a pin or else hi-Z, when the driver is in
 // hi-Z mode the value applied by any other driver connected to the pin can be measured by peeking
 // the value on pin
 module ana_pin_driver(pin);
   inout pin;
 
-  wreal pin;
+  `ORIGEN_REAL_TYPE pin;
 
   reg drive_en = 0;
   real drive = 0.0;      // Value that will be driven on pin when drive is enabled
@@ -142,7 +170,7 @@ module pin_drivers(<%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>)
 
 % dut.rtl_pins.each do |name, pin, options|
 %   if pin.type == :analog
-`ifdef ORIGEN_WREAL 
+`ifdef ORIGEN_USE_REAL
   inout <%= pin.id %>_o;
 `else
   output <%= pin.id %>_o;
@@ -152,9 +180,10 @@ module pin_drivers(<%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>)
 %   end
 % end
 
-`ifdef ORIGEN_WREAL 
+`ifdef ORIGEN_USE_REAL 
 % dut.rtl_pins(type: :analog).each do |name, pin, options|
-  wreal <%= pin.id %>_o;
+
+  `ORIGEN_REAL_TYPE <%= pin.id %>_o;
 % end
 `endif
 
@@ -163,7 +192,7 @@ module pin_drivers(<%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>)
 % dut.rtl_pins.each do |name, pin, options|
 %   unless pin.meta[:origen_sim_init_pin_state] == -2
 %     if pin.type == :analog
-`ifdef ORIGEN_WREAL 
+`ifdef ORIGEN_USE_REAL
   ana_pin_driver <%= pin.id %>(.pin(<%= pin.id %>_o));
 `else
   pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .sync(sync));
@@ -238,10 +267,12 @@ module debug;
 
   snapshot_details snapshot_details();
 
-`ifdef ORIGEN_WREAL 
-  reg wreal_enabled = 1;
+`ifdef ORIGEN_USE_REAL 
+  reg real_enabled = 1;
+  reg [1023:0] real_type = `ORIGEN_SIM_TO_S(`ORIGEN_REAL_TYPE`);
 `else
-  reg wreal_enabled = 0;
+  reg real_enabled = 0;
+  reg [1023:0] real_type = 0;
 `endif
   
 endmodule
@@ -261,8 +292,8 @@ module origen;
 
 % dut.rtl_pins.each do |name, pin, options|
 %   if pin.type == :analog
-`ifdef ORIGEN_WREAL 
-  wreal <%= pin.id %>;
+`ifdef ORIGEN_USE_REAL 
+  `ORIGEN_REAL_TYPE <%= pin.id %>;
 `else
   wire <%= pin.id %>;
 `endif

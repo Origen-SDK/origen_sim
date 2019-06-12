@@ -64,6 +64,15 @@ module OrigenSim
     'disconnected'   => -2
   }
 
+  FORCE_PIN_TYPES_MAPPING = {
+    'real' => :analog,
+    'ana' => :analog,
+    'analog' => :analog,
+    
+    'dig' => :digital,
+    'digital' => :digital,
+  }
+
   def self.__instantiate_simulator__
     @simulator ||= Simulator.new
   end

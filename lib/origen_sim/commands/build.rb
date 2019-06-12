@@ -3,7 +3,16 @@ require 'origen_sim'
 require_relative '../../../config/version'
 require 'origen_verilog'
 
-options = { incl_files: [], source_dirs: [], testbench_name: 'origen', defines: [], user_details: {}, initial_pin_states: {}, verilog_top_output_name: 'origen' }
+options = { 
+  incl_files: [],
+  source_dirs: [],
+  testbench_name: 'origen',
+  defines: [],
+  user_details: {}, 
+  initial_pin_states: {},
+  forced_pin_types: {},
+  verilog_top_output_name: 'origen'
+}
 
 # App options are options that the application can supply to extend this command
 app_options = @application_options || []
@@ -24,6 +33,7 @@ Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
   end
   opts.on('--sv', 'Generate a .sv file instead of a .v file.') { |t| options[:sv] = t }
   opts.on('--wreal', 'Enable real number modeling support on DUT pins defined as real wires (wreal)') { |t| options[:wreal] = t }
+  opts.on('--wrealavg', 'Enable real number modeling support on DUT pins defined as real wires - averaged (wrealavg)') { |t| options[:wrealavg] = t }
   opts.on('--verilog_top_output_name NAME', 'Renames the output filename from origen.v to NAME.v') do |name|
     options[:verilog_top_output_name] = name
   end
@@ -39,7 +49,12 @@ Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
     end
     (options[:initial_pin_states])[name.to_sym] = OrigenSim::INIT_PIN_STATE_MAPPING[state]
   end
-  opts.on('--include FILE' 'Specify files to include in the top verilog file.') { |f| options[:incl_files] << f }
+  opts.on('--force_pin_type PIN_AND_TYPE', 'Overwrite the pin driver discerned from DUT module') do |pin_and_type|
+    name, type = pin_and_type.split(':')
+    (options[:forced_pin_types])[name.to_sym] = OrigenSim::FORCE_PIN_TYPES_MAPPING[type]
+  end
+  opts.on('--include FILE', 'Specify files to include in the top verilog file.') { |f| options[:incl_files] << f }
+  opts.on('--vendor VENDOR', 'Specify the target vendor (Cadence, Synopsis, Icarus') { |v| options[:vendor] = v.downcase.to_sym }
 
   # Specifying snapshot details
   opts.on('--device_name NAME', '(Snapshot Detail) Specify a device name') { |n| options[:device_name] = n }
@@ -68,6 +83,7 @@ Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
   opts.on('-h', '--help', 'Show this message') { puts opts; exit 0 }
 end
 
+build_cmd = 'origen sim:build ' + ARGV.join(' ')
 opt_parser.parse! ARGV
 
 def _exit_fail_
@@ -122,6 +138,19 @@ options[:initial_pin_states].each do |pin, state|
   dut.pins(pin).meta[:origen_sim_init_pin_state] = state
 end
 
+options[:forced_pin_types].each do |pin, type|
+  if pin[0] == '/'
+    # run this as a regex, not as a single pin name
+    # Cut out the leading / and trailing / characters though
+    regex = Regexp.new(pin.to_s[1..-2])
+    dut.pins.select { |n, p| n.match(regex)}.each do |n, p|
+      p.type = type
+    end
+  else
+    dut.pins(pin).type = type
+  end
+end
+
 if $_testing_build_return_dut_
   dut
 
@@ -146,7 +175,8 @@ else
                              revision_note:     options[:revision_note],
                              parent_tb_version: options[:testbench_version],
                              user_details:      options[:user_details],
-                             author:            options[:author]
+                             author:            options[:author],
+                             build_cmd:         build_cmd
                            }
 
   Origen.app.runner.launch action:            :compile,
@@ -182,6 +212,16 @@ else
     )
   end
 
+  if options[:wrealavg]
+    SYNOPSYS_SWITCHES += %w(
+      +define+ORIGEN_WREALAVG
+      -realport
+      -sverilog
+      -lca
+      -xlrm\ coerce_nettype
+    )
+  end
+
   SYNOPSYS_DVE_SWITCHES = SYNOPSYS_SWITCHES + %w(
     +define+ORIGEN_VPD
   )
@@ -211,7 +251,14 @@ else
     )
   end
 
+  if options[:wrealavg]
+    CADENCE_SWITCHES += %w(
+      +define+ORIGEN_WREALAVG
+    )
+  end
+
   puts
+if options[:vendor].nil? || options[:vendor] == :icarus
   puts
   puts '-----------------------------------------------------------'
   puts 'Icarus Verilog'
@@ -235,6 +282,8 @@ else
   puts
   puts "  #{output_directory}/origen.vpi"
   puts '  origen.vvp'
+end
+if options[:vendor].nil? || options[:vendor] == :synopsis
   puts
   puts '-----------------------------------------------------------'
   puts 'Synopsys VCS w/ DVE Waveviewer'
@@ -279,6 +328,8 @@ else
   puts '-----------------------------------------------------------'
   puts
   puts 'Add the following to your build script (AND REMOVE ANY OTHER TESTBENCH!):'
+end
+if options[:vendor].nil? || options[:vendor] == :cadence
   puts
   CADENCE_SWITCHES.each do |switch|
     puts "  #{switch} \\"
@@ -301,6 +352,7 @@ else
   puts "  #{output_directory}/#{rtl_top_module}.rb"
   puts
   puts 'See above for what to do now to create an Origen-enabled simulation object for your particular simulator.'
+end
   puts
 
 end

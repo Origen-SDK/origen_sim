@@ -13,7 +13,8 @@ module Origen
         pins.each do |name, pin|
           options = {}
           unless pin.rtl_name.to_s.downcase == 'nc' ||
-                 (opts[:type] && pin.type && opts[:type] != pin.type)
+                 (opts[:type] && pin.type && opts[:type] != pin.type) ||
+                 (pin.meta[:origen_sim_init_pin_state] && pin.meta[:origen_sim_init_pin_state] == -2)
             if pin.primary_group
               options[:group] = true
             end
