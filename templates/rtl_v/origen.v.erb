@@ -21,10 +21,12 @@
 `elsif ORIGEN_WREALAVG
   `define ORIGEN_USE_REAL
   `define ORIGEN_REAL_TYPE wrealavg
-  `ifdef ORIGEN_SIM_CADENCE
-    import cds_rnm_pkg::*;
-  `elsif ORIGEN_SIM_SYNOPSIS
-    import snps_msv_nettype_pkg::*;
+  `ifdef ORIGEN_SV
+    `ifdef ORIGEN_SIM_CADENCE
+      import cds_rnm_pkg::*;
+    `elsif ORIGEN_SIM_SYNOPSIS
+      import snps_msv_nettype_pkg::*;
+    `endif
   `endif
 `endif
 
@@ -147,7 +149,11 @@ endmodule
 module ana_pin_driver(pin);
   inout pin;
 
-  `ORIGEN_REAL_TYPE pin;
+`ifdef ORIGEN_WREAL
+  wreal pin;
+`elsif `ORIGEN_WREALAVG
+  wrealavg pin;
+`endif
 
   reg drive_en = 0;
   real drive = 0.0;      // Value that will be driven on pin when drive is enabled
@@ -269,7 +275,11 @@ module debug;
 
 `ifdef ORIGEN_USE_REAL 
   reg real_enabled = 1;
-  reg [1023:0] real_type = `ORIGEN_SIM_TO_S(`ORIGEN_REAL_TYPE`);
+  `ifdef ORIGEN_WREAL
+  reg [1023:0] real_type = "wreal";
+  `elsif ORIGEN_WREALAVG
+  reg[1023:0] real_type = "wrealavg";
+  `endif
 `else
   reg real_enabled = 0;
   reg [1023:0] real_type = 0;

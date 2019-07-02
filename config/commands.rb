@@ -26,6 +26,7 @@ when "sim:build_example"
     cmd += ' ' + ARGV.join(' ') unless ARGV.empty?
     # Enable wreal pins in the DUT RTL
     cmd += '  --define ORIGEN_WREAL' if ARGV.include?('--wreal')
+    cmd += '  --define ORIGEN_WREALAVG --define ORIGEN_SV' if ARGV.include?('--wrealavg')
     output = `#{cmd}`
     puts output
     Origen.load_target

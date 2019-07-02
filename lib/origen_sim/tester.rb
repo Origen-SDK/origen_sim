@@ -63,11 +63,16 @@ module OrigenSim
       simulator.flush(*args)
     end
 
-    def set_timeset(name, period_in_ns)
+
+    def set_timeset(name, period_in_ns=nil)
       super
+      
       # Need to remove this once OrigenTesters does it
-      dut.timeset = name
-      dut.current_timeset_period = period_in_ns
+      # OrigenTesters with decompiler supports this.
+      if period_in_ns
+        dut.timeset = name
+        dut.current_timeset_period = period_in_ns
+      end
 
       # Now update the simulator with the new waves
       simulator.on_timeset_changed

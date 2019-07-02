@@ -224,7 +224,7 @@ module OrigenSim
     # Load up the application and target
     Origen.load_application
     Origen.app.load_target!
-
+Origen.log.error("need error case for not simulator")
     # Start up the simulator and run whatever's in the target block.
     # After the block completes, shutdown the simulator
     tester.simulator.setup_simulation(name)
