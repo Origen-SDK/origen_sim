@@ -1,10 +1,10 @@
 PATH
   remote: .
   specs:
-    origen_sim (0.20.4)
+    origen_sim (0.20.5)
       origen (>= 0.44.0)
       origen_testers (>= 0.21.0)
-      origen_verilog (>= 0.6.1)
+      origen_verilog (>= 0.6.2)
 
 GEM
   remote: https://rubygems.org/
@@ -111,7 +111,7 @@ GEM
       origen (>= 0.44.0)
       origen_stil (>= 0.2.1)
       require_all (~> 1)
-    origen_verilog (0.6.1)
+    origen_verilog (0.6.2)
       ast (~> 2)
       origen (>= 0.41.0)
       treetop
