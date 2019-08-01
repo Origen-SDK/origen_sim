@@ -1252,6 +1252,8 @@ module OrigenSim
     end
 
     def clean(net)
+      # substitute ruby syntax ".." for verilog ":"
+      net.gsub!('..', ':')
       if net =~ /^dut\./
         "#{testbench_top}.#{net}"
       else

@@ -170,7 +170,12 @@ module OrigenSimDev
               jtag.write_dr(dr)
               dr.rg_enable.write(0)
               dr.rg_data.copy_all(reg)
-              jtag.read_dr(dr)
+              if !options[:force_out_of_bounds]
+                jtag.read_dr(dr)
+              else
+                expect_val = dr.data + 2**dr.size
+                jtag.read_dr expect_val, size: dr.size + 1
+              end
             end
           end
         end

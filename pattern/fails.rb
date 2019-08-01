@@ -20,4 +20,16 @@ Pattern.create do
     ss "Test reading an X register value, expect LSB nibble to be 0"
     dut.x_reg[3..0].read!(0)
   end
+
+  ss "Test an out of bounds miscompare"
+  dut.cmd.write!(0x1234_5678)
+  dut.cmd.read!(0x1233_5678, force_out_of_bounds: true)
+
+  ss "Test user out of bounds handler"
+  if tester.sim?
+    tester.out_of_bounds_handler = proc do |position, received, expected, reg|
+      Origen.log.error "User handler hook is working --> #{reg.name}, bit[#{position}]: expected #{expected}, received #{received}"
+    end
+  end
+  dut.cmd.read!(0x1233_5678, force_out_of_bounds: true)
 end
