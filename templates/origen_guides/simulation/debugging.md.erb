@@ -100,6 +100,21 @@ For reference, here is the update that was made to the JTAG driver to support th
 
 If the driver has not provided this then a warning will be output and no received data will be given.
 
+In some cases the protocol being used may generate failed compares that contain bit position meta data 
+that does not map to the register being read. In this case a generic message will be displayed with the 
+bit position that failed along with the register that was being read. It may be desirable to have application 
+specific code interpret these bits (for example if it is a status bit). Origen provides a hook for this. Below 
+is an example of how to implement a custom interpreter.
+
+~~~ruby
+if tester.sim?
+  tester.out_of_bounds_handler = proc do |position, received, expected, reg|
+    Origen.log.error "Got data ouside of #{reg.name} during the transaction, bit[#{position}]: expected #{expected}, received #{received}"
+    Origen.log.error "ECC error during read of #{reg.path}.#{reg.name}" if position == 39
+  end
+end
+~~~
+
 This feature will automatically be enabled for any reads launched via the register object itself, e.g.
 `my_reg.read!`, but not for reads launched by calling the `read_register` method manually,
 e.g. `dut.read_register(my_reg)`.
