@@ -5,6 +5,8 @@ module OrigenSim
 
     TEST_PROGRAM_GENERATOR = OrigenSim::Generator
 
+    attr_accessor :out_of_bounds_handler
+
     def initialize(options = {}, &block)
       # Use Origen's collector to allow options to be set either from the options hash, or from the block
       if block_given?
@@ -333,10 +335,19 @@ module OrigenSim
                 end
 
                 diffs.each do |position, expected, received|
-                  if received == -1 || received == -2
-                    reg_or_val[position].unknown = true
+                  if position < reg_or_val.size
+                    if received == -1 || received == -2
+                      reg_or_val[position].unknown = true
+                    else
+                      reg_or_val[position].write(received, force: true)
+                    end
                   else
-                    reg_or_val[position].write(received, force: true)
+                    # This bit position is beyond the bounds of the register
+                    if @out_of_bounds_handler
+                      @out_of_bounds_handler.call(position, received, expected, reg_or_val)
+                    else
+                      Origen.log.error "bit[#{position}] of read operation on #{reg_or_val.path}.#{reg_or_val.name}: expected #{expected} received #{received}"
+                    end
                   end
                 end
 
@@ -350,7 +361,7 @@ module OrigenSim
                 # Put the data back so the application behaves as it would if generating
                 # for a non-simulation tester target
                 diffs.each do |position, expected, received|
-                  reg_or_val[position].write(expected, force: true)
+                  reg_or_val[position].write(expected, force: true) if position < reg_or_val.size
                 end
               end
             end

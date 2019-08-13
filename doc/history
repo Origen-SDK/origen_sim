@@ -1,3 +1,16 @@
+<a class="anchor release_tag" name="v0_20_6"></a>
+<h1><a href="#v0_20_6">Tag: v0.20.6</a></h1>
+
+##### Branch: 'master'
+
+##### by Paul DeRouen on 02-Aug-2019 07:23AM
+
+
+Added out of bounds handler for failing bits during a register read (see guides ->
+Simulation -> Debugging -> Failed Register Reads)
+Updated verilog path clean up code to change ruby syntax ".." to verilog ":" before a
+peek/poke is performed
+
 <a class="anchor release_tag" name="v0_20_5"></a>
 <h1><a href="#v0_20_5">Tag: v0.20.5</a></h1>
 
