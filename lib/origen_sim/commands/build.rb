@@ -140,6 +140,7 @@ else
                            options:           {
                              vendor:            :cadence,
                              top:               dut.name,
+                             testbench_name:    options[:testbench_name],
                              incl:              options[:incl_files],
                              device_name:       options[:device_name],
                              revision:          options[:revision],
