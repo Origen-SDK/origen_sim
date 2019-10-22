@@ -29,6 +29,7 @@ typedef struct Pin {
   int compare_wave_pos;  // Position of the pin in the compare_wave's active pin array
   int index;             // The pin's index in the pins array
   int previous_state;    // Used to keep track of whether the pin was previously driving or comparing
+  int drive_data;        // Used to hold the new drive data for this pin until needed by the drive wave
   bool capture_en;       // Used to indicated when compare data should be captured instead of compared
   bool present;          // Set to true if the pin is present in the testbench
 } Pin;
@@ -108,6 +109,7 @@ static void define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * 
   (*pin).compare_wave = atoi(compare_wave_ix);
   (*pin).previous_state = 0;
   (*pin).capture_en = false;
+  (*pin).drive_data = 0;
 
 
   char * driver = (char *) malloc(strlen(name) + 16);
@@ -326,9 +328,15 @@ static void drive_pin(char * index, char * val) {
   s_vpi_value v = {vpiIntVal, {0}};
 
   if ((*pin).present) {
+    // Store the pin drive data to be applied at the data edge
+    (*pin).drive_data = (val[0] - '0');
+    
     // Apply the data value to the pin's driver
-    v.value.integer = (val[0] - '0');
-    vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
+    if (is_drive_whole_cycle(pin)) {
+      v.value.integer = (*pin).drive_data;
+      vpi_put_value((*pin).data, &v, NULL, vpiNoDelay);
+    }
+    
     // Make sure not comparing
     v.value.integer = 0;
     vpi_put_value((*pin).compare, &v, NULL, vpiNoDelay);
@@ -431,6 +439,7 @@ static void dont_care_pin(char * index) {
 PLI_INT32 apply_wave_event_cb(p_cb_data data) {
   s_vpi_value v = {vpiIntVal, {0}};
   s_vpi_value v2 = {vpiIntVal, {0}};
+  s_vpi_value v3 = {vpiIntVal, {0}};
 
   int * wave_ix  = (int*)(&(data->user_data[0]));
   int * event_ix = (int*)(&(data->user_data[sizeof(int)]));
@@ -486,6 +495,11 @@ PLI_INT32 apply_wave_event_cb(p_cb_data data) {
       case 'D' :
         d = 0;
         on = 1;
+        // Apply the data value to the pin's driver
+	for (int i = 0; i < (*wave).active_pin_count; i++) {
+          v3.value.integer = (*(*wave).active_pins[i]).drive_data;
+          vpi_put_value((*(*wave).active_pins[i]).data, &v3, NULL, vpiNoDelay);
+	}
         break;
       case 'X' :
         d = 0;
