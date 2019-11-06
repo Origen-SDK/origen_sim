@@ -218,6 +218,13 @@ Pattern.create do
     60.cycles
   end
 
+  ss "Test timing implementation - drive timing, single data event only, not at t0"
+  dut.pins(:din_port).dont_care
+  tester.cycle
+  dut.pins(:din_port).drive! 1
+  dut.pins(:din_port).drive! 0
+  dut.pins(:din_port).drive! 1
+
   ss "Test the command works with static vectors"
   dut.pin(:done).assert!(1)
   dut.pin(:done).dont_care

@@ -35,6 +35,10 @@ module OrigenSimDev
           w.drive 0, at: 0
           w.drive :data, at: 'period / 2'
         end
+        # Generate drive timing that has only a data event which isn't at t0
+        t.wave :din_port do |w|
+          w.drive :data, at: 'period / 2'
+        end
       end
 
       add_reg :dr, 0x0, size: 66 do |reg|
