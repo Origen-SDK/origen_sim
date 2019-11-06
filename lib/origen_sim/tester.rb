@@ -41,9 +41,25 @@ module OrigenSim
       end
       @sync_pins.map do |pin|
         if @sync_cycles.size == 1
-          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory")[0]
+          b = simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory")[0]
+          if b.is_a?(Integer)
+            b
+          else
+            Origen.log.warning "The data captured on pin #{pin.id} was undefined (X or Z), the captured value is not correct!"
+            0
+          end
         else
-          simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory").to_i[(@sync_cycles - 1)..0]
+          val = 0
+          mem = simulator.peek("#{simulator.testbench_top}.pins.#{pin.id}.sync_memory")
+          @sync_cycles.times do |i|
+            b = mem[i]
+            if b.is_a?(Integer)
+              val |= b << i
+            else
+              Origen.log.warning "The data captured on cycle #{i} of pin #{pin.id} was undefined (X or Z), the captured value is not correct!"
+            end
+          end
+          val
         end
       end
     end

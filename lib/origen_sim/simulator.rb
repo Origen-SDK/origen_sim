@@ -328,7 +328,13 @@ module OrigenSim
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: :all },
+                                   options:           { dir:           wave_dir,
+                                                        wave_file:     wave_file_basename,
+                                                        force:         config[:force],
+                                                        setup:         config[:setup],
+                                                        depth:         :all,
+                                                        testbench_top: config[:testbench_top] || 'origen'
+                                                      },
                                    output_file_name:  "#{wave_file_basename}.tcl",
                                    preserve_target:   true
         end
@@ -340,7 +346,13 @@ module OrigenSim
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: fast_probe_depth },
+                                   options:           { dir:           wave_dir,
+                                                        wave_file:     wave_file_basename,
+                                                        force:         config[:force],
+                                                        setup:         config[:setup],
+                                                        depth:         fast_probe_depth,
+                                                        testbench_top: config[:testbench_top] || 'origen'
+                                                      },
                                    output_file_name:  "#{wave_file_basename}_fast.tcl",
                                    preserve_target:   true
         end
