@@ -264,7 +264,6 @@ module OrigenSim
       end
     end
 
-
     def wait(*args)
       super
       if Origen.running_interactively? ||
