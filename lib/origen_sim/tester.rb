@@ -182,25 +182,21 @@ module OrigenSim
       if options[:pin2]
         expected_val2 = options[:state2] == :high ? 1 : 0
       end
-      timed_out = true
-      10.times do
-        (timeout_in_cycles / 10).cycles
+      matched = false
+      start_cycle = cycle_count
+      resolution = match_loop_resolution(timeout_in_cycles, options)
+      until matched || cycle_count > start_cycle + timeout_in_cycles
+        resolution.cycles
         current_val = simulator.peek("dut.#{pin.rtl_name}").to_i
         if options[:pin2]
           current_val2 = simulator.peek("dut.#{options[:pin2].rtl_name}").to_i
-          if current_val == expected_val || current_val2 == expected_val2
-            timed_out = false
-            break
-          end
+          matched = current_val == expected_val || current_val2 == expected_val2
         else
-          if current_val == expected_val
-            timed_out = false
-            break
-          end
+          matched = current_val == expected_val
         end
       end
       # Final assertion to make the pattern fail if the loop timed out
-      if timed_out
+      unless matched
         pin.restore_state do
           pin.assert!(expected_val)
         end
@@ -223,23 +219,22 @@ module OrigenSim
       else
         match_conditions.add(&block)
       end
-      timed_out = true
+      matched = false
+      start_cycle = cycle_count
+      resolution = match_loop_resolution(timeout_in_cycles, options)
       simulator.match_loop do
-        10.times do
-          (timeout_in_cycles / 10).cycles
+        until matched || cycle_count > start_cycle + timeout_in_cycles
+          resolution.cycles
           # Consider the match resolved if any condition can execute without generating errors
-          if match_conditions.any? do |condition|
+          matched = match_conditions.any? do |condition|
             e = simulator.match_errors
             condition.call
             e == simulator.match_errors
           end
-            timed_out = false
-            break
-          end
         end
       end
       # Final execution to make the pattern fail if the loop timed out
-      if timed_out
+      unless matched
         if fail_conditions.instance_variable_get(:@block_args).empty?
           match_conditions.each(&:call)
         else
@@ -247,6 +242,28 @@ module OrigenSim
         end
       end
     end
+
+    # @api private
+    def match_loop_resolution(timeout_in_cycles, options)
+      if options[:resolution]
+        if options[:resolution].is_a?(Hash)
+          return time_to_cycles(options[:resolution])
+        else
+          return options[:resolution]
+        end
+      else
+        # Used to use the supplied timeout / 10, thinking that the supplied number would be
+        # roughly how long it would take. However, found that when users didn't know the timeout
+        # they would just put in really large numbers, like 1sec, which would mean we would not
+        # check until 100ms for an operation that might be done after 100us.
+        # So now if the old default comes out less than the new one, then use it, otherwise use
+        # the newer more fine-grained default.
+        old_default = timeout_in_cycles / 10
+        new_default = time_to_cycles(time_in_us: 100)
+        return old_default < new_default ? old_default : new_default
+      end
+    end
+
 
     def wait(*args)
       super
