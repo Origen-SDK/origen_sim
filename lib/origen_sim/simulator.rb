@@ -1219,8 +1219,12 @@ module OrigenSim
           end
         elsif dut_version >= '0.20.3'
           # These versions support multiple REAL types.
-          @real_type = peek_str("#{testbench_top}.debug.real_type").to_sym
-          peek("#{testbench_top}.debug.real_enabled").to_i == 1
+          if peek_str("#{testbench_top}.debug.real_type").nil?
+            @real_type = false
+          else
+            @real_type = peek_str("#{testbench_top}.debug.real_type").to_sym
+            peek("#{testbench_top}.debug.real_enabled").to_i == 1
+          end
         else
           # Older version don't support REAL at all
           @real_type = false
