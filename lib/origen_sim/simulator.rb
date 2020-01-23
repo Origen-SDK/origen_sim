@@ -328,7 +328,7 @@ module OrigenSim
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: :all },
+                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: :all, testbench_top: testbench_top },
                                    output_file_name:  "#{wave_file_basename}.tcl",
                                    preserve_target:   true
         end
@@ -340,7 +340,7 @@ module OrigenSim
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: fast_probe_depth },
+                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: fast_probe_depth, testbench_top: testbench_top },
                                    output_file_name:  "#{wave_file_basename}_fast.tcl",
                                    preserve_target:   true
         end
@@ -1153,7 +1153,8 @@ module OrigenSim
       unless val.nil?
         # All zeros seems to be what an empty string is returned from the VPI,
         # Otherwise, break the string up into 8-bit chunks and decode the ASCII>
-        val = (val.to_s == 'b00000000' ? '' : val.to_s[1..-1].scan(/.{1,8}/).collect { |char| char.to_i(2).chr }.join)
+        puts val
+        val = (val.to_s == 'b00000000' ? '' : val.to_s[1..-1].scan(/.{1,8}/).select { |char| char != '00000000' }.collect { |char| char.to_i(2).chr }.join)
       end
       val
     end
@@ -1228,7 +1229,7 @@ module OrigenSim
       end
     end
     alias_method :real_enabled?, :real?
-    
+
     # Returns the type of REAL support or <code>false</code> if no REAL support is enabled.
     # @note Calling {#real?} will set the value of <code>real_type</code> appropriately
     def real_type
@@ -1243,11 +1244,17 @@ module OrigenSim
       if dut_version > '0.19.0' && dut_version < '0.20.3'
         @wreal ||= peek("#{testbench_top}.debug.wreal_enabled").to_i == 1
       elsif dut_version >= '0.20.3'
+        puts "wreal?".cyan
+        puts @real_type.class
+        puts @real_type[0]
+        puts @real_type.to_s.size
+        puts 'wreal'.size
+        puts @real_type.to_s == 'wreal'
         (@real_type || begin
           real?
           @real_type
         end) == :wreal
-      else  
+      else
         false
       end
     end

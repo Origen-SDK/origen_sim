@@ -71,8 +71,8 @@ module Origen
         if _analog_pin_? && simulation_running? && tester.simulator.real?
           drive_enabled = tester.peek("#{driver_net}.drive_en").to_i
           if drive_enabled == 1
-            #tester.poke("#{driver_net}.drive_en", 0)
-            #tester.cycle
+            # tester.poke("#{driver_net}.drive_en", 0)
+            # tester.cycle
           end
           measured = tester.peek("#{driver_net}.pin", true)
           # Could implement checking/limits here in future

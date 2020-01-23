@@ -23,14 +23,36 @@ when "sim:build_example"
       ARGV.delete_at(index)
       Origen.environment.temporary = ARGV.delete_at(index)
     end
+    if ['cadence'].include?(Origen.environment.name)
+      cmd += ' --define ORIGEN_SIM_CADENCE'
+    elsif ['synopsys', 'synopsys_verdi'].include?(Origen.environment.name)
+      cmd += ' --define ORIGEN_SIM_SYNOPSIS'
+    elsif ['icarus'].include?(Origen.environment.name)
+      cmd += ' --define ORIGEN_SIM_ICARUS'
+    end
+
+    clean = false
+    if ARGV.include?('--clean')
+      ARGV.delete_at(ARGV.index('--clean'))
+      clean = true
+    end
     cmd += ' ' + ARGV.join(' ') unless ARGV.empty?
+
+
     # Enable wreal pins in the DUT RTL
     cmd += '  --define ORIGEN_WREAL' if ARGV.include?('--wreal')
-    cmd += '  --define ORIGEN_WREALAVG --define ORIGEN_SV' if ARGV.include?('--wrealavg')
+    #cmd += "  --define ORIGEN_WREALAVG --sv --force_pin_type vdd:real --force_pin_type ana:real --passthrough \"-sysv_ext +.v -define ORIGEN_WREALAVG +define+ORIGEN_SIM_CADENCE #{Origen.app.root}/top.scs\"" if ARGV.include?('--wrealavg')
+    cmd += "  --define ORIGEN_WREALAVG --sv --force_pin_type vdd:real --force_pin_type ana:real --passthrough \"+define+ORIGEN_SIM_SYNOPSIS\"" if ARGV.include?('--wrealavg')
     output = `#{cmd}`
     puts output
     Origen.load_target
     dir = "simulation/default/#{tester.simulator.config[:vendor]}"
+    
+    if clean
+      puts "Cleaning directory: #{dir}"
+      FileUtils.rm_r(dir)
+    end
+    
     FileUtils.mkdir_p(dir)
     Dir.chdir dir do
       case tester.simulator.config[:vendor]
@@ -43,7 +65,10 @@ when "sim:build_example"
 
       when :cadence
         output =~ /\n(.*irun .*)\n/
-        system $1.gsub('stub', 'dut1')
+        compile_cmd = $1.gsub('stub', 'dut1')
+        compile_cmd.gsub!('origen.v', 'origen.sv') if cmd.include?('--define ORIGEN_SV')
+        puts compile_cmd.green
+        system compile_cmd
 
       when :synopsys
         if tester.simulator.config[:verdi]

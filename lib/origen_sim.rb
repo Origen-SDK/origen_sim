@@ -65,12 +65,12 @@ module OrigenSim
   }
 
   FORCE_PIN_TYPES_MAPPING = {
-    'real' => :analog,
-    'ana' => :analog,
-    'analog' => :analog,
-    
-    'dig' => :digital,
-    'digital' => :digital,
+    'real'    => :analog,
+    'ana'     => :analog,
+    'analog'  => :analog,
+
+    'dig'     => :digital,
+    'digital' => :digital
   }
 
   def self.__instantiate_simulator__

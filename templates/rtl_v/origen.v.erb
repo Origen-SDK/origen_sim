@@ -1,18 +1,39 @@
 // This is an auto-generated file from OrigenSim
 //   (https://origen-sdk.org/origen/guides/simulation/introduction/)
 // This file was generated with this command:
-//   "<%= options[:build_cmd] %>"
+//   <%= options[:build_cmd] %>
+
+% pins_by_type = [[nil]]
+% type = nil
+% dut.rtl_pins.each do |n, p|
+%  if p.type == type
+%    pins_by_type.last << p
+%  else
+%    pins_by_type << [p.type, p]
+%    type = p.type
+%  end
+% end
 
 // Utility Macros
 // Cast define value as a string.
 `define ORIGEN_SIM_TO_S(s) `"s`"
 
+// Indicate the target vendor
 % if options[:vendor] == :cadence
 `define ORIGEN_SIM_CADENCE
-% elsif optons[:vendor] == :synopsis
+% elsif options[:vendor] == :synopsis
 `define ORIGEN_SIM_SYNOPSIS
 % elsif options[:vendor] == :icarus
 `define ORIGEN_SIM_ICARUS
+% end
+
+// Indicate the file type, without resorting to System Verilog or vendor-specific functions
+% if options[:file_type] == :sv
+`define ORIGEN_SV_FILE
+% elsif options[:file_type] == :vams
+`define ORIGEN_VAMS_FILE
+% else
+`define ORIGEN_V_FILE
 % end
 
 `ifdef ORIGEN_WREAL
@@ -21,12 +42,10 @@
 `elsif ORIGEN_WREALAVG
   `define ORIGEN_USE_REAL
   `define ORIGEN_REAL_TYPE wrealavg
-  `ifdef ORIGEN_SV
-    `ifdef ORIGEN_SIM_CADENCE
-      import cds_rnm_pkg::*;
-    `elsif ORIGEN_SIM_SYNOPSIS
-      import snps_msv_nettype_pkg::*;
-    `endif
+  `ifdef ORIGEN_SIM_CADENCE
+    import cds_rnm_pkg::*;
+  `elsif ORIGEN_SIM_SYNOPSIS
+    import snps_msv_nettype_pkg::*;
   `endif
 `endif
 
@@ -149,11 +168,7 @@ endmodule
 module ana_pin_driver(pin);
   inout pin;
 
-`ifdef ORIGEN_WREAL
-  wreal pin;
-`elsif `ORIGEN_WREALAVG
-  wrealavg pin;
-`endif
+  `ORIGEN_REAL_TYPE pin;
 
   reg drive_en = 0;
   real drive = 0.0;      // Value that will be driven on pin when drive is enabled
@@ -174,37 +189,52 @@ endmodule
 // drivers are therefore accessible via origen.pins.my_pin_name
 module pin_drivers(<%= dut.rtl_pins.map { |n, p, o| "#{p.id}_o" }.join(', ') %>);
 
-% dut.rtl_pins.each do |name, pin, options|
-%   if pin.type == :analog
+% pins_by_type.each do |group|
+%   if group.first == :analog
 `ifdef ORIGEN_USE_REAL
+%     group[1..-1].each do |pin|
   inout <%= pin.id %>_o;
+%     end
 `else
+%     group[1..-1].each do |pin|
   output <%= pin.id %>_o;
+%     end
 `endif
 %   else
+%     group[1..-1].each do |pin|
   output <%= pin.id %>_o;
+%     end
 %   end
 % end
 
 `ifdef ORIGEN_USE_REAL 
 % dut.rtl_pins(type: :analog).each do |name, pin, options|
-
   `ORIGEN_REAL_TYPE <%= pin.id %>_o;
 % end
 `endif
 
   reg sync = 0;
 
-% dut.rtl_pins.each do |name, pin, options|
-%   unless pin.meta[:origen_sim_init_pin_state] == -2
-%     if pin.type == :analog
+% pins_by_type.each do |group|
+%   if group.first == :analog
 `ifdef ORIGEN_USE_REAL
+%     group[1..-1].each do |pin|
+%       unless pin.meta[:origen_sim_init_pin_state] == -2
   ana_pin_driver <%= pin.id %>(.pin(<%= pin.id %>_o));
+%       end
+%     end
 `else
+%     group[1..-1].each do |pin|
+%       unless pin.meta[:origen_sim_init_pin_state] == -2
   pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .sync(sync));
+%       end
+%     end
 `endif
-%     else
+%   else
+%     group[1..-1].each do |pin|
+%       unless pin.meta[:origen_sim_init_pin_state] == -2
   pin_driver #(<%= pin.meta[:origen_sim_init_pin_state].nil? ? '' : ".init_drive(#{pin.meta[:origen_sim_init_pin_state]}), "%>.pin_name("<%= pin.id %>")) <%= pin.id %>(.pin(<%= pin.id %>_o), .sync(sync));
+%       end
 %     end
 %   end
 % end
@@ -275,11 +305,11 @@ module debug;
 
 `ifdef ORIGEN_USE_REAL 
   reg real_enabled = 1;
-  `ifdef ORIGEN_WREAL
+`ifdef ORIGEN_SV_FILE
+  reg [1023:0] real_type = `ORIGEN_SIM_TO_S(`ORIGEN_REAL_TYPE`);
+`else
   reg [1023:0] real_type = "wreal";
-  `elsif ORIGEN_WREALAVG
-  reg[1023:0] real_type = "wrealavg";
-  `endif
+`endif
 `else
   reg real_enabled = 0;
   reg [1023:0] real_type = 0;
@@ -300,15 +330,21 @@ module origen;
 
   reg finish = 0;
 
-% dut.rtl_pins.each do |name, pin, options|
-%   if pin.type == :analog
-`ifdef ORIGEN_USE_REAL 
+% pins_by_type.each do |group|
+%   if group.first == :analog
+`ifdef ORIGEN_USE_REAL
+%     group[1..-1].each do |pin|
   `ORIGEN_REAL_TYPE <%= pin.id %>;
+%     end
 `else
+%     group[1..-1].each do |pin|
   wire <%= pin.id %>;
+%     end
 `endif
 %   else
+%     group[1..-1].each do |pin|
   wire <%= pin.id %>;
+%     end
 %   end
 % end
 
@@ -320,12 +356,6 @@ module origen;
 
   // Instantiate the DUT
   <%= options[:top].sub(/\..*/, '') %> dut (
-% dut.power_pins.each do |name, pin, options|
-    .<%= pin.id %>(<%= pin.id %>),
-% end
-% dut.ground_pins.each do |name, pin, options|
-    .<%= pin.id %>(<%= pin.id %>),
-% end
 % # Keep track of the primary groups seen.
 % seen_groups = []
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|

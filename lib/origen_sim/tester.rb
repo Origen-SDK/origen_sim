@@ -65,10 +65,9 @@ module OrigenSim
       simulator.flush(*args)
     end
 
-
-    def set_timeset(name, period_in_ns=nil)
+    def set_timeset(name, period_in_ns = nil)
       super
-      
+
       # Need to remove this once OrigenTesters does it
       # OrigenTesters with decompiler supports this.
       if period_in_ns
