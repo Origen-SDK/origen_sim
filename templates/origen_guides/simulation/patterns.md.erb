@@ -28,6 +28,14 @@ normally have two options:
 Both of these are fully supported by OrigenSim, see the
 [Timing and Waiting guide](<%= path "guides/pattern/timing" %>) for more information on these APIs.
 
+<div class="alert alert-info" role="alert"> <strong>A Note on Match Loops</strong>
+  <br>
+  When waiting for a match, the DUT will be polled every 100us by default or timeout / 10 if that
+  is less than 100us.
+  If you need it to poll more often (at the expense of simulation speed) then a `:resolution` option can
+  be supplied in the same way as described for the `sim_delay` method below.
+</div>
+
 However, if your pattern generation flow is going to be supported by simulation, then you also have
 a third option - to derive the required wait time from the simulation itself.
 

@@ -269,7 +269,7 @@ Pattern.create do
   5.cycles
   dut.pin(:done).assert!(0)
   dut.pin(:done).dont_care
-  tester.wait match: true, time_in_cycles: 2000 do
+  tester.wait match: true, time_in_s: 2 do
     dut.pin(:done).assert!(1)
   end
   dut.pin(:done).assert!(1)
