@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    origen_sim (0.20.6)
+    origen_sim (0.20.7)
       origen (>= 0.44.0)
       origen_testers (>= 0.21.0)
       origen_verilog (>= 0.6.2)
@@ -102,7 +102,7 @@ GEM
       require_all (~> 1)
       rodf (~> 1)
       sexpistol (~> 0.0)
-    origen_verilog (0.6.2)
+    origen_verilog (0.6.3)
       ast (~> 2)
       origen (>= 0.41.0)
       treetop
