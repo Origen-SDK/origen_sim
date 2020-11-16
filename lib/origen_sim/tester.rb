@@ -93,22 +93,24 @@ module OrigenSim
 
     # This method intercepts vector data from Origen, removes white spaces and compresses repeats
     def push_vector(options)
-      if simulator.simulation.max_errors_exceeded
-        fail Origen::Generator::AbortError, 'The max error count has been exceeded in the simulation'
-      else
-        unless options[:timeset]
-          puts 'No timeset defined!'
-          puts 'Add one to your top level startup method or target like this:'
-          puts 'tester.set_timeset("nvmbist", 40)   # Where 40 is the period in ns'
-          exit 1
-        end
-        flush_comments unless @comment_buffer.empty?
-        repeat = options[:repeat] || 1
-        simulator.cycle(repeat)
-        @execution_time_in_ns += repeat * tester.timeset.period_in_ns
-        if @after_next_vector
-          @after_next_vector.call(@after_next_vector_args)
-          @after_next_vector = nil
+      unless @inhibit_vectors
+        if simulator.simulation.max_errors_exceeded
+          fail Origen::Generator::AbortError, 'The max error count has been exceeded in the simulation'
+        else
+          unless options[:timeset]
+            puts 'No timeset defined!'
+            puts 'Add one to your top level startup method or target like this:'
+            puts 'tester.set_timeset("nvmbist", 40)   # Where 40 is the period in ns'
+            exit 1
+          end
+          flush_comments unless @comment_buffer.empty?
+          repeat = options[:repeat] || 1
+          simulator.cycle(repeat)
+          @execution_time_in_ns += repeat * tester.timeset.period_in_ns
+          if @after_next_vector
+            @after_next_vector.call(@after_next_vector_args)
+            @after_next_vector = nil
+          end
         end
       end
     end
