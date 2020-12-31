@@ -32,6 +32,21 @@ module Origen
         ret
       end
 
+      def drive_clk(on_in_s, off_in_s)
+        if simulation_running?
+          if simulator.dut_version > '0.20.7'
+            # The pin has to be in drive mode for this, the data is ignored
+            drive(0)
+            time_factor = simulator.send(:time_factor)
+            on = (on_in_s / 1E-09) * time_factor
+            off = (off_in_s / 1E-09) * time_factor
+            simulator.put("t^#{simulation_index}^#{on}^#{off}")
+          else
+            Origen.log.warning 'This DUT was compiled with an earlier version of OrigenSim which does not support <pin>.drive_clk()'
+          end
+        end
+      end
+
       def simulation_running?
         tester && tester.is_a?(OrigenSim::Tester)
       end

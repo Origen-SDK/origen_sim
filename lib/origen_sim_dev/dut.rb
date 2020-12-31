@@ -28,6 +28,7 @@ module OrigenSimDev
       add_pin :not_present
       add_power_pin :vdd
       add_pin :ana, type: :analog
+      add_pin :osc
 
       timeset :func do |t|
         # Generate a clock pulse on TCK
@@ -106,7 +107,7 @@ module OrigenSimDev
     def startup(options = {})
       # tester.simulator.log_messages = true
       tester.set_timeset('func', 100)
-
+      pin(:osc).drive_clk(4.ns, 8.ns)
       dut.pin(:rstn).drive!(1)
       10.cycles
       dut.pin(:rstn).drive!(0)

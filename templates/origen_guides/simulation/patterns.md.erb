@@ -228,4 +228,20 @@ end
 See the [Direct DUT Manipulation](<%= path "guides/simulation/direct" %>) guide for more details on these
 APIs.
 
+#### Driving Clocks
+
+Clock waveforms can be driven on pins via the following API:
+
+~~~ruby
+pin(:my_pin).drive_clk(4.ns, 8.ns)  # On duration, Off duration
+~~~
+
+This will produce a free-running clock with the given wave characteristics which is completely indepedent
+from the pattern timing/period of the current simulation.
+Such a clock can not be produced by a vector pattern and this method is ignored when targetting an
+ATE environment.
+
+This feature is most useful when running an IP-level simulation where the IP has a clk input which would
+be supplied by the SoC (rather than the tester) in the final integration.
+
 % end

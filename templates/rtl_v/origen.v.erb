@@ -2,7 +2,28 @@
 
 // To create the big fonts - http://patorjk.com/software/taag/#p=display&f=Big
 
-`timescale 1ns/1ns
+`timescale 1ps/1ps
+
+//module timing(cycle_beat);
+//  output reg cycle_beat = 0;
+//
+//  time cycle_period = 100;
+//  reg period_set = 0;
+//
+//  initial begin
+//    forever begin
+//      if (period_set && cycle_period > 0) begin
+//        cycle_beat = 1;
+//        #($ceil(cycle_period / 2));
+//        cycle_beat = 0;
+//        #($ceil(cycle_period / 2));
+//      end else begin
+//        #(100);
+//      end
+//    end
+//  end
+//endmodule
+
 
 //  _____  _       _ _        _   _____ _         _____       _                
 // |  __ \(_)     (_) |      | | |  __ (_)       |  __ \     (_)               
@@ -40,16 +61,20 @@ module pin_driver(pin, sync);
   reg compare = 0;
   reg drive = 0;
   reg capture = 0;
+  reg async_enable = 0;
   //reg [1023:0] memory = 0;
   reg [127:0] memory = 0;
   reg [127:0] memory_reversed = 0;
   reg [127:0] sync_memory = 0;
+  wire async_data;
+
+  async_wave_driver async_wave_driver(.dout(async_data));
 
   wire drive_data = force_data[0] ? 0 : (force_data[1] ? 1 : data[0]);
   wire contention = drive ? (pin !== drive_data ? 1 : 0) : 0;
 
   if (init_drive != -1) begin
-    assign pin = drive ? drive_data : 1'bz;
+    assign pin = drive ? (async_enable ? async_data : drive_data) : 1'bz;
   end
 
   // Debug signal to show the expected data in the waves
@@ -100,6 +125,79 @@ module pin_driver(pin, sync);
     end
   end
 
+endmodule
+
+
+module async_wave_driver(dout);
+  output reg dout;
+
+  // The duration of each edge. The values held here only apply if the
+  // corresponding enable is set, otherwise they are ignored
+  time t0 = 0;
+  time t1 = 0;
+  time t2 = 0;
+  time t3 = 0;
+  time t4 = 0;
+  time t5 = 0;
+  time t6 = 0;
+  time t7 = 0;
+
+  // Data value to be applied to the pin, typically corresponds to the
+  // "D" value during a drive cycle
+  reg drive_data = 0;
+
+  // Enables for each timing edge
+  reg [7:0] edge_enable = 0;
+
+  // Optional edge-specific data values
+  reg [7:0] edge_drive_data = 0;
+
+  // Selects the data source for the edge, 0 means apply 'drive_data' while a 1
+  // means apply the edge-specific value from 'edge_drive_data'
+  reg [7:0] drive_data_select = 0;
+
+  // Tell the driver to start. Once started it will run indefinitely until all
+  // edge enables are disabled (edge_enable == 0).
+  // It can be re-started by writing go=1 after enabling at least one edge.
+  reg go = 0;
+
+  always @(posedge go) begin
+    go = 0;
+    while (edge_enable != 0) begin
+      if (edge_enable[0]) begin
+        #(t0);
+        dout = drive_data_select[0] ? edge_drive_data[0] : drive_data;
+      end
+      if (edge_enable[1]) begin
+        #(t1);
+        dout = drive_data_select[1] ? edge_drive_data[1] : drive_data;
+      end
+      if (edge_enable[2]) begin
+        #(t2);
+        dout = drive_data_select[2] ? edge_drive_data[2] : drive_data;
+      end
+      if (edge_enable[3]) begin
+        #(t3);
+        dout = drive_data_select[3] ? edge_drive_data[3] : drive_data;
+      end
+      if (edge_enable[4]) begin
+        #(t4);
+        dout = drive_data_select[4] ? edge_drive_data[4] : drive_data;
+      end
+      if (edge_enable[5]) begin
+        #(t5);
+        dout = drive_data_select[5] ? edge_drive_data[5] : drive_data;
+      end
+      if (edge_enable[6]) begin
+        #(t6);
+        dout = drive_data_select[6] ? edge_drive_data[6] : drive_data;
+      end
+      if (edge_enable[7]) begin
+        #(t7);
+        dout = drive_data_select[7] ? edge_drive_data[7] : drive_data;
+      end
+    end
+  end
 endmodule
 
 
@@ -304,6 +402,8 @@ module <%= options[:testbench_name] || 'origen' %>;
   );
 
   debug debug ();
+
+  //timing timing ();
 
   initial
   begin
