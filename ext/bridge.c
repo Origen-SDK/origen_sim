@@ -985,9 +985,10 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         //       0   - s
         //       1   - 10s
         //       2   - 100s
-        //   l^
+        //   l^origen.dut.some.net
         case 'l' :
-          handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("pins"), NULL);
+          arg1 = strtok(NULL, "^");
+          handle = vpi_handle_by_name(arg1, NULL);
           timescale = vpi_get(vpiTimeUnit, handle);
           sprintf(msg, "%d\n", timescale);
           client_put(msg);
@@ -1113,9 +1114,10 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         //       0   - s
         //       1   - 10s
         //       2   - 100s
-        //   l^
+        //   u^origen.dut.some.net
         case 'u' :
-          handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("pins"), NULL);
+          arg1 = strtok(NULL, "^");
+          handle = vpi_handle_by_name(arg1, NULL);
           timescale = vpi_get(vpiTimePrecision, handle);
           sprintf(msg, "%d\n", timescale);
           client_put(msg);

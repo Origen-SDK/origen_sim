@@ -513,6 +513,8 @@ module OrigenSim
     # Starts up the simulator process
     def start
       @simulation_open = true
+      @timeunits = {}
+      @timeprecisions = {}
       @pattern_starting_error_count = nil
       @simulation = Simulation.new(wave_file_basename, view_wave_command)
       simulations << @simulation
@@ -1131,9 +1133,21 @@ module OrigenSim
     #       0  - s
     #       1  - 10s
     #       2  - 100s
-    def timeunit
-      put('l^')
-      get.strip.to_i
+    #
+    # A net can be given to get the timeunit that applies to a specific module, defaults to
+    # <testbench>.pins
+    def timeunit(net = nil)
+      if dut_version > '0.20.7'
+        net ||= "#{testbench_top}.pins"
+        @timeunits[net] ||= begin
+          put("l^#{net}")
+          get.strip.to_i
+        end
+        @timeunits[net]
+      else
+        put('l')
+        get.strip.to_i
+      end
     end
     alias_method :timescale, :timeunit
 
@@ -1156,9 +1170,21 @@ module OrigenSim
     #       0  - s
     #       1  - 10s
     #       2  - 100s
-    def timeprecision
-      put('u^')
-      get.strip.to_i
+    #
+    # A net can be given to get the timeunit that applies to a specific module, defaults to
+    # <testbench>.pins
+    def timeprecision(net = nil)
+      if dut_version > '0.20.7'
+        net ||= "#{testbench_top}.pins"
+        @timeprecisions[net] ||= begin
+          put("u^#{net}")
+          get.strip.to_i
+        end
+        @timeprecisions[net]
+      else
+        Origen.log.warning 'This DUT was compiled with an earlier version of OrigenSim which does not support timeprecision fetching, returning 1ns as a best guess'
+        -9
+      end
     end
 
     # Any vectors executed within the given block will increment the match_errors counter
