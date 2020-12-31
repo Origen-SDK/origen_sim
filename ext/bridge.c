@@ -81,6 +81,7 @@ static void define_pin(char*, char*, char*, char*);
 static void define_wave(char*, char*, char*);
 static void cycle(void);
 static void drive_pin(char*, char*);
+static void drive_clk(char*, char*, char*);
 static void compare_pin(char*, char*);
 static void capture_pin(char*);
 static void stop_capture_pin(char*);
@@ -303,8 +304,22 @@ static void clear_waves_and_pins() {
 
 static void set_period(char * p_in_simtime_units_str) {
   uint64_t p = (uint64_t) strtol(p_in_simtime_units_str, NULL, 10);
+
   period_in_simtime_units = p;
   clear_waves_and_pins();
+
+  //vpiHandle handle;
+  //s_vpi_value v;
+
+  //handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("timing.cycle_period"), NULL);
+  //v.format = vpiDecStrVal;
+  //v.value.str = p_in_simtime_units_str;
+  //vpi_put_value(handle, &v, NULL, vpiNoDelay);
+
+  //handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("timing.period_set"), NULL);
+  //v.format = vpiIntVal;
+  //v.value.integer = 1;
+  //vpi_put_value(handle, &v, NULL, vpiNoDelay);
 }
 
 
@@ -359,6 +374,94 @@ static void drive_pin(char * index, char * val) {
       }
       (*pin).previous_state = 1;
     }
+  }
+}
+
+
+/// Drive a clk with the given timing on the given pin
+static void drive_clk(char * index, char * on_str, char * off_str) {
+  Pin *pin = &pins[atoi(index)];
+  double on = strtod(on_str, NULL);
+  double off = strtod(off_str, NULL);
+  vpiHandle handle;
+  s_vpi_value v = {vpiIntVal, {0}};
+
+  if ((*pin).present) {
+    // Make sure the pin is in drive mode
+    drive_pin(index, "0");
+
+    // Connect the async driver
+    char * driver = (char *) malloc(strlen((*pin).name) + 30);
+    strcpy(driver, ORIGEN_SIM_TESTBENCH_CAT("pins."));
+    strcat(driver, (*pin).name);
+
+    char * async_enable = (char *) malloc(strlen(driver) + 30);
+    strcpy(async_enable, driver);
+    strcat(async_enable, ".async_enable");
+    handle = vpi_handle_by_name(async_enable, NULL);
+    free(async_enable);
+    v.value.integer = 1;
+    vpi_put_value(handle, &v, NULL, vpiNoDelay);
+    
+    // Now configure it for the requested clk wave
+    char * async_driver = (char *) malloc(strlen(driver) + 18);
+    strcpy(async_driver, driver);
+    strcat(async_driver, ".async_wave_driver");
+    free(driver);
+
+    char * edge_enable = (char *) malloc(strlen(async_driver) + 20);
+    strcpy(edge_enable, async_driver);
+    strcat(edge_enable, ".edge_enable");
+    handle = vpi_handle_by_name(edge_enable, NULL);
+    free(edge_enable);
+    v.value.integer = 3;
+    vpi_put_value(handle, &v, NULL, vpiNoDelay);
+
+    char * edge_drive_data = (char *) malloc(strlen(async_driver) + 20);
+    strcpy(edge_drive_data, async_driver);
+    strcat(edge_drive_data, ".edge_drive_data");
+    handle = vpi_handle_by_name(edge_drive_data, NULL);
+    free(edge_drive_data);
+    v.value.integer = 2;
+    vpi_put_value(handle, &v, NULL, vpiNoDelay);
+
+    char * drive_data_select = (char *) malloc(strlen(async_driver) + 20);
+    strcpy(drive_data_select, async_driver);
+    strcat(drive_data_select, ".drive_data_select");
+    handle = vpi_handle_by_name(drive_data_select, NULL);
+    free(drive_data_select);
+    v.value.integer = 3;
+    vpi_put_value(handle, &v, NULL, vpiNoDelay);
+
+    char * t0 = (char *) malloc(strlen(async_driver) + 3);
+    strcpy(t0, async_driver);
+    strcat(t0, ".t0");
+    handle = vpi_handle_by_name(t0, NULL);
+    free(t0);
+    v.format = vpiRealVal;
+    v.value.real = on;
+    vpi_put_value(handle, &v, NULL, vpiNoDelay);
+
+    char * t1 = (char *) malloc(strlen(async_driver) + 3);
+    strcpy(t1, async_driver);
+    strcat(t1, ".t1");
+    handle = vpi_handle_by_name(t1, NULL);
+    free(t1);
+    v.format = vpiRealVal;
+    v.value.real = off;
+    vpi_put_value(handle, &v, NULL, vpiNoDelay);
+
+    // Write to go bit to start the driver
+    char * go = (char *) malloc(strlen(async_driver) + 3);
+    strcpy(go, async_driver);
+    strcat(go, ".go");
+    handle = vpi_handle_by_name(go, NULL);
+    free(go);
+    v.format = vpiIntVal;
+    v.value.integer = 1;
+    vpi_put_value(handle, &v, NULL, vpiNoDelay);
+
+    free(async_driver);
   }
 }
 
@@ -863,7 +966,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           type = atoi(arg1);
           origen_log(type, arg2); 
           break;
-        // Get timescale, returns a number that maps as follows:
+        // Get timeunit, returns a number that maps as follows:
         //      -15 - fs
         //      -14 - 10fs
         //      -13 - 100fs
@@ -884,7 +987,8 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         //       2   - 100s
         //   l^
         case 'l' :
-          timescale = vpi_get(vpiTimeUnit, 0);
+          handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("pins"), NULL);
+          timescale = vpi_get(vpiTimeUnit, handle);
           sprintf(msg, "%d\n", timescale);
           client_put(msg);
           break;
@@ -980,6 +1084,41 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           if (handle) {
             vpi_put_value(handle, &v, NULL, vpiReleaseFlag);
           }
+          break;
+        // Drive clock on pin
+        //   t^pin_index^on_time^off_time
+        case 't' :
+          arg1 = strtok(NULL, "^");
+          arg2 = strtok(NULL, "^");
+          arg3 = strtok(NULL, "^");
+          //DEBUG("Define Wave: %s, %s, %s\n", arg1, arg2, arg3);
+          drive_clk(arg1, arg2, arg3);
+          break;
+        // Get timeprecision, returns a number that maps as follows:
+        //      -15 - fs
+        //      -14 - 10fs
+        //      -13 - 100fs
+        //      -12 - ps
+        //      -11 - 10ps
+        //      -10 - 100ps
+        //      -9  - ns
+        //      -8  - 10ns
+        //      -7  - 100ns
+        //      -6  - us
+        //      -5  - 10us
+        //      -4  - 100us
+        //      -3  - ms
+        //      -2  - 10ms
+        //      -1  - 100ms
+        //       0   - s
+        //       1   - 10s
+        //       2   - 100s
+        //   l^
+        case 'u' :
+          handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("pins"), NULL);
+          timescale = vpi_get(vpiTimePrecision, handle);
+          sprintf(msg, "%d\n", timescale);
+          client_put(msg);
           break;
         default :
           origen_log(LOG_ERROR, "Illegal message received from Origen: %s", orig_msg);

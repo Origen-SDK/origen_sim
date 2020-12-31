@@ -1112,7 +1112,7 @@ module OrigenSim
       end
     end
 
-    # Get the timescale of the current simulation, returns a number that maps as follows:
+    # Get the timeunit of the current simulation, returns a number that maps as follows:
     #      -15 - fs
     #      -14 - 10fs
     #      -13 - 100fs
@@ -1131,8 +1131,33 @@ module OrigenSim
     #       0  - s
     #       1  - 10s
     #       2  - 100s
-    def timescale
+    def timeunit
       put('l^')
+      get.strip.to_i
+    end
+    alias_method :timescale, :timeunit
+
+    # Get the timeprecision of the current simulation, returns a number that maps as follows:
+    #      -15 - fs
+    #      -14 - 10fs
+    #      -13 - 100fs
+    #      -12 - ps
+    #      -11 - 10ps
+    #      -10 - 100ps
+    #      -9  - ns
+    #      -8  - 10ns
+    #      -7  - 100ns
+    #      -6  - us
+    #      -5  - 10us
+    #      -4  - 100us
+    #      -3  - ms
+    #      -2  - 10ms
+    #      -1  - 100ms
+    #       0  - s
+    #       1  - 10s
+    #       2  - 100s
+    def timeprecision
+      put('u^')
       get.strip.to_i
     end
 
@@ -1232,7 +1257,11 @@ module OrigenSim
     end
 
     def ns_to_simtime_units(time_in_ns)
-      if dut_version > '0.15.0'
+      # This needs to be given in the number precision units, but before this version there
+      # is no way to get that and so previously it is effectively hardcoded for 1ns precision
+      if dut_version > '0.20.7'
+        (time_in_ns * precision_factor).to_i
+      elsif dut_version > '0.15.0'
         (time_in_ns * time_factor).to_i
       else
         time_in_ns * time_conversion_factor * (config[:time_factor] || 1)
@@ -1248,12 +1277,19 @@ module OrigenSim
         if config[:time_factor]
           Origen.log.warning 'Your simulation environment setup defines a :time_factor, however this is no longer used by OrigenSim'
         end
-        t = timescale
+        t = timeunit
         if t > -9
-          msg = "The simulation is running with a timescale of #{TIMESCALES[timescale]}, this is greater than OrigenSim's min resolution of 1ns"
+          msg = "The simulation is running with a timeunit of #{TIMESCALES[timeunit]}, this is greater than OrigenSim's min resolution of 1ns"
           OrigenSim.error(msg)
           exit 1
         end
+        "1e#{-9 - t}".to_f.to_i
+      end
+    end
+
+    def precision_factor
+      @precision_factor ||= begin
+        t = timeprecision
         "1e#{-9 - t}".to_f.to_i
       end
     end
