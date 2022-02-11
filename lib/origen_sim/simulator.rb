@@ -21,7 +21,7 @@ module OrigenSim
 
     # These config attributes are accepted by OrigenSim, but cannot be
     # 'Marshal-ed'.
-    NON_DATA_CONFIG_ATTRIBUTES = [:post_process_run_cmd]
+    NON_DATA_CONFIG_ATTRIBUTES = [:post_process_run_cmd, :post_process_view_wave_cmd]
 
     TIMESCALES = { -15 => '1fs',
                    -14 => '10fs',
@@ -84,6 +84,10 @@ module OrigenSim
 
     def post_process_run_cmd
       config[:post_process_run_cmd]
+    end
+    
+    def post_process_view_wave_cmd
+      config[:post_process_view_wave_cmd]
     end
 
     def fetch_simulation_objects(options = {})
@@ -166,8 +170,8 @@ module OrigenSim
       clear_artifacts
 
       # Add any artifacts in the given artifact path
-      if Dir.exist?(default_artifact_dir)
-        default_artifact_dir.children.each { |a| artifact(a.basename.to_s, target: a) }
+      if Dir.exist?(self.class.default_artifact_dir)
+        self.class.default_artifact_dir.children.each { |a| artifact(a.basename.to_s, target: a) }
       end
 
       # Add any artifacts from the target-specific path (simulation/<target>/artifacts). Files of the same name
@@ -197,7 +201,7 @@ module OrigenSim
       self
     end
 
-    def default_artifact_dir
+    def self.default_artifact_dir
       # Removed this from a constant at the top of the file since it gave boot errors when the file was
       # being required while Origen.app was still loading
       Pathname("#{Origen.app.root}/simulation/application/artifacts")
@@ -212,7 +216,7 @@ module OrigenSim
     end
 
     def target_artifact_dir
-      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/#{id}/artifacts")
+      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/").join("#{id}/artifacts")
     end
 
     def artifact_run_dir
@@ -328,7 +332,7 @@ module OrigenSim
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: :all, testbench_top: testbench_top },
+                                   options:           { tcl_inputs: config[:tcl_inputs], dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: :all, testbench_top: testbench_top },
                                    output_file_name:  "#{wave_file_basename}.tcl",
                                    preserve_target:   true
         end
@@ -478,6 +482,10 @@ module OrigenSim
         Origen.log.warn "OrigenSim does not know the command to view waveforms for vendor :#{config[:vendor]}!"
 
       end
+
+      cmd = post_process_view_wave_cmd.call(cmd, self) if post_process_view_wave_cmd
+      fail "OrigenSim: :post_process_view_wave_cmd returned object of class #{cmd.class}. Must return a String." unless cmd.is_a?(String)
+
       cmd
     end
 
@@ -1153,7 +1161,6 @@ module OrigenSim
       unless val.nil?
         # All zeros seems to be what an empty string is returned from the VPI,
         # Otherwise, break the string up into 8-bit chunks and decode the ASCII>
-        puts val
         val = (val.to_s == 'b00000000' ? '' : val.to_s[1..-1].scan(/.{1,8}/).select { |char| char != '00000000' }.collect { |char| char.to_i(2).chr }.join)
       end
       val

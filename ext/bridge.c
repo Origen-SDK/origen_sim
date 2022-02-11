@@ -110,11 +110,11 @@ static void define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * 
   (*pin).capture_en = false;
 
 
-  char * driver = (char *) malloc(strlen(name) + 16);
+  char * driver = (char *) malloc(strlen(name) + ORIGEN_SIM_TB_NAME_LEN + 7); // testbench name + . + 'pins.' + '\0'
   strcpy(driver, ORIGEN_SIM_TESTBENCH_CAT("pins."));
   strcat(driver, name);
 
-  char * data = (char *) malloc(strlen(driver) + 16);
+  char * data = (char *) malloc(strlen(driver) + 6);
   strcpy(data, driver);
   strcat(data, ".data");
   (*pin).data = vpi_handle_by_name(data, NULL);
@@ -127,25 +127,25 @@ static void define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * 
     (*pin).present = true;
   }
 
-  char * drive = (char *) malloc(strlen(driver) + 16);
+  char * drive = (char *) malloc(strlen(driver) + 7);
   strcpy(drive, driver);
   strcat(drive, ".drive");
   (*pin).drive = vpi_handle_by_name(drive, NULL);
   free(drive);
 
-  char * force = (char *) malloc(strlen(driver) + 16);
+  char * force = (char *) malloc(strlen(driver) + 12);
   strcpy(force, driver);
   strcat(force, ".force_data");
   (*pin).force_data = vpi_handle_by_name(force, NULL);
   free(force);
 
-  char * compare = (char *) malloc(strlen(driver) + 16);
+  char * compare = (char *) malloc(strlen(driver) + 9);
   strcpy(compare, driver);
   strcat(compare, ".compare");
   (*pin).compare = vpi_handle_by_name(compare, NULL);
   free(compare);
 
-  char * capture = (char *) malloc(strlen(driver) + 16);
+  char * capture = (char *) malloc(strlen(driver) + 9);
   strcpy(capture, driver);
   strcat(capture, ".capture");
   (*pin).capture = vpi_handle_by_name(capture, NULL);

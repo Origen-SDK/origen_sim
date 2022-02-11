@@ -215,7 +215,9 @@ else
                              user_details:      options[:user_details],
                              author:            options[:author],
                              build_cmd:         build_cmd,
-                             file_type:         options[:file_type]
+                             file_type:         options[:file_type],
+                             testbench:         options[:testbench_name] || "origen",
+                             top_level_name:    options[:top_level_name] || "dut",
                            }
 
   Origen.app.runner.launch action:            :compile,

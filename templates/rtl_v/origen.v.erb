@@ -326,7 +326,7 @@ endmodule
 //            | |                                                 
 //            |_|                                                 
 
-module origen;
+module <%= options[:testbench] %>;
 
   reg finish = 0;
 
@@ -355,7 +355,7 @@ module origen;
   );
 
   // Instantiate the DUT
-  <%= options[:top].sub(/\..*/, '') %> dut (
+  <%= options[:top].sub(/\..*/, '') %> <%= options[:top_level_name] %> (
 % # Keep track of the primary groups seen.
 % seen_groups = []
 % dut.rtl_pins.each_with_index do |(name, pin, options), i|
