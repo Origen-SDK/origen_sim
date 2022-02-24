@@ -21,7 +21,7 @@ module OrigenSim
 
     # These config attributes are accepted by OrigenSim, but cannot be
     # 'Marshal-ed'.
-    NON_DATA_CONFIG_ATTRIBUTES = [:post_process_run_cmd, :post_process_view_wave_cmd]
+    NON_DATA_CONFIG_ATTRIBUTES = [:post_process_run_cmd, :post_process_view_wave_cmd, :post_process_probe_cmd]
 
     TIMESCALES = { -15 => '1fs',
                    -14 => '10fs',
@@ -88,6 +88,18 @@ module OrigenSim
     
     def post_process_view_wave_cmd
       config[:post_process_view_wave_cmd]
+    end
+
+    def post_process_probe_cmd
+      config[:post_process_probe_cmd]
+    end
+
+    def post_process_probe_cmd?
+      !post_process_probe_cmd.nil?
+    end
+
+    def force_config_update?
+      !!config[:force_config_update]
     end
 
     def fetch_simulation_objects(options = {})
@@ -327,24 +339,35 @@ module OrigenSim
       when :cadence
         input_file = "#{tmp_dir}/#{wave_file_basename}.tcl"
         if !File.exist?(input_file) || config_changed?
+          probe_cmd = "probe -create -shm #{testbench_top} -depth all -database waves"
+          if post_process_probe_cmd?
+            probe_cmd = post_process_probe_cmd.call(probe_cmd, self, fast_probe: false)
+          end
+
           Origen.app.runner.launch action:            :compile,
                                    files:             "#{Origen.root!}/templates/probe.tcl.erb",
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { tcl_inputs: config[:tcl_inputs], dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: :all, testbench_top: testbench_top },
+                                   options:           { tcl_inputs: config[:tcl_inputs], dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], probe_cmd: probe_cmd },
                                    output_file_name:  "#{wave_file_basename}.tcl",
                                    preserve_target:   true
         end
+
         input_file_fast = "#{tmp_dir}/#{wave_file_basename}_fast.tcl"
         if !File.exist?(input_file_fast) || config_changed?
           fast_probe_depth = config[:fast_probe_depth] || 1
+          probe_cmd = "probe -create -shm #{testbench_top} -depth #{fast_probe_depth} -database waves"
+          if post_process_probe_cmd?
+            probe_cmd = post_process_probe_cmd.call(probe_cmd, self, fast_probe: true)
+          end
+
           Origen.app.runner.launch action:            :compile,
                                    files:             "#{Origen.root!}/templates/probe.tcl.erb",
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], depth: fast_probe_depth, testbench_top: testbench_top },
+                                   options:           { dir: wave_dir, wave_file: wave_file_basename, force: config[:force], setup: config[:setup], probe_cmd: probe_cmd },
                                    output_file_name:  "#{wave_file_basename}_fast.tcl",
                                    preserve_target:   true
         end
@@ -1087,7 +1110,7 @@ module OrigenSim
 
     # Returns true if the config has been changed since the last time we called save_config_signature
     def config_changed?
-      Origen.app.session.origen_sim["#{id}_config"] != config.except(*NON_DATA_CONFIG_ATTRIBUTES)
+      config[:force_config_update] || Origen.app.session.origen_sim["#{id}_config"] != config.except(*NON_DATA_CONFIG_ATTRIBUTES)
     end
 
     # Locally saves a signature for the current config, this will cause config_changed? to return false

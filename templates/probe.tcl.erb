@@ -1,6 +1,5 @@
 database -open waves -into <%= options[:dir] %>/<%= options[:wave_file] %> -default -event
-probe -create -shm <%= options[:testbench_top] %> -depth <%= options[:depth] %> -database waves
-#probe -create -assertions -transaction <%= options[:testbench_top] %> -depth all -database waves
+<%= options[:probe_cmd] %>
 % Array(options[:tcl_inputs]).each do |line|
 <%= line %>
 % end
