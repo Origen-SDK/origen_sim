@@ -289,7 +289,7 @@ endmodule
 
 // Instantiated as origen.debug, this module contains the error count, current pattern name and comments,
 // metadata associated with the snapshot build, and other debug information
-module debug;
+module <%= options[:debug_module_name] %>;
   reg [31:0] errors = 0;
   reg [15:0] marker = 0;
   reg [31:0] match_errors = 0;
@@ -328,7 +328,7 @@ endmodule
 
 module <%= options[:testbench] %>;
 
-  reg finish = 0;
+  reg <%= options[:finish_signal] %> = 0;
 
 % pins_by_type.each do |group|
 %   if group.first == :analog
@@ -374,7 +374,7 @@ module <%= options[:testbench] %>;
 % end
   );
 
-  debug debug ();
+  <%= options[:debug_module_name] %> <%= options[:debug_module_name] %> ();
 
   initial
   begin
@@ -390,12 +390,11 @@ module <%= options[:testbench] %>;
     $vcdplusmemon;
 `endif
 `ifdef ORIGEN_FSDB
-    $fsdbDumpfile("origen.fsdb");
     $fsdbDumpvars(0, "+all");
 `endif
   end
 
-  always @(posedge finish) begin
+  always @(posedge <%= options[:finish_signal] %>) begin
     $finish(2);
   end
 

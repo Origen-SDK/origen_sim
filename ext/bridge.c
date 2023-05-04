@@ -750,7 +750,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         // Set Pattern Name
         //   a^atd_ramp_25mhz
         case 'a' :
-          handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.pattern"), NULL);
+          handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT(ORIGEN_SIM_DEBUG_MODULE_CAT("pattern")), NULL);
           arg1 = strtok(NULL, "^");
 
           v.format = vpiStringVal;
@@ -786,7 +786,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           arg1 = strtok(NULL, "^");
           arg2 = strtok(NULL, "^");
 
-          strcpy(comment, ORIGEN_SIM_TESTBENCH_CAT("debug.comments"));
+          strcpy(comment, ORIGEN_SIM_TESTBENCH_CAT(ORIGEN_SIM_DEBUG_MODULE_CAT("comments")));
           strcat(comment, arg1);
 
           handle = vpi_handle_by_name(comment, NULL);
@@ -989,7 +989,7 @@ static void end_simulation() {
   s_vpi_value v;
 
   // Setting this node will cause the testbench to call $finish
-  handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("finish"), NULL);
+  handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT(ORIGEN_FINISH_SIG_NAME), NULL);
   v.format = vpiDecStrVal;
   v.value.str = "1";
   vpi_put_value(handle, &v, NULL, vpiNoDelay);
@@ -1057,7 +1057,7 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
   if (match_loop_open) {
     match_loop_error_count++;
 
-    handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.match_errors"), NULL);
+    handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT(ORIGEN_SIM_DEBUG_MODULE_CAT("match_errors")), NULL);
     val.format = vpiIntVal;
     val.value.integer = match_loop_error_count;
     vpi_put_value(handle, &val, NULL, vpiNoDelay);
@@ -1094,7 +1094,7 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
 
     error_count++;
 
-    handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.errors"), NULL);
+    handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT(ORIGEN_SIM_DEBUG_MODULE_CAT("errors")), NULL);
     val.format = vpiIntVal;
     val.value.integer = error_count;
     vpi_put_value(handle, &val, NULL, vpiNoDelay);

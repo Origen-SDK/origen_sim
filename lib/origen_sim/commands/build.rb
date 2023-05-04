@@ -82,6 +82,9 @@ Usage: origen sim:build TOP_LEVEL_VERILOG_FILE [options]
   opts.on('--revision_note REV_NOTE', '(Snapshot Detail) Specify a brief note on this revision of the snapshot') { |n| options[:revision_note] = n }
   opts.on('--author AUTHOR', '(Snapshot Detail) Specify the author of the snapshot (default is just Origen.current_user)') { |a| options[:author] = a }
 
+  opts.on('--finish_signal FINISH_SIGNAL', 'Specify the finish signal') { |f| options[:finish_signal] = f }
+  opts.on('--debug_module_name MOD_NAME', 'Specify the debug module name') { |d| options[:debug_module_name] = d }
+
   # User-defined snapshot details
   opts.on('--USER_DETAIL NAME_AND_VALUE', 'Specify custom user-defined details to build into the snapshot details. Format as NAME:VALUE, e.g.: \'--USER_DETAIL BUILD_TYPE:RTL\'') do |name_and_value|
     name, value = name_and_value.split(':')
@@ -218,6 +221,8 @@ else
                              file_type:         options[:file_type],
                              testbench:         options[:testbench_name] || "origen",
                              top_level_name:    options[:top_level_name] || "dut",
+                             finish_signal:     options[:finish_signal] || "finish",
+                             debug_module_name: options[:debug_module_name] || "debug",
                            }
 
   Origen.app.runner.launch action:            :compile,

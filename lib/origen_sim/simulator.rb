@@ -102,6 +102,10 @@ module OrigenSim
       !!config[:force_config_update]
     end
 
+    def debug_path
+      config[:debug_module_path] || "debug"
+    end
+
     def fetch_simulation_objects(options = {})
       sid = options[:id] || id
       ldir = "#{Origen.root}/simulation/#{sid}"
@@ -269,9 +273,11 @@ module OrigenSim
     # be checked into your Origen app's repository
     def compiled_dir
       @compiled_dir ||= begin
-        d = "#{Origen.root}/simulation/#{id}/#{config[:vendor]}"
-        FileUtils.mkdir_p(d)
-        d
+        config[:compiled_dir] || begin
+          d = "#{Origen.root}/simulation/#{id}/#{config[:vendor]}"
+          FileUtils.mkdir_p(d)
+          d
+        end
       end
     end
 
@@ -380,10 +386,11 @@ module OrigenSim
         cmd += " -nclibdirpath #{compiled_dir}"
 
       when :synopsys
+        syn_comp_n = config[:synopsys_compiled_name] || "simv"
         if configuration[:verdi]
-          cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{id}/#{wave_file_basename}.fsdb +memcbk +vcsd"
+          cmd = "#{compiled_dir}/#{syn_comp_n} +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{id}/#{wave_file_basename}.fsdb +memcbk +vcsd"
         else
-          cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
+          cmd = "#{compiled_dir}/#{syn_comp_n} +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
         end
 
       when :generic
@@ -925,13 +932,13 @@ module OrigenSim
 
     def error(message)
       simulation.logged_errors = true
-      poke "#{testbench_top}.debug.errors", error_count + 1
+      poke "#{testbench_top}.#{debug_path}.errors", error_count + 1
       log message, :error
     end
 
     # Returns the current simulation error count
     def error_count
-      peek("#{testbench_top}.debug.errors").to_i
+      peek("#{testbench_top}.#{debug_path}.errors").to_i
     end
 
     # Returns the current value of the given net, or nil if the given path does not
@@ -1173,7 +1180,7 @@ module OrigenSim
 
     def match_errors
       if dut_version > '0.15.0'
-        peek("#{testbench_top}.debug.match_errors").to_i
+        peek("#{testbench_top}.#{debug_path}.match_errors").to_i
       else
         peek("#{testbench_top}.pins.match_errors").to_i
       end
@@ -1198,7 +1205,7 @@ module OrigenSim
     end
 
     def marker=(val)
-      poke("#{testbench_top}.debug.marker", val)
+      poke("#{testbench_top}.#{debug_path}.marker", val)
     end
 
     def start_read_reg_transaction
@@ -1249,11 +1256,11 @@ module OrigenSim
           end
         elsif dut_version >= '0.20.3'
           # These versions support multiple REAL types.
-          if peek_str("#{testbench_top}.debug.real_type").nil?
+          if peek_str("#{testbench_top}.#{debug_path}.real_type").nil?
             @real_type = false
           else
-            @real_type = peek_str("#{testbench_top}.debug.real_type").to_sym
-            peek("#{testbench_top}.debug.real_enabled").to_i == 1
+            @real_type = peek_str("#{testbench_top}.#{debug_path}.real_type").to_sym
+            peek("#{testbench_top}.#{debug_path}.real_enabled").to_i == 1
           end
         else
           # Older version don't support REAL at all
@@ -1276,7 +1283,7 @@ module OrigenSim
     # Returns true if the snapshot has been compiled with WREAL support
     def wreal?
       if dut_version > '0.19.0' && dut_version < '0.20.3'
-        @wreal ||= peek("#{testbench_top}.debug.wreal_enabled").to_i == 1
+        @wreal ||= peek("#{testbench_top}.#{debug_path}.wreal_enabled").to_i == 1
       elsif dut_version >= '0.20.3'
         puts "wreal?".cyan
         puts @real_type.class
