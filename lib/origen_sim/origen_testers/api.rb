@@ -89,7 +89,7 @@ module OrigenTesters
       options = pins.last.is_a?(Hash) ? pins.pop : {}
       pins = pins.map { |p| p.is_a?(String) || p.is_a?(Symbol) ? dut.pin(p) : p }
       pins.each(&:save)
-      @sim_capture = pins.map { |p| [p, "origen.dut.#{p.rtl_name}"] }
+      @sim_capture = pins.map { |p| [p, "#{simulator.testbench_top || 'origen'}.dut.#{p.rtl_name}"] }
       Origen::OrgFile.open(id, path: OrigenSim.capture_dir) do |org_file|
         @org_file = org_file
         @update_capture = update_capture?
