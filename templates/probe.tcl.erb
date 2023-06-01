@@ -7,11 +7,11 @@ probe -create -shm <%= options[:testbench_top] || 'origen' %> -depth <%= options
 
 % Hash(options[:force]).each do |net, value|
 %   net = net.to_s.strip.sub(/^(origen\.|origen\.dut\.|\.)/, '')
-force origen.dut.<%= net %> <%= value %>
+force <%= options[:testbench_top] || 'origen' %>.dut.<%= net %> <%= value %>
 % end
 
 % (options[:setup] || '').split("\n").each do |line|
-<%= line.strip.gsub(" dut", " origen.dut") %>
+<%= line.strip.gsub(" dut", " #{options[:testbench_top] || 'origen'}.dut") %>
 % end
 
 run
