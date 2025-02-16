@@ -127,7 +127,7 @@ Pattern.create do
       peek("dut.real_val", 1.25)
     end
 
-    if tester.simulator.wreal?
+    if tester.simulator.wreal? || tester.simulator.wrealavg?
       ss "Test analog pin API by ramping dut.vdd"
       v = 0
       dut.power_pin(:vdd).drive!(v)

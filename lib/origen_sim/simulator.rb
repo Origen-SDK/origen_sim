@@ -21,7 +21,7 @@ module OrigenSim
 
     # These config attributes are accepted by OrigenSim, but cannot be
     # 'Marshal-ed'.
-    NON_DATA_CONFIG_ATTRIBUTES = [:post_process_run_cmd]
+    NON_DATA_CONFIG_ATTRIBUTES = [:post_process_run_cmd, :post_process_view_wave_cmd, :post_process_probe_cmd]
 
     TIMESCALES = { -15 => '1fs',
                    -14 => '10fs',
@@ -84,6 +84,26 @@ module OrigenSim
 
     def post_process_run_cmd
       config[:post_process_run_cmd]
+    end
+    
+    def post_process_view_wave_cmd
+      config[:post_process_view_wave_cmd]
+    end
+
+    def post_process_probe_cmd
+      config[:post_process_probe_cmd]
+    end
+
+    def post_process_probe_cmd?
+      !post_process_probe_cmd.nil?
+    end
+
+    def force_config_update?
+      !!config[:force_config_update]
+    end
+
+    def debug_path
+      config[:debug_module_path] || "debug"
     end
 
     def fetch_simulation_objects(options = {})
@@ -166,8 +186,8 @@ module OrigenSim
       clear_artifacts
 
       # Add any artifacts in the given artifact path
-      if Dir.exist?(default_artifact_dir)
-        default_artifact_dir.children.each { |a| artifact(a.basename.to_s, target: a) }
+      if Dir.exist?(self.class.default_artifact_dir)
+        self.class.default_artifact_dir.children.each { |a| artifact(a.basename.to_s, target: a) }
       end
 
       # Add any artifacts from the target-specific path (simulation/<target>/artifacts). Files of the same name
@@ -197,7 +217,7 @@ module OrigenSim
       self
     end
 
-    def default_artifact_dir
+    def self.default_artifact_dir
       # Removed this from a constant at the top of the file since it gave boot errors when the file was
       # being required while Origen.app was still loading
       Pathname("#{Origen.app.root}/simulation/application/artifacts")
@@ -212,7 +232,7 @@ module OrigenSim
     end
 
     def target_artifact_dir
-      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/#{id}/artifacts")
+      Pathname(@configuration[:target_artifact_dir] || "#{Origen.app.root}/simulation/").join("#{id}/artifacts")
     end
 
     def artifact_run_dir
@@ -253,9 +273,11 @@ module OrigenSim
     # be checked into your Origen app's repository
     def compiled_dir
       @compiled_dir ||= begin
-        d = "#{Origen.root}/simulation/#{id}/#{config[:vendor]}"
-        FileUtils.mkdir_p(d)
-        d
+        config[:compiled_dir] || begin
+          d = "#{Origen.root}/simulation/#{id}/#{config[:vendor]}"
+          FileUtils.mkdir_p(d)
+          d
+        end
       end
     end
 
@@ -323,6 +345,11 @@ module OrigenSim
       when :cadence
         input_file = "#{tmp_dir}/#{wave_file_basename}.tcl"
         if !File.exist?(input_file) || config_changed?
+          probe_cmd = "probe -create -shm #{testbench_top} -depth all -database waves"
+          if post_process_probe_cmd?
+            probe_cmd = post_process_probe_cmd.call(probe_cmd, self, fast_probe: false)
+          end
+
           Origen.app.runner.launch action:            :compile,
                                    files:             "#{Origen.root!}/templates/probe.tcl.erb",
                                    output:            tmp_dir,
@@ -332,15 +359,21 @@ module OrigenSim
                                                         wave_file:     wave_file_basename,
                                                         force:         config[:force],
                                                         setup:         config[:setup],
-                                                        depth:         :all,
-                                                        testbench_top: config[:testbench_top] || 'origen'
+                                                        tcl_inputs: config[:tcl_inputs],
+                                                        probe_cmd: probe_cmd,
                                                       },
                                    output_file_name:  "#{wave_file_basename}.tcl",
                                    preserve_target:   true
         end
+
         input_file_fast = "#{tmp_dir}/#{wave_file_basename}_fast.tcl"
         if !File.exist?(input_file_fast) || config_changed?
           fast_probe_depth = config[:fast_probe_depth] || 1
+          probe_cmd = "probe -create -shm #{testbench_top} -depth #{fast_probe_depth} -database waves"
+          if post_process_probe_cmd?
+            probe_cmd = post_process_probe_cmd.call(probe_cmd, self, fast_probe: true)
+          end
+
           Origen.app.runner.launch action:            :compile,
                                    files:             "#{Origen.root!}/templates/probe.tcl.erb",
                                    output:            tmp_dir,
@@ -350,8 +383,7 @@ module OrigenSim
                                                         wave_file:     wave_file_basename,
                                                         force:         config[:force],
                                                         setup:         config[:setup],
-                                                        depth:         fast_probe_depth,
-                                                        testbench_top: config[:testbench_top] || 'origen'
+                                                        probe_cmd:     probe_cmd,
                                                       },
                                    output_file_name:  "#{wave_file_basename}_fast.tcl",
                                    preserve_target:   true
@@ -365,10 +397,11 @@ module OrigenSim
         cmd += " -nclibdirpath #{compiled_dir}"
 
       when :synopsys
+        syn_comp_n = config[:synopsys_compiled_name] || "simv"
         if configuration[:verdi]
-          cmd = "#{compiled_dir}/simv +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{id}/#{wave_file_basename}.fsdb +memcbk +vcsd"
+          cmd = "#{compiled_dir}/#{syn_comp_n} +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{id}/#{wave_file_basename}.fsdb +memcbk +vcsd"
         else
-          cmd = "#{compiled_dir}/simv +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
+          cmd = "#{compiled_dir}/#{syn_comp_n} +socket+#{socket_id} -vpd_file #{wave_file_basename}.vpd"
         end
 
       when :generic
@@ -490,6 +523,10 @@ module OrigenSim
         Origen.log.warn "OrigenSim does not know the command to view waveforms for vendor :#{config[:vendor]}!"
 
       end
+
+      cmd = post_process_view_wave_cmd.call(cmd, self) if post_process_view_wave_cmd
+      fail "OrigenSim: :post_process_view_wave_cmd returned object of class #{cmd.class}. Must return a String." unless cmd.is_a?(String)
+
       cmd
     end
 
@@ -906,13 +943,13 @@ module OrigenSim
 
     def error(message)
       simulation.logged_errors = true
-      poke "#{testbench_top}.debug.errors", error_count + 1
+      poke "#{testbench_top}.#{debug_path}.errors", error_count + 1
       log message, :error
     end
 
     # Returns the current simulation error count
     def error_count
-      peek("#{testbench_top}.debug.errors").to_i
+      peek("#{testbench_top}.#{debug_path}.errors").to_i
     end
 
     # Returns the current value of the given net, or nil if the given path does not
@@ -1091,7 +1128,7 @@ module OrigenSim
 
     # Returns true if the config has been changed since the last time we called save_config_signature
     def config_changed?
-      Origen.app.session.origen_sim["#{id}_config"] != config.except(*NON_DATA_CONFIG_ATTRIBUTES)
+      config[:force_config_update] || Origen.app.session.origen_sim["#{id}_config"] != config.except(*NON_DATA_CONFIG_ATTRIBUTES)
     end
 
     # Locally saves a signature for the current config, this will cause config_changed? to return false
@@ -1154,7 +1191,7 @@ module OrigenSim
 
     def match_errors
       if dut_version > '0.15.0'
-        peek("#{testbench_top}.debug.match_errors").to_i
+        peek("#{testbench_top}.#{debug_path}.match_errors").to_i
       else
         peek("#{testbench_top}.pins.match_errors").to_i
       end
@@ -1165,7 +1202,7 @@ module OrigenSim
       unless val.nil?
         # All zeros seems to be what an empty string is returned from the VPI,
         # Otherwise, break the string up into 8-bit chunks and decode the ASCII>
-        val = (val.to_s == 'b00000000' ? '' : val.to_s[1..-1].scan(/.{1,8}/).collect { |char| char.to_i(2).chr }.join)
+        val = (val.to_s == 'b00000000' ? '' : val.to_s[1..-1].scan(/.{1,8}/).select { |char| char != '00000000' }.collect { |char| char.to_i(2).chr }.join)
       end
       val
     end
@@ -1179,7 +1216,7 @@ module OrigenSim
     end
 
     def marker=(val)
-      poke("#{testbench_top}.debug.marker", val)
+      poke("#{testbench_top}.#{debug_path}.marker", val)
     end
 
     def start_read_reg_transaction
@@ -1216,13 +1253,72 @@ module OrigenSim
       end
     end
 
+    # Returns true if the snapshot has been compiled with some kind of REAL support.
+    # Not picky about what type of real support though.
+    def real?
+      @real ||= begin
+        if dut_version > '0.19.0' && dut_version < '0.20.3'
+          # These versions of OrigenSim only support WREAL
+          if wreal?
+            @real_type = :wreal
+            true
+          else
+            false
+          end
+        elsif dut_version >= '0.20.3'
+          # These versions support multiple REAL types.
+          if peek_str("#{testbench_top}.#{debug_path}.real_type").nil?
+            @real_type = false
+          else
+            @real_type = peek_str("#{testbench_top}.#{debug_path}.real_type").to_sym
+            peek("#{testbench_top}.#{debug_path}.real_enabled").to_i == 1
+          end
+        else
+          # Older version don't support REAL at all
+          @real_type = false
+          false
+        end
+      end
+    end
+    alias_method :real_enabled?, :real?
+
+    # Returns the type of REAL support or <code>false</code> if no REAL support is enabled.
+    # @note Calling {#real?} will set the value of <code>real_type</code> appropriately
+    def real_type
+      @real_type || begin
+        real?
+        @real_type
+      end
+    end
+
     # Returns true if the snapshot has been compiled with WREAL support
     def wreal?
-      return @wreal if defined?(@wreal)
-      @wreal = (dut_version > '0.19.0' &&
-                peek("#{testbench_top}.debug.wreal_enabled").to_i == 1)
+      if dut_version > '0.19.0' && dut_version < '0.20.3'
+        @wreal ||= peek("#{testbench_top}.#{debug_path}.wreal_enabled").to_i == 1
+      elsif dut_version >= '0.20.3'
+        puts "wreal?".cyan
+        puts @real_type.class
+        puts @real_type[0]
+        puts @real_type.to_s.size
+        puts 'wreal'.size
+        puts @real_type.to_s == 'wreal'
+        (@real_type || begin
+          real?
+          @real_type
+        end) == :wreal
+      else
+        false
+      end
     end
     alias_method :wreal_enabled?, :wreal?
+
+    def wrealavg?
+      (@real_type || begin
+        real?
+        @real_type
+      end) == :wrealavg
+    end
+    alias_method :wrealavg_enabled?, :wrealavg?
 
     private
 

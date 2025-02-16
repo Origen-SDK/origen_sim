@@ -26,7 +26,7 @@ module OrigenTesters
       if @sim_capture || @sim_delay
         fail 'Nesting of sim_capture and/or sim_delay blocks is not yet supported!'
       end
-      Origen::OrgFile.open(id, path: OrigenSim.capture_dir) do |org_file|
+      Origen::OrgFile.open(id, path: (options[:path] || OrigenSim.capture_dir)) do |org_file|
         @org_file = org_file
         if update_capture?
           @sim_delay = true

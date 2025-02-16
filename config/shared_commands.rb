@@ -48,7 +48,7 @@ when "sim:unpack"
 when "sim:run"
   OrigenSim.run_source(ARGV[0])
   exit 0
-  
+
 #when "sim:list"
 #  require "#{Origen.root!}/lib/origen_sim/commands/pack"
 #  OrigenSim::Commands::Pack.list
@@ -60,7 +60,14 @@ else
  sim:co       Checkout a simulation snapshot
  sim:pack     Packs the snapshot into a compressed directory
  sim:unpack   Unpacks a snapshot
- sim:list     List the available snapshot packs
   EOT
+ # sim:list     List the available snapshot packs
+  
+ if OrigenTesters.respond_to?(:decompile)
+  @plugin_commands << <<-EOT
+ sim:run      Simulates the given source without using any of Origen's 'startup' collateral.
+              Requires: a decompiler for the given source and timing information setup beforehand. 
+  EOT
+ end
 
 end

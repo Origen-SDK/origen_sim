@@ -64,6 +64,15 @@ module OrigenSim
     'disconnected'   => -2
   }
 
+  FORCE_PIN_TYPES_MAPPING = {
+    'real'    => :analog,
+    'ana'     => :analog,
+    'analog'  => :analog,
+
+    'dig'     => :digital,
+    'digital' => :digital
+  }
+
   def self.__instantiate_simulator__
     @simulator ||= Simulator.new
   end
@@ -215,6 +224,10 @@ module OrigenSim
     # Load up the application and target
     Origen.load_application
     Origen.app.load_target!
+
+    unless tester.simulator?
+      Origen.app!.fail!(message: 'OrigenSim.run cannot be used when the simulator is not the current tester!')
+    end
 
     # Start up the simulator and run whatever's in the target block.
     # After the block completes, shutdown the simulator
