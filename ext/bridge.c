@@ -112,11 +112,11 @@ static void define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * 
   (*pin).drive_data = 0;
 
 
-  char * driver = (char *) malloc(strlen(name) + 16);
+  char * driver = (char *) malloc(strlen(name) + ORIGEN_SIM_TB_NAME_LEN + 7); // testbench name + . + 'pins.' + '\0'
   strcpy(driver, ORIGEN_SIM_TESTBENCH_CAT("pins."));
   strcat(driver, name);
 
-  char * data = (char *) malloc(strlen(driver) + 16);
+  char * data = (char *) malloc(strlen(driver) + 6);
   strcpy(data, driver);
   strcat(data, ".data");
   (*pin).data = vpi_handle_by_name(data, NULL);
@@ -129,25 +129,25 @@ static void define_pin(char * name, char * pin_ix, char * drive_wave_ix, char * 
     (*pin).present = true;
   }
 
-  char * drive = (char *) malloc(strlen(driver) + 16);
+  char * drive = (char *) malloc(strlen(driver) + 7);
   strcpy(drive, driver);
   strcat(drive, ".drive");
   (*pin).drive = vpi_handle_by_name(drive, NULL);
   free(drive);
 
-  char * force = (char *) malloc(strlen(driver) + 16);
+  char * force = (char *) malloc(strlen(driver) + 12);
   strcpy(force, driver);
   strcat(force, ".force_data");
   (*pin).force_data = vpi_handle_by_name(force, NULL);
   free(force);
 
-  char * compare = (char *) malloc(strlen(driver) + 16);
+  char * compare = (char *) malloc(strlen(driver) + 9);
   strcpy(compare, driver);
   strcat(compare, ".compare");
   (*pin).compare = vpi_handle_by_name(compare, NULL);
   free(compare);
 
-  char * capture = (char *) malloc(strlen(driver) + 16);
+  char * capture = (char *) malloc(strlen(driver) + 9);
   strcpy(capture, driver);
   strcat(capture, ".capture");
   (*pin).capture = vpi_handle_by_name(capture, NULL);
@@ -764,7 +764,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
         // Set Pattern Name
         //   a^atd_ramp_25mhz
         case 'a' :
-          handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.pattern"), NULL);
+          handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT(ORIGEN_SIM_DEBUG_MODULE_CAT("pattern")), NULL);
           arg1 = strtok(NULL, "^");
 
           v.format = vpiStringVal;
@@ -800,7 +800,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           arg1 = strtok(NULL, "^");
           arg2 = strtok(NULL, "^");
 
-          strcpy(comment, ORIGEN_SIM_TESTBENCH_CAT("debug.comments"));
+          strcpy(comment, ORIGEN_SIM_TESTBENCH_CAT(ORIGEN_SIM_DEBUG_MODULE_CAT("comments")));
           strcat(comment, arg1);
 
           handle = vpi_handle_by_name(comment, NULL);
@@ -1003,7 +1003,7 @@ static void end_simulation() {
   s_vpi_value v;
 
   // Setting this node will cause the testbench to call $finish
-  handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("finish"), NULL);
+  handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT(ORIGEN_FINISH_SIG_NAME), NULL);
   v.format = vpiDecStrVal;
   v.value.str = "1";
   vpi_put_value(handle, &v, NULL, vpiNoDelay);
@@ -1071,7 +1071,7 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
   if (match_loop_open) {
     match_loop_error_count++;
 
-    handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.match_errors"), NULL);
+    handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT(ORIGEN_SIM_DEBUG_MODULE_CAT("match_errors")), NULL);
     val.format = vpiIntVal;
     val.value.integer = match_loop_error_count;
     vpi_put_value(handle, &val, NULL, vpiNoDelay);
@@ -1108,7 +1108,7 @@ PLI_INT32 bridge_on_miscompare(PLI_BYTE8 * user_dat) {
 
     error_count++;
 
-    handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT("debug.errors"), NULL);
+    handle = vpi_handle_by_name(ORIGEN_SIM_TESTBENCH_CAT(ORIGEN_SIM_DEBUG_MODULE_CAT("errors")), NULL);
     val.format = vpiIntVal;
     val.value.integer = error_count;
     vpi_put_value(handle, &val, NULL, vpiNoDelay);

@@ -14,6 +14,7 @@
 /// Prepends the testbench name to the signal.
 /// e.g.: TESTBENCH_CAT(pins) => TESTBENCH_NAME.pins => origen.pins
 #define ORIGEN_SIM_TESTBENCH_CAT(signal) ORIGEN_SIM_TESTBENCH_NAME "." signal
+#define ORIGEN_SIM_DEBUG_MODULE_CAT(signal) ORIGEN_SIM_DEBUG_MODULE_NAME "." signal
 
 #ifdef ENABLE_DEBUG
 /* #define DEBUG(fmt, args...) fprintf(stderr, "DEBUG: %s:%d:%s(): " fmt, \
