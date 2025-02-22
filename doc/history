@@ -1,3 +1,13 @@
+<a class="anchor release_tag" name="v0_21_0"></a>
+<h1><a href="#v0_21_0">Tag: v0.21.0</a></h1>
+
+##### Branch: 'master'
+
+##### by coreyeng on 21-Feb-2025 19:24PM
+
+
+Add wrealavg support for Cadence toolchain. Support various sim:build options
+
 <a class="anchor release_tag" name="v0_20_7"></a>
 <h1><a href="#v0_20_7">Tag: v0.20.7</a></h1>
 
