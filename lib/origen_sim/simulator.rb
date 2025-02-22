@@ -85,7 +85,7 @@ module OrigenSim
     def post_process_run_cmd
       config[:post_process_run_cmd]
     end
-    
+
     def post_process_view_wave_cmd
       config[:post_process_view_wave_cmd]
     end
@@ -103,7 +103,7 @@ module OrigenSim
     end
 
     def debug_path
-      config[:debug_module_path] || "debug"
+      config[:debug_module_path] || 'debug'
     end
 
     def fetch_simulation_objects(options = {})
@@ -355,12 +355,12 @@ module OrigenSim
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir:           wave_dir,
-                                                        wave_file:     wave_file_basename,
-                                                        force:         config[:force],
-                                                        setup:         config[:setup],
+                                   options:           { dir:        wave_dir,
+                                                        wave_file:  wave_file_basename,
+                                                        force:      config[:force],
+                                                        setup:      config[:setup],
                                                         tcl_inputs: config[:tcl_inputs],
-                                                        probe_cmd: probe_cmd,
+                                                        probe_cmd:  probe_cmd
                                                       },
                                    output_file_name:  "#{wave_file_basename}.tcl",
                                    preserve_target:   true
@@ -379,11 +379,11 @@ module OrigenSim
                                    output:            tmp_dir,
                                    check_for_changes: false,
                                    quiet:             true,
-                                   options:           { dir:           wave_dir,
-                                                        wave_file:     wave_file_basename,
-                                                        force:         config[:force],
-                                                        setup:         config[:setup],
-                                                        probe_cmd:     probe_cmd,
+                                   options:           { dir:       wave_dir,
+                                                        wave_file: wave_file_basename,
+                                                        force:     config[:force],
+                                                        setup:     config[:setup],
+                                                        probe_cmd: probe_cmd
                                                       },
                                    output_file_name:  "#{wave_file_basename}_fast.tcl",
                                    preserve_target:   true
@@ -397,7 +397,7 @@ module OrigenSim
         cmd += " -nclibdirpath #{compiled_dir}"
 
       when :synopsys
-        syn_comp_n = config[:synopsys_compiled_name] || "simv"
+        syn_comp_n = config[:synopsys_compiled_name] || 'simv'
         if configuration[:verdi]
           cmd = "#{compiled_dir}/#{syn_comp_n} +socket+#{socket_id} +FSDB_ON +fsdbfile+#{Origen.root}/waves/#{id}/#{wave_file_basename}.fsdb +memcbk +vcsd"
         else
@@ -1296,7 +1296,7 @@ module OrigenSim
       if dut_version > '0.19.0' && dut_version < '0.20.3'
         @wreal ||= peek("#{testbench_top}.#{debug_path}.wreal_enabled").to_i == 1
       elsif dut_version >= '0.20.3'
-        puts "wreal?".cyan
+        puts 'wreal?'.cyan
         puts @real_type.class
         puts @real_type[0]
         puts @real_type.to_s.size

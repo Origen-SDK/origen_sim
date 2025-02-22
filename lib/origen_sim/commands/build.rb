@@ -17,7 +17,7 @@ options = {
   ground_pins:             [],
   virtual_pins:            [],
   other_pins:              [],
-  passthrough:             [],
+  passthrough:             []
 }
 
 # App options are options that the application can supply to extend this command
@@ -220,10 +220,10 @@ else
                              author:            options[:author],
                              build_cmd:         build_cmd,
                              file_type:         options[:file_type],
-                             testbench:         options[:testbench_name] || "origen",
-                             top_level_name:    options[:top_level_name] || "dut",
-                             finish_signal:     options[:finish_signal] || "finish",
-                             debug_module_name: options[:debug_module_name] || "debug",
+                             testbench:         options[:testbench_name] || 'origen',
+                             top_level_name:    options[:top_level_name] || 'dut',
+                             finish_signal:     options[:finish_signal] || 'finish',
+                             debug_module_name: options[:debug_module_name] || 'debug'
                            }
 
   Origen.app.runner.launch action:            :compile,
