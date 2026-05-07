@@ -61,6 +61,8 @@ static int match_loop_error_count = 0;
 static bool match_loop_open = false;
 static uint64_t period_in_simtime_units;
 static unsigned long repeat = 0;
+static bool empty_cycle = false;
+static char current_opcode = '\0';
 static Pin pins[MAX_NUMBER_PINS];
 static int number_of_pins = 0;
 // Allocate space for a unique wave for each pin, in reality it will be much less
@@ -630,6 +632,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
     strcpy(orig_msg, msg);
 
     opcode = strtok(msg, "^");
+    current_opcode = *opcode;
 
     if (!max_errors_exceeded || (max_errors_exceeded && (
       // When max_errors_exceeded, only continue to process the following opcodes.
@@ -686,8 +689,11 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
           repeat = strtol(arg1, NULL, 10);
           if (repeat) {
             repeat = repeat - 1;
+          } else {
+            empty_cycle = true;
           }
           cycle();
+          empty_cycle = false;
           return 0;
         // Compare Pin
         //   4^pin_index^data
@@ -994,6 +1000,7 @@ PLI_INT32 bridge_wait_for_msg(p_cb_data data) {
       cycle();
     }
     free(orig_msg);
+    current_opcode = '\0';
   }
 }
 
@@ -1032,7 +1039,15 @@ static void cycle() {
   time.high = (uint32_t)(period_in_simtime_units >> 32);
   time.low  = (uint32_t)(period_in_simtime_units);
 
-  cycle_count++;
+
+  // Check for a 'cycle 0' from the pattern. Do not increase the cycle count for this.
+  if (current_opcode == '3') {
+    if (!empty_cycle) {
+      cycle_count++;
+    }
+  } else {
+    cycle_count++;
+  }
 
   call.reason    = cbAfterDelay;
   call.obj       = 0;
