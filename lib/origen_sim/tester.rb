@@ -449,11 +449,11 @@ module OrigenSim
           end
 
           Origen.log.error
-          caller.each do |line|
-            if Pathname.new(line.split(':').first).expand_path.to_s =~ /^#{Origen.root}(?!(\/lbin|\/vendor\/gems)).*$/
-              Origen.log.error line
-            end
+          lines = caller.reject do |l|
+            l = Pathname.new(l.split(':').first).expand_path.to_s
+            l.include?("/gems/origen-#{Origen.version}") || l.include?("/rubygems/") || l.include?('./lbin/')
           end
+          Origen.log.error lines[0]
         end
       end
     end
