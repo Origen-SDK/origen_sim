@@ -118,7 +118,7 @@ module OrigenSim
     end
 
     def c1(msg, options = {})
-      if @step_comment_on
+      if @step_comment_on || simulator.log_c1_comments?
         PatSeq.add_thread(msg) unless options[:no_thread_id]
         simulator.log msg
         @comment_buffer << msg

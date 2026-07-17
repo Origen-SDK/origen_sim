@@ -254,6 +254,10 @@ module OrigenSim
       end
     end
 
+    def log_c1_comments?
+      config[:log_c1_comments] || false
+    end
+
     # The ID assigned to the current simulation target, falls back to to the
     # Origen target name if an :id option is not supplied when instantiating
     # the tester
