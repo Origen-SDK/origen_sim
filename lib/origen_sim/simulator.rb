@@ -57,6 +57,7 @@ module OrigenSim
     def initialize
       @simulations = []
       @simulation_open = false
+      Origen.log.skip_job_log_file_close = true
     end
 
     # When set to true the simulator will log all messages it receives, note that
@@ -1103,6 +1104,8 @@ module OrigenSim
             end
           end
         end
+        Origen.log.skip_job_log_file_close = true
+        Origen.log.stop_job
         puts
         unless @interactive_mode
           failed ? exit(1) : exit(0)
